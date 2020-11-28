@@ -1,0 +1,35 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.28307.1300
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pike.PythonClient64", "Pike.PythonClient64\Pike.PythonClient64.csproj", "{B9C12A50-2E5D-413B-8CDD-AE4FEF3C021C}"
+EndProject
+Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "PythonClient64Setup", "PythonClient64Setup\PythonClient64Setup.vdproj", "{837CDE90-8052-4FDD-A433-83F2BBD6B445}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PythonClientExample", "PythonClientExample\PythonClientExample.csproj", "{E5A963C1-7982-4EBF-8C52-E12BC8577BCE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B9C12A50-2E5D-413B-8CDD-AE4FEF3C021C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B9C12A50-2E5D-413B-8CDD-AE4FEF3C021C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B9C12A50-2E5D-413B-8CDD-AE4FEF3C021C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B9C12A50-2E5D-413B-8CDD-AE4FEF3C021C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{837CDE90-8052-4FDD-A433-83F2BBD6B445}.Debug|Any CPU.ActiveCfg = Debug
+		{837CDE90-8052-4FDD-A433-83F2BBD6B445}.Release|Any CPU.ActiveCfg = Release
+		{E5A963C1-7982-4EBF-8C52-E12BC8577BCE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{E5A963C1-7982-4EBF-8C52-E12BC8577BCE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{E5A963C1-7982-4EBF-8C52-E12BC8577BCE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{E5A963C1-7982-4EBF-8C52-E12BC8577BCE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {3838F31B-526A-48D2-8F0A-29AEEE045FB9}
+	EndGlobalSection
+EndGlobal
