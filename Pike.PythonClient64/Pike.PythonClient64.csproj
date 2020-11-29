@@ -79,7 +79,6 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Helper.py" />
-    <Content Include="Examples\PythonClientExample.zip" />
     <Content Include="Examples\PowerQuery - 01 - Basic example.xlsx" />
     <Content Include="Examples\PowerQuery - 02 - Transfer table to script.xlsx" />
     <Content Include="Examples\TestScript01.py" />
