@@ -130,7 +130,7 @@ result = pd.DataFrame(
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    //Set query command text. It will be passed to python "query" variable
+                    //In this case there is no "query" global variable in python
                     command.CommandText = scriptText;
 
                     //Set query parameters. It will be passed to python "params" variable
@@ -184,7 +184,7 @@ result = pd.DataFrame(
             const string pythonHome = @"C:\Python37";   //<-- Replace it with your own path to python 3.7
 
             //Create connection string
-            var stringBuilder = new PythonConnectionStringBuilder
+            var stringBuilder = new PythonConnectionStringBuilder   //<-- No need to set File property
             {
                 PythonHome = pythonHome
             };
@@ -195,7 +195,7 @@ result = pd.DataFrame(
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    //Set query command text. It will be passed to python "query" variable
+                    //In this case there is no "query" global variable in python
                     command.CommandText = scriptText;
 
                     //Set query parameters. It will be passed to python "params" variable
@@ -266,7 +266,7 @@ result = pd.DataFrame(
                 connection.Open();
                 using (var command = connection.CreateCommand())
                 {
-                    //Set query command text. It will be passed to python "query" variable
+                    //In this case there is no "query" global variable in python
                     command.CommandText = scriptText;
 
                     //Set query parameters. It will be passed to python "params" variable
