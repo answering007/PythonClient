@@ -21,7 +21,7 @@
         }
         "Entry"
         {
-        "MsmKey" = "8:_6A974C304593AE72B80F7CD3C150DE92"
+        "MsmKey" = "8:_6B7642359DDCB4687FE2D52C97F432FB"
         "OwnerKey" = "8:_BB581170DF2945648F80E928950FB748"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -222,7 +222,7 @@
         }
         "File"
         {
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_6A974C304593AE72B80F7CD3C150DE92"
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_6B7642359DDCB4687FE2D52C97F432FB"
             {
             "SourcePath" = "8:Python.Runtime.xml"
             "TargetName" = "8:Python.Runtime.xml"
@@ -246,7 +246,7 @@
             {
             "AssemblyRegister" = "3:1"
             "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:Python.Runtime, Version=2.5.1.0, Culture=neutral, PublicKeyToken=e33b67d3bb5581e4, processorArchitecture=AMD64"
+            "AssemblyAsmDisplayName" = "8:Python.Runtime, Version=2.5.2.0, Culture=neutral, PublicKeyToken=e33b67d3bb5581e4, processorArchitecture=AMD64"
                 "ScatterAssemblies"
                 {
                     "_CEE1CB0BF8248DBA68C842DA8F10C439"
@@ -340,15 +340,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:PythonClient64"
-        "ProductCode" = "8:{B14D9311-7792-4C28-AE89-64482E6F519A}"
-        "PackageCode" = "8:{D416E870-6B6A-40F1-B6C4-C824779FD04A}"
+        "ProductCode" = "8:{5057DD2F-2028-4982-993F-BBF086149776}"
+        "PackageCode" = "8:{FF67721E-13FD-4B2C-A130-C767149086F5}"
         "UpgradeCode" = "8:{9C680FF5-6FBE-40CE-A58D-3ABCD82D9CEA}"
         "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:FALSE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:1.0.0"
+        "ProductVersion" = "8:1.0.1"
         "Manufacturer" = "8:Pike"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"

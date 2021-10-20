@@ -1,5 +1,5 @@
 # PythonClient
-Ado.net provider that uses python script as the datasource. This project is based on Python 3.7 x64 and [pythonnet](https://github.com/pythonnet/pythonnet)
+Ado.net provider that uses python script as the datasource. This project is based on Python 3.8 x64 and [pythonnet](https://github.com/pythonnet/pythonnet)
 ## Quik example
 ### C#
 ```C#

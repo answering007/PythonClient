@@ -9,6 +9,11 @@ Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "PythonClient64Setup", "Pyth
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PythonClientExample", "PythonClientExample\PythonClientExample.csproj", "{E5A963C1-7982-4EBF-8C52-E12BC8577BCE}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{4474B567-9A1A-49B7-8E91-8A5E8DFD3196}"
+	ProjectSection(SolutionItems) = preProject
+		README.md = README.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU

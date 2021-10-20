@@ -43,8 +43,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.Build.Utilities.v4.0" />
-    <Reference Include="Python.Runtime, Version=2.5.1.0, Culture=neutral, processorArchitecture=AMD64">
-      <HintPath>..\packages\pythonnet_py37_win.2.5.1\lib\net40\Python.Runtime.dll</HintPath>
+    <Reference Include="Python.Runtime, Version=2.5.2.0, Culture=neutral, processorArchitecture=AMD64">
+      <HintPath>..\packages\pythonnet_py38_win.2.5.2\lib\net40\Python.Runtime.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration.Install" />
