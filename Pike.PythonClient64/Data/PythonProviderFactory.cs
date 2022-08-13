@@ -13,8 +13,9 @@ namespace Pike.PythonClient64.Data
         /// </summary>
         public static readonly PythonProviderFactory Instance = new PythonProviderFactory();
 
+        /// <inheritdoc />
         /// <summary>
-        /// Specifies whether the specific <see cref="PythonProviderFactory"/> supports the <see cref="DbDataSourceEnumerator"/> class. Current value is false
+        /// Specifies whether the specific <see cref="T:Pike.PythonClient64.Data.PythonProviderFactory" /> supports the <see cref="T:System.Data.Common.DbDataSourceEnumerator" /> class. Current value is false
         /// </summary>
         public override bool CanCreateDataSourceEnumerator => false;
 

@@ -47,12 +47,17 @@
     <Content Include="TestScript01.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
+    <Content Include="Scripts\TestModule.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Scripts\TestScript02.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Pike.PythonClient64\Pike.PythonClient64.csproj">
       <Project>{b9c12a50-2e5d-413b-8cdd-ae4fef3c021c}</Project>
       <Name>Pike.PythonClient64</Name>
-      <Private>False</Private>
     </ProjectReference>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

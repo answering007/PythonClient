@@ -19,6 +19,7 @@ namespace Pike.PythonClient64.Install
         /// </summary>
         public InstallerMain()
         {
+            System.Diagnostics.Debugger.Break();
             InitializeComponent();
         }
 
@@ -29,6 +30,8 @@ namespace Pike.PythonClient64.Install
         /// <param name="savedState">An <see cref="T:System.Collections.IDictionary" /> that contains the state of the computer after all the installers in the collection have run</param>
         public override void Commit(IDictionary savedState)
         {
+            System.Diagnostics.Debugger.Break();
+
             base.Commit(savedState);
             try
             {

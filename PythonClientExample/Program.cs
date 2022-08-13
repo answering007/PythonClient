@@ -22,6 +22,7 @@ namespace PythonClientExample
         static void Main()
         {
             //TestScript01();
+            TestScript02();
             //TestScript03();
             //TestScript04();
             //TestScript05();
@@ -51,6 +52,74 @@ namespace PythonClientExample
                 File = scriptFile.FullName,
                 PythonHome = pythonHome,
                 Path = string.Join(";", pythonHome, lib, dlls, packages, libraryBin)
+            };
+
+            using (var connection = new PythonConnection())
+            {
+                connection.ConnectionString = stringBuilder.ConnectionString;
+                connection.Open();
+                using (var command = connection.CreateCommand())
+                {
+                    //Set query command text. It will be passed to python "query" variable
+                    command.CommandText = "Hello from ADO.Net!";
+
+                    //Set query parameters. It will be passed to python "params" variable
+                    command.Parameters.Add(new PythonParameter { ParameterName = "bool", Value = true });
+                    command.Parameters.Add(new PythonParameter { ParameterName = "dt", Value = DateTime.Today });
+                    command.Parameters.Add(new PythonParameter { ParameterName = "double", Value = 1235.0 });
+                    command.Parameters.Add(new PythonParameter { ParameterName = "int", Value = 789 });
+                    command.Parameters.Add(new PythonParameter { ParameterName = "long", Value = 1024L });
+                    command.Parameters.Add(new PythonParameter { ParameterName = "string", Value = "String parameter" });
+
+                    /*
+                     * Python script must have "result" variable of type pandas DataFrame.
+                     * This variable data will be transfered to DbDataReader
+                     */
+                    using (var reader = command.ExecuteReader())
+                    {
+                        var datatable = new DataTable();
+                        datatable.Load(reader);
+
+                        //Print data
+                        PrintDataTable(datatable);
+                    }
+                }
+            }
+
+            Console.WriteLine("Done!");
+            Console.ReadLine();
+        }
+
+        /// <summary>
+        /// Basic anaconda test with external module
+        /// </summary>
+        public static void TestScript02()
+        {
+            //Python script file for test
+            const string fileName = @"TestScript02.py";
+            var scriptFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", fileName));
+            if (!scriptFile.Exists) throw new FileNotFoundException("Where is the script?", scriptFile.FullName);
+
+            //Python module
+            const string moduleName = @"TestModule.py";
+            var moduleFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", moduleName));
+            if (!moduleFile.Exists) throw new FileNotFoundException("Where is the module?", moduleFile.FullName);
+
+            //Setup python environment
+            const string pythonHome = @"C:\Users\Pike\anaconda3";   //<-- Replace it with your own path to anaconda
+            //Compose PATH environment variable
+            var lib = Path.Combine(pythonHome, "Lib");
+            var dlls = Path.Combine(pythonHome, "DLLs");
+            var packages = Path.Combine(lib, "site-packages");
+            var libraryBin = Path.Combine(pythonHome, "Library", "bin");
+
+            //Create connection string
+            var stringBuilder = new PythonConnectionStringBuilder
+            {
+                File = scriptFile.FullName,
+                PythonHome = pythonHome,
+                Path = string.Join(";", pythonHome, lib, dlls, packages, libraryBin),
+                PythonPath = string.Join(";", scriptFile.DirectoryName)
             };
 
             using (var connection = new PythonConnection())

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Data;
 using System.Data.Common;
+using System.IO;
+using Python.Runtime;
 
 namespace Pike.PythonClient64.Data
 {
@@ -15,6 +17,16 @@ namespace Pike.PythonClient64.Data
         string _pythonPath;
 
         PythonConnectionStringBuilder _builder = new PythonConnectionStringBuilder();
+
+        /// <summary>
+        /// Python global interpreter lock
+        /// </summary>
+        public Py.GILState GilState { get; private set; }
+
+        /// <summary>
+        /// Python scope
+        /// </summary>
+        public PyScope Scope { get; private set; }
 
         /// <inheritdoc />
         /// <summary>
@@ -97,6 +109,13 @@ namespace Pike.PythonClient64.Data
         public override void Open()
         {
             BackupAndSetEnvironmentVariables();
+
+            var cwd = new FileInfo(_builder.File).DirectoryName;
+            Directory.SetCurrentDirectory(cwd ?? throw new InvalidOperationException());
+
+            GilState = Py.GIL();
+            Scope = Py.CreateScope();
+
             _state = ConnectionState.Open;
         }
 
@@ -107,6 +126,19 @@ namespace Pike.PythonClient64.Data
         public override void Close()
         {
             RestoreEnvironmentVariables();
+
+            if (Scope != null)
+            {
+                Scope.Dispose();
+                Scope = null;
+            }
+
+            if (GilState != null)
+            {
+                GilState.Dispose();
+                GilState = null;
+            }
+
             _state = ConnectionState.Closed;
         }
 

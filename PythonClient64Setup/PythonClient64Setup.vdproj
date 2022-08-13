@@ -15,19 +15,37 @@
     {
         "Entry"
         {
-        "MsmKey" = "8:_4745C66BFB5745B589228BB668F2FA09"
+        "MsmKey" = "8:_057F728CA1264BD58D2CD9EC8C1E6147"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
-        "MsmKey" = "8:_6B7642359DDCB4687FE2D52C97F432FB"
-        "OwnerKey" = "8:_BB581170DF2945648F80E928950FB748"
+        "MsmKey" = "8:_6CC3AA736A1B451FA3B2E17CC2C48A17"
+        "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
-        "MsmKey" = "8:_BA76AAC749714EAF8618C4A22899F1C0"
+        "MsmKey" = "8:_86CA138964EC42838801043A05CEE342"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_AACA5E685863B5FB1625FC2AB1E7705A"
+        "OwnerKey" = "8:_057F728CA1264BD58D2CD9EC8C1E6147"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_AACA5E685863B5FB1625FC2AB1E7705A"
+        "OwnerKey" = "8:_86CA138964EC42838801043A05CEE342"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_AF0CDD3161BA45D9ADCAEF7E7363FEEF"
         "OwnerKey" = "8:_UNDEFINED"
         "MsmSig" = "8:_UNDEFINED"
         }
@@ -40,31 +58,49 @@
         "Entry"
         {
         "MsmKey" = "8:_CEE1CB0BF8248DBA68C842DA8F10C439"
-        "OwnerKey" = "8:_4745C66BFB5745B589228BB668F2FA09"
+        "OwnerKey" = "8:_057F728CA1264BD58D2CD9EC8C1E6147"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
         "MsmKey" = "8:_CEE1CB0BF8248DBA68C842DA8F10C439"
-        "OwnerKey" = "8:_BA76AAC749714EAF8618C4A22899F1C0"
+        "OwnerKey" = "8:_86CA138964EC42838801043A05CEE342"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
         "MsmKey" = "8:_UNDEFINED"
-        "OwnerKey" = "8:_4745C66BFB5745B589228BB668F2FA09"
+        "OwnerKey" = "8:_057F728CA1264BD58D2CD9EC8C1E6147"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
         "MsmKey" = "8:_UNDEFINED"
-        "OwnerKey" = "8:_BA76AAC749714EAF8618C4A22899F1C0"
+        "OwnerKey" = "8:_AF0CDD3161BA45D9ADCAEF7E7363FEEF"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_UNDEFINED"
+        "OwnerKey" = "8:_6CC3AA736A1B451FA3B2E17CC2C48A17"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_UNDEFINED"
+        "OwnerKey" = "8:_86CA138964EC42838801043A05CEE342"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
         {
         "MsmKey" = "8:_UNDEFINED"
         "OwnerKey" = "8:_CEE1CB0BF8248DBA68C842DA8F10C439"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
+        "MsmKey" = "8:_UNDEFINED"
+        "OwnerKey" = "8:_AACA5E685863B5FB1625FC2AB1E7705A"
         "MsmSig" = "8:_UNDEFINED"
         }
     }
@@ -87,7 +123,7 @@
         "InstallerBootstrapper" = "3:2"
             "BootstrapperCfg:{63ACBE69-63AA-4F98-B2B6-99F9E24495F2}"
             {
-            "Enabled" = "11:FALSE"
+            "Enabled" = "11:TRUE"
             "PromptEnabled" = "11:TRUE"
             "PrerequisitesLocation" = "2:1"
             "Url" = "8:"
@@ -111,7 +147,7 @@
         "PackageFilesAs" = "3:2"
         "PackageFileSize" = "3:-2147483648"
         "CabType" = "3:1"
-        "Compression" = "3:2"
+        "Compression" = "3:1"
         "SignOutput" = "11:FALSE"
         "CertificateFile" = "8:"
         "PrivateKeyFile" = "8:"
@@ -119,7 +155,7 @@
         "InstallerBootstrapper" = "3:2"
             "BootstrapperCfg:{63ACBE69-63AA-4F98-B2B6-99F9E24495F2}"
             {
-            "Enabled" = "11:FALSE"
+            "Enabled" = "11:TRUE"
             "PromptEnabled" = "11:TRUE"
             "PrerequisitesLocation" = "2:1"
             "Url" = "8:"
@@ -139,62 +175,62 @@
     {
         "CustomAction"
         {
-            "{4AA51A2D-7D85-4A59-BA75-B0809FC8B380}:_55863B7DAAF74FA1A9AA58CF0F4AAE0A"
+            "{4AA51A2D-7D85-4A59-BA75-B0809FC8B380}:_01953853EEC945399E635409D42DB19F"
             {
             "Name" = "8:Primary output from Pike.PythonClient64 (Active)"
             "Condition" = "8:"
-            "Object" = "8:_BA76AAC749714EAF8618C4A22899F1C0"
+            "Object" = "8:_86CA138964EC42838801043A05CEE342"
             "FileType" = "3:1"
             "InstallAction" = "3:1"
             "Arguments" = "8:"
             "EntryPoint" = "8:"
             "Sequence" = "3:1"
-            "Identifier" = "8:_B25E4A33_A16B_4BF2_A0EB_60D4475A11BA"
+            "Identifier" = "8:_FEC89C8E_C2DC_4F24_B1BB_725DDD1D05EF"
             "InstallerClass" = "11:TRUE"
             "CustomActionData" = "8:"
             "Run64Bit" = "11:TRUE"
             }
-            "{4AA51A2D-7D85-4A59-BA75-B0809FC8B380}:_6DB5F6FD14804A1999301A5A73E962C3"
+            "{4AA51A2D-7D85-4A59-BA75-B0809FC8B380}:_6141CD3A7D1F4FA9A9FAE009F78298B0"
             {
             "Name" = "8:Primary output from Pike.PythonClient64 (Active)"
             "Condition" = "8:"
-            "Object" = "8:_BA76AAC749714EAF8618C4A22899F1C0"
-            "FileType" = "3:1"
-            "InstallAction" = "3:3"
-            "Arguments" = "8:"
-            "EntryPoint" = "8:"
-            "Sequence" = "3:1"
-            "Identifier" = "8:_48DCCA7F_0771_4A45_8681_332A174222B6"
-            "InstallerClass" = "11:TRUE"
-            "CustomActionData" = "8:"
-            "Run64Bit" = "11:TRUE"
-            }
-            "{4AA51A2D-7D85-4A59-BA75-B0809FC8B380}:_750447E349914D75A8A7D0077FA70A49"
-            {
-            "Name" = "8:Primary output from Pike.PythonClient64 (Active)"
-            "Condition" = "8:"
-            "Object" = "8:_BA76AAC749714EAF8618C4A22899F1C0"
-            "FileType" = "3:1"
-            "InstallAction" = "3:2"
-            "Arguments" = "8:"
-            "EntryPoint" = "8:"
-            "Sequence" = "3:1"
-            "Identifier" = "8:_20B99D7B_D394_4011_A872_1CFAA962B7D1"
-            "InstallerClass" = "11:TRUE"
-            "CustomActionData" = "8:"
-            "Run64Bit" = "11:TRUE"
-            }
-            "{4AA51A2D-7D85-4A59-BA75-B0809FC8B380}:_7EF0569469014C94924E58B49052EF2A"
-            {
-            "Name" = "8:Primary output from Pike.PythonClient64 (Active)"
-            "Condition" = "8:"
-            "Object" = "8:_BA76AAC749714EAF8618C4A22899F1C0"
+            "Object" = "8:_86CA138964EC42838801043A05CEE342"
             "FileType" = "3:1"
             "InstallAction" = "3:4"
             "Arguments" = "8:"
             "EntryPoint" = "8:"
             "Sequence" = "3:1"
-            "Identifier" = "8:_8EAF2499_5231_49B2_BE94_E1625B5B10D1"
+            "Identifier" = "8:_FEBBBFBF_73E9_4F73_AF02_DD15075653D0"
+            "InstallerClass" = "11:TRUE"
+            "CustomActionData" = "8:"
+            "Run64Bit" = "11:TRUE"
+            }
+            "{4AA51A2D-7D85-4A59-BA75-B0809FC8B380}:_6DB5B39E4C3E47E7B2EADF265B0FD904"
+            {
+            "Name" = "8:Primary output from Pike.PythonClient64 (Active)"
+            "Condition" = "8:"
+            "Object" = "8:_86CA138964EC42838801043A05CEE342"
+            "FileType" = "3:1"
+            "InstallAction" = "3:3"
+            "Arguments" = "8:"
+            "EntryPoint" = "8:"
+            "Sequence" = "3:1"
+            "Identifier" = "8:_9EF865FD_53ED_49EC_AD01_4325594D97B3"
+            "InstallerClass" = "11:TRUE"
+            "CustomActionData" = "8:"
+            "Run64Bit" = "11:TRUE"
+            }
+            "{4AA51A2D-7D85-4A59-BA75-B0809FC8B380}:_A8A31AD6937442D2AA59CD3456E121BC"
+            {
+            "Name" = "8:Primary output from Pike.PythonClient64 (Active)"
+            "Condition" = "8:"
+            "Object" = "8:_86CA138964EC42838801043A05CEE342"
+            "FileType" = "3:1"
+            "InstallAction" = "3:2"
+            "Arguments" = "8:"
+            "EntryPoint" = "8:"
+            "Sequence" = "3:1"
+            "Identifier" = "8:_84C46314_CA45_4D9B_8E1F_8309CD4947D1"
             "InstallerClass" = "11:TRUE"
             "CustomActionData" = "8:"
             "Run64Bit" = "11:TRUE"
@@ -222,10 +258,21 @@
         }
         "File"
         {
-            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_6B7642359DDCB4687FE2D52C97F432FB"
+            "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_6CC3AA736A1B451FA3B2E17CC2C48A17"
             {
-            "SourcePath" = "8:Python.Runtime.xml"
-            "TargetName" = "8:Python.Runtime.xml"
+            "AssemblyRegister" = "3:1"
+            "AssemblyIsInGAC" = "11:FALSE"
+            "AssemblyAsmDisplayName" = "8:Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL"
+                "ScatterAssemblies"
+                {
+                    "_6CC3AA736A1B451FA3B2E17CC2C48A17"
+                    {
+                    "Name" = "8:Newtonsoft.Json.dll"
+                    "Attributes" = "3:512"
+                    }
+                }
+            "SourcePath" = "8:..\\packages\\Newtonsoft.Json.13.0.1\\lib\\net45\\Newtonsoft.Json.dll"
+            "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_1BC5B9B05D6E49CEBC6ED688EC0C1E79"
             "Condition" = "8:"
@@ -238,8 +285,70 @@
             "SharedLegacy" = "11:FALSE"
             "PackageAs" = "3:1"
             "Register" = "3:1"
-            "Exclude" = "11:TRUE"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            }
+            "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_AACA5E685863B5FB1625FC2AB1E7705A"
+            {
+            "AssemblyRegister" = "3:1"
+            "AssemblyIsInGAC" = "11:FALSE"
+            "AssemblyAsmDisplayName" = "8:Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL"
+                "ScatterAssemblies"
+                {
+                    "_AACA5E685863B5FB1625FC2AB1E7705A"
+                    {
+                    "Name" = "8:Newtonsoft.Json.dll"
+                    "Attributes" = "3:512"
+                    }
+                }
+            "SourcePath" = "8:Newtonsoft.Json.dll"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_426A037D0FA34300ACE68FE47A8B19AB"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
             "IsDependency" = "11:TRUE"
+            "IsolateTo" = "8:"
+            }
+            "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_AF0CDD3161BA45D9ADCAEF7E7363FEEF"
+            {
+            "AssemblyRegister" = "3:1"
+            "AssemblyIsInGAC" = "11:FALSE"
+            "AssemblyAsmDisplayName" = "8:Python.Runtime, Version=2.5.2.0, Culture=neutral, PublicKeyToken=e33b67d3bb5581e4, processorArchitecture=AMD64"
+                "ScatterAssemblies"
+                {
+                    "_AF0CDD3161BA45D9ADCAEF7E7363FEEF"
+                    {
+                    "Name" = "8:Python.Runtime.dll"
+                    "Attributes" = "3:512"
+                    }
+                }
+            "SourcePath" = "8:..\\Pike.PythonClient64\\obj\\Debug\\SignedAssemblies\\Python.Runtime.dll"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_1BC5B9B05D6E49CEBC6ED688EC0C1E79"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
             "IsolateTo" = "8:"
             }
             "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_CEE1CB0BF8248DBA68C842DA8F10C439"
@@ -311,13 +420,13 @@
             "Property" = "8:PersonalFolder"
                 "Folders"
                 {
-                    "{9EF0B969-E518-4E46-987F-47570745A589}:_AF5F57481D234CF3BD9148B7E188753A"
+                    "{9EF0B969-E518-4E46-987F-47570745A589}:_13160B4454C1428B9E74A4E480EB4BF7"
                     {
                     "Name" = "8:PythonClient64"
                     "AlwaysCreate" = "11:FALSE"
                     "Condition" = "8:"
                     "Transitive" = "11:FALSE"
-                    "Property" = "8:_B0C6AFA9C0A54642ACC4F466E66A9937"
+                    "Property" = "8:_CD138A00FBC245E7BD99114EE7DACC52"
                         "Folders"
                         {
                         }
@@ -340,15 +449,15 @@
         {
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:PythonClient64"
-        "ProductCode" = "8:{5057DD2F-2028-4982-993F-BBF086149776}"
-        "PackageCode" = "8:{FF67721E-13FD-4B2C-A130-C767149086F5}"
+        "ProductCode" = "8:{C3667340-A442-4E3D-8DD8-CF64899D3CBB}"
+        "PackageCode" = "8:{03C61587-790A-4EA5-B973-4DC953302BCC}"
         "UpgradeCode" = "8:{9C680FF5-6FBE-40CE-A58D-3ABCD82D9CEA}"
         "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
         "RemovePreviousVersions" = "11:FALSE"
         "DetectNewerInstalledVersion" = "11:TRUE"
         "InstallAllUsers" = "11:TRUE"
-        "ProductVersion" = "8:1.0.1"
+        "ProductVersion" = "8:1.1.1"
         "Manufacturer" = "8:Pike"
         "ARPHELPTELEPHONE" = "8:"
         "ARPHELPLINK" = "8:"
@@ -860,9 +969,9 @@
         }
         "ProjectOutput"
         {
-            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_4745C66BFB5745B589228BB668F2FA09"
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_057F728CA1264BD58D2CD9EC8C1E6147"
             {
-            "SourcePath" = "8:..\\Pike.PythonClient64\\obj\\Release\\Pike.PythonClient64.dll"
+            "SourcePath" = "8:..\\Pike.PythonClient64\\obj\\Debug\\Pike.PythonClient64.dll"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_426A037D0FA34300ACE68FE47A8B19AB"
@@ -888,9 +997,9 @@
                 {
                 }
             }
-            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_BA76AAC749714EAF8618C4A22899F1C0"
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_86CA138964EC42838801043A05CEE342"
             {
-            "SourcePath" = "8:..\\Pike.PythonClient64\\obj\\Release\\Pike.PythonClient64.dll"
+            "SourcePath" = "8:..\\Pike.PythonClient64\\obj\\Debug\\Pike.PythonClient64.dll"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_1BC5B9B05D6E49CEBC6ED688EC0C1E79"
@@ -916,9 +1025,37 @@
                 {
                 }
             }
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_B3349466330D46E7891259AC8E8875D8"
+            {
+            "SourcePath" = "8:"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_13160B4454C1428B9E74A4E480EB4BF7"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            "ProjectOutputGroupRegister" = "3:1"
+            "OutputConfiguration" = "8:"
+            "OutputGroupCanonicalName" = "8:ContentFiles"
+            "OutputProjectGuid" = "8:{B9C12A50-2E5D-413B-8CDD-AE4FEF3C021C}"
+            "ShowKeyOutput" = "11:TRUE"
+                "ExcludeFilters"
+                {
+                }
+            }
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_BB581170DF2945648F80E928950FB748"
             {
-            "SourcePath" = "8:..\\Pike.PythonClient64\\bin\\Release\\Pike.PythonClient64.xml"
+            "SourcePath" = "8:"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_1BC5B9B05D6E49CEBC6ED688EC0C1E79"
@@ -938,34 +1075,6 @@
             "ProjectOutputGroupRegister" = "3:1"
             "OutputConfiguration" = "8:"
             "OutputGroupCanonicalName" = "8:Documentation"
-            "OutputProjectGuid" = "8:{B9C12A50-2E5D-413B-8CDD-AE4FEF3C021C}"
-            "ShowKeyOutput" = "11:TRUE"
-                "ExcludeFilters"
-                {
-                }
-            }
-            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_BC005EAB513743818F0B66FA4C79243F"
-            {
-            "SourcePath" = "8:"
-            "TargetName" = "8:"
-            "Tag" = "8:"
-            "Folder" = "8:_AF5F57481D234CF3BD9148B7E188753A"
-            "Condition" = "8:"
-            "Transitive" = "11:FALSE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:1"
-            "Exclude" = "11:FALSE"
-            "IsDependency" = "11:FALSE"
-            "IsolateTo" = "8:"
-            "ProjectOutputGroupRegister" = "3:1"
-            "OutputConfiguration" = "8:"
-            "OutputGroupCanonicalName" = "8:ContentFiles"
             "OutputProjectGuid" = "8:{B9C12A50-2E5D-413B-8CDD-AE4FEF3C021C}"
             "ShowKeyOutput" = "11:TRUE"
                 "ExcludeFilters"

@@ -43,6 +43,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.Build.Utilities.v4.0" />
+    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.13.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
+    </Reference>
     <Reference Include="Python.Runtime, Version=2.5.2.0, Culture=neutral, processorArchitecture=AMD64">
       <HintPath>..\packages\pythonnet_py38_win.2.5.2\lib\net40\Python.Runtime.dll</HintPath>
       <Private>True</Private>
@@ -55,13 +58,14 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ColumnInfo.cs" />
+    <Compile Include="DataTableReadConverter.cs" />
     <Compile Include="Data\PythonCommand.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Data\PythonParameter.cs" />
     <Compile Include="Data\PythonParameterCollection.cs" />
     <Compile Include="Data\PythonProviderFactory.cs" />
+    <Compile Include="FieldInfo.cs" />
     <Compile Include="Install\DataProviderInstallationBase.cs" />
     <Compile Include="Install\DbProviderInstallation.cs" />
     <Compile Include="Install\InstallerMain.cs">
@@ -76,7 +80,6 @@
     </Compile>
     <Compile Include="Data\PythonConnectionStringBuilder.cs" />
     <Compile Include="PythonUtils.cs" />
-    <Compile Include="PyTypes.cs" />
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Helper.py" />
@@ -85,6 +88,9 @@
     <Content Include="Examples\TestScript01.py" />
     <Content Include="Examples\TestScript02.py" />
     <Content Include="Examples\PowerQuery - 03 - Query as script.xlsx" />
+    <Content Include="Examples\PowerQuery - 04 - Use module.xlsx" />
+    <Content Include="Examples\TestModule04.py" />
+    <Content Include="Examples\TestScript04.py" />
     <None Include="key.snk" />
     <None Include="packages.config" />
   </ItemGroup>

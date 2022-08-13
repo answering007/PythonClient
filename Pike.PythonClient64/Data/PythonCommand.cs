@@ -46,19 +46,19 @@ namespace Pike.PythonClient64.Data
         /// </summary>
         public override UpdateRowSource UpdatedRowSource { get; set; } = UpdateRowSource.None;
 
-        DbConnection _connection;
+        PythonConnection _pythonConnection;
         /// <inheritdoc />
         /// <summary>
         /// Gets or sets the <see cref="T:Pike.PythonClient64.Data.PythonConnection" /> used by this <see cref="T:Pike.PythonClient64.Data.PythonCommand" />
         /// </summary>
         protected override DbConnection DbConnection
         {
-            get => _connection;
+            get => _pythonConnection;
             set
             {
                 if (value == null) throw new ArgumentNullException(nameof(value));
-                if (value is PythonConnection)
-                    _connection = value;
+                if (value is PythonConnection connection)
+                    _pythonConnection = connection;
                 else
                     throw new ArgumentException($"Connection of type {value.GetType()} is not supported", nameof(value));
             }
@@ -132,54 +132,48 @@ namespace Pike.PythonClient64.Data
             }
         }
 
+        /// <inheritdoc />
         /// <summary>
         /// Executes the command text against the connection
         /// </summary>
-        /// <param name="behavior">Value of <see cref="CommandBehavior"/> type</param>
-        /// <returns>A <see cref="DataTableReader"/> object</returns>
+        /// <param name="behavior">Value of <see cref="T:System.Data.CommandBehavior" /> type</param>
+        /// <returns>A <see cref="T:System.Data.DataTableReader" /> object</returns>
         protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
         {
             if (DbConnection == null) throw new InvalidOperationException("DbConnection can't be null");
-            var connection = (PythonConnection)DbConnection;
-            if (connection.State != ConnectionState.Open) throw new InvalidOperationException("Connection must be open");
+            if (_pythonConnection.State != ConnectionState.Open) throw new InvalidOperationException("Connection must be open");
 
             var scriptText = CommandText;
-            if (!connection.UseQueryAsScript)
+            if (!_pythonConnection.UseQueryAsScript)
             {
-                if (!File.Exists(connection.DataSource)) throw new FileNotFoundException("Can't find python script file", connection.DataSource);
+                if (!File.Exists(_pythonConnection.DataSource)) throw new FileNotFoundException("Can't find python script file", _pythonConnection.DataSource);
 
-                scriptText = File.ReadAllText(connection.DataSource ?? throw new InvalidOperationException());
+                scriptText = File.ReadAllText(_pythonConnection.DataSource ?? throw new InvalidOperationException());
             }
             if (string.IsNullOrWhiteSpace(scriptText)) throw new InvalidOperationException("Python script can't be null or empty");
 
-            return FillDataTable(scriptText, connection.UseQueryAsScript).CreateDataReader();
+            return FillDataTable(scriptText, _pythonConnection.UseQueryAsScript).CreateDataReader();
         }
 
         DataTable FillDataTable(string scriptText, bool useQueryAsScript)
         {
-            using (Py.GIL())
+            using (var variables = _pythonConnection.Scope.Variables())
             {
-                using (var scope = Py.CreateScope())
+                if (!useQueryAsScript)
+                    variables[QueryKey] = new PyString(CommandText);
+
+                var parameters = (PythonParameterCollection)DbParameterCollection;
+
+                using (var pyDictionary = new PyDict())
                 {
-                    using (var variables = scope.Variables())
-                    {
-                        if (!useQueryAsScript)
-                            variables[QueryKey] = new PyString(CommandText);
+                    MarshalParameters(pyDictionary, parameters);
+                    variables[PythonParameterCollection.PythonName] = pyDictionary;
+                    _pythonConnection.Scope.Exec(scriptText);
 
-                        var parameters = (PythonParameterCollection)DbParameterCollection;
+                    if (!variables.HasKey(ResultKey)) throw new KeyNotFoundException($"Unable to found [{ResultKey}] variable");
 
-                        using (var pyDictionary = new PyDict())
-                        {
-                            MarshalParameters(pyDictionary, parameters);
-                            variables[PythonParameterCollection.PythonName] = pyDictionary;
-                            scope.Exec(scriptText);
-
-                            if (!variables.HasKey(ResultKey)) throw new KeyNotFoundException($"Unable to found [{ResultKey}] variable");
-
-                            var dataFrame = variables[ResultKey];
-                            return PythonUtils.DataFrameToDataTable(dataFrame);
-                        }
-                    }
+                    var dataFrame = variables[ResultKey];
+                    return PythonUtils.DeserializeTable(dataFrame);
                 }
             }
         }
