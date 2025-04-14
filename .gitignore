@@ -7,6 +7,8 @@
 *.userosscache
 *.sln.docstates
 
+/PythonTest/
+
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 
@@ -259,3 +261,6 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+/PythonTest/PythonTest.csproj
+/PythonTest/.editorconfig
+/PythonTest/Program.cs
