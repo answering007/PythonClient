@@ -2,6 +2,7 @@ using System;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using Pike.PythonClient64.Data;
 
 namespace PythonClientExample
@@ -22,10 +23,11 @@ namespace PythonClientExample
         static void Main()
         {
             //TestScript01();
-            TestScript02();
+            //TestScript02();
             //TestScript03();
             //TestScript04();
             //TestScript05();
+            TestScript06();
         }
 
         /// <summary>
@@ -362,6 +364,29 @@ result = pd.DataFrame(
             }
 
             Console.WriteLine("Done!");
+            Console.ReadLine();
+        }
+
+        public static void TestScript06()
+        {
+            using(var runner = new ThreadRunner())
+            {
+                var action = new Action(() =>
+                {
+                    Console.WriteLine($"Tread id = {Thread.CurrentThread.ManagedThreadId}");
+                    //Thread.Sleep(100);
+                });
+                Console.WriteLine($"Main tread id = {Thread.CurrentThread.ManagedThreadId}");
+
+                for (int i = 0; i < 100; i++)
+                {
+                    Console.WriteLine("Pre");
+                    runner.DoWork(action);
+                    Console.WriteLine("Post");
+                }
+            }
+
+            Console.WriteLine("Done");
             Console.ReadLine();
         }
     }

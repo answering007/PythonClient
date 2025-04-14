@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.1300
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35931.197
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pike.PythonClient64", "Pike.PythonClient64\Pike.PythonClient64.csproj", "{B9C12A50-2E5D-413B-8CDD-AE4FEF3C021C}"
 EndProject
@@ -12,7 +12,10 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{4474B567-9A1A-49B7-8E91-8A5E8DFD3196}"
 	ProjectSection(SolutionItems) = preProject
 		README.md = README.md
+		..\..\..\Desktop\.gitignore = ..\..\..\Desktop\.gitignore
 	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PythonTest", "PythonTest\PythonTest.csproj", "{FB0CD427-F6BC-4A35-8D1B-4E83A617F791}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -30,6 +33,10 @@ Global
 		{E5A963C1-7982-4EBF-8C52-E12BC8577BCE}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{E5A963C1-7982-4EBF-8C52-E12BC8577BCE}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{E5A963C1-7982-4EBF-8C52-E12BC8577BCE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{FB0CD427-F6BC-4A35-8D1B-4E83A617F791}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FB0CD427-F6BC-4A35-8D1B-4E83A617F791}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FB0CD427-F6BC-4A35-8D1B-4E83A617F791}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FB0CD427-F6BC-4A35-8D1B-4E83A617F791}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

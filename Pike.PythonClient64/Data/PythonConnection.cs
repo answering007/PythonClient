@@ -110,9 +110,6 @@ namespace Pike.PythonClient64.Data
         {
             BackupAndSetEnvironmentVariables();
 
-            var cwd = new FileInfo(_builder.File).DirectoryName;
-            Directory.SetCurrentDirectory(cwd ?? throw new InvalidOperationException());
-
             GilState = Py.GIL();
             Scope = Py.CreateScope();
 
