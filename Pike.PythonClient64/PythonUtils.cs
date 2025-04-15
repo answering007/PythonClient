@@ -13,7 +13,7 @@ namespace Pike.PythonClient64
     /// <summary>
     /// Python help utilities
     /// </summary>
-    public partial class PythonUtils: IDisposable
+    public class PythonUtils: IDisposable
     {
         static PythonUtils()
         {
@@ -31,7 +31,7 @@ namespace Pike.PythonClient64
 
         static readonly DateTime NumPyDateTime = new DateTime(1970, 1, 1);
         static readonly string ModuleText;
-        dynamic _module = PythonEngine.ModuleFromString("helper", ModuleText);
+        dynamic _module = PyModule.FromString("helper", ModuleText);
 
         string SerializeDataFrame(dynamic pyObject)
         {
@@ -109,7 +109,7 @@ namespace Pike.PythonClient64
         public PyObject GetDateTime(DateTime value)
         {
             var ticks = value.Ticks - NumPyDateTime.Ticks;
-            return _module.ticksToDateTime(new PyLong(ticks));
+            return _module.ticksToDateTime(new PyInt(ticks));
         }
 
         /// <summary>

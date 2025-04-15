@@ -21,11 +21,13 @@ namespace Pike.PythonClient64.Data
         /// Gets or sets the text command to run against the data source
         /// </summary>
         public override string CommandText { get; set; } = string.Empty;
+        
         /// <inheritdoc />
         /// <summary>
         /// Gets or sets the wait time in seconds before terminating the attempt to execute a command and generating an error. Default value is 0
         /// </summary>
         public override int CommandTimeout { get; set; } = 0;
+        
         /// <inheritdoc />
         /// <summary>
         /// Indicates or specifies how the <see cref="P:Pike.PythonClient64.Data.PythonCommand.CommandText" /> property is interpreted. Only CommandType.Text is supported
@@ -35,11 +37,13 @@ namespace Pike.PythonClient64.Data
             get => CommandType.Text;
             set { if (value != CommandType.Text) throw new NotSupportedException(); }
         }
+        
         /// <inheritdoc />
         /// <summary>
         /// Gets or sets a value indicating whether the command object should be visible in a customized interface control
         /// </summary>
         public override bool DesignTimeVisible { get; set; } = true;
+        
         /// <inheritdoc />
         /// <summary>
         /// Gets or sets how command results are applied to the <see cref="T:System.Data.DataRow" /> when used by the Update method of a <see cref="T:System.Data.Common.DbDataAdapter" />. Default value is UpdateRowSource.None
@@ -47,6 +51,7 @@ namespace Pike.PythonClient64.Data
         public override UpdateRowSource UpdatedRowSource { get; set; } = UpdateRowSource.None;
 
         PythonConnection _pythonConnection;
+        
         /// <inheritdoc />
         /// <summary>
         /// Gets or sets the <see cref="T:Pike.PythonClient64.Data.PythonConnection" /> used by this <see cref="T:Pike.PythonClient64.Data.PythonCommand" />
@@ -63,11 +68,13 @@ namespace Pike.PythonClient64.Data
                     throw new ArgumentException($"Connection of type {value.GetType()} is not supported", nameof(value));
             }
         }
+        
         /// <inheritdoc />
         /// <summary>
         /// Gets the collection of <see cref="T:Pike.PythonClient64.Data.PythonParameter" /> objects
         /// </summary>
         protected override DbParameterCollection DbParameterCollection { get; } = new PythonParameterCollection();
+        
         /// <inheritdoc />
         /// <summary>
         /// Gets or sets the <see cref="P:Pike.PythonClient64.Data.PythonCommand.DbTransaction" /> within which this <see cref="T:System.Data.Common.DbCommand" /> object executes
@@ -120,7 +127,7 @@ namespace Pike.PythonClient64.Data
                             pyDict.SetItem(parameter.ParameterName, new PyInt((int)parameter.Value));
                             break;
                         case DbType.Int64:
-                            pyDict.SetItem(parameter.ParameterName, new PyLong((long)parameter.Value));
+                            pyDict.SetItem(parameter.ParameterName, new PyInt((long)parameter.Value));
                             break;
                         case DbType.String:
                             pyDict.SetItem(parameter.ParameterName, new PyString((string)parameter.Value));
@@ -157,7 +164,7 @@ namespace Pike.PythonClient64.Data
 
         DataTable FillDataTable(string scriptText, bool useQueryAsScript)
         {
-            using (var variables = _pythonConnection.Scope.Variables())
+            using (var variables = _pythonConnection.Module.Variables())
             {
                 if (!useQueryAsScript)
                     variables[QueryKey] = new PyString(CommandText);
@@ -168,7 +175,7 @@ namespace Pike.PythonClient64.Data
                 {
                     MarshalParameters(pyDictionary, parameters);
                     variables[PythonParameterCollection.PythonName] = pyDictionary;
-                    _pythonConnection.Scope.Exec(scriptText);
+                    _pythonConnection.Module.Exec(scriptText);
 
                     if (!variables.HasKey(ResultKey)) throw new KeyNotFoundException($"Unable to found [{ResultKey}] variable");
 

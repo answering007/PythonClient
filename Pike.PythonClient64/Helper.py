@@ -14,7 +14,8 @@ def isDataframe(x):
     return isinstance(x, pd.DataFrame)
 
 def getBoolValue(x)->np.bool_:
-    return np.bool(x)
+    # return np.bool(x)
+    return np.bool_(x)
 
 def ticksToDateTime(x):
     return np.datetime64(int(x/10), 'us')

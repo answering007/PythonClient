@@ -60,8 +60,7 @@ namespace Pike.PythonClient64
 
             while (reader.TokenType == JsonToken.PropertyName)
             {
-                var columnName = (string)reader.Value;
-                if (columnName == null) throw new InvalidOperationException();
+                var columnName = (string)reader.Value ?? throw new InvalidOperationException();
                 ReadAndAssert(reader);
 
                 var column = ResulTable.Columns[columnName];

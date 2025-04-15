@@ -12,22 +12,11 @@ namespace Pike.PythonClient64.Data
     /// </summary>
     public class PythonConnectionStringBuilder: DbConnectionStringBuilder
     {
-        /// <summary>
-        /// PATH environment variable name
-        /// </summary>
-        public const string PathKey = "PATH";
-        /// <summary>
-        /// PYTHONHOME environment variable name
-        /// </summary>
-        public const string PythonHomeKey = "PYTHONHOME";
-        /// <summary>
-        /// PYTHONPATH environment variable name
-        /// </summary>
-        public const string PythonPathKey = "PYTHONPATH";
-
+        const string PythonDllKey = "PYTHONDLL";
+        const string PythonPathKey = "PYTHONPATH";
         const string FileKey = "FILE";
 
-        static readonly string[] KeyConstans = {PathKey, PythonHomeKey, PythonPathKey, FileKey};
+        static readonly string[] KeyConstans = { PythonDllKey, PythonPathKey, FileKey };
 
         /// <inheritdoc />
         /// <summary>
@@ -62,30 +51,21 @@ namespace Pike.PythonClient64.Data
         }
 
         /// <summary>
-        /// Represent PATH environment variable
+        /// Represent PythonDll full path. Typical value is ../python38.dll (Windows)
         /// </summary>
-        public string Path
+        public string PythonDll
         {
-            get => ContainsKey(PathKey) ? this[PathKey] as string : null;
-            set => this[PathKey] = value;
+            get => ContainsKey(PythonDllKey) ? this[PythonDllKey] as string : null;
+            set => this[PythonDllKey] = value;
         }
 
         /// <summary>
-        /// Represent PYTHONPATH environment variable
+        /// Represent PATH variable
         /// </summary>
         public string PythonPath
         {
             get => ContainsKey(PythonPathKey) ? this[PythonPathKey] as string : null;
             set => this[PythonPathKey] = value;
-        }
-
-        /// <summary>
-        /// Represent PYTHONHOME environment variable
-        /// </summary>
-        public string PythonHome
-        {
-            get => ContainsKey(PythonHomeKey) ? this[PythonHomeKey] as string : null;
-            set => this[PythonHomeKey] = value;
         }
 
         /// <summary>

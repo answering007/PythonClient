@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Data;
 using System.Data.Common;
-using System.IO;
 using Python.Runtime;
 
 namespace Pike.PythonClient64.Data
@@ -12,10 +11,6 @@ namespace Pike.PythonClient64.Data
     /// </summary>
     public class PythonConnection: DbConnection
     {
-        string _pythonHome;
-        string _path;
-        string _pythonPath;
-
         PythonConnectionStringBuilder _builder = new PythonConnectionStringBuilder();
 
         /// <summary>
@@ -26,7 +21,7 @@ namespace Pike.PythonClient64.Data
         /// <summary>
         /// Python scope
         /// </summary>
-        public PyScope Scope { get; private set; }
+        public PyModule Module { get; private set; }
 
         /// <inheritdoc />
         /// <summary>
@@ -68,50 +63,18 @@ namespace Pike.PythonClient64.Data
         /// </summary>
         public override ConnectionState State => _state;
 
-        void BackupAndSetEnvironmentVariables()
-        {
-            //Backup
-            _pythonHome = Environment.GetEnvironmentVariable(PythonConnectionStringBuilder.PythonHomeKey,
-                EnvironmentVariableTarget.Process);
-            _path = Environment.GetEnvironmentVariable(PythonConnectionStringBuilder.PathKey,
-                EnvironmentVariableTarget.Process);
-            _pythonPath = Environment.GetEnvironmentVariable(PythonConnectionStringBuilder.PythonPathKey,
-                EnvironmentVariableTarget.Process);
-
-            //Set
-            Environment.SetEnvironmentVariable(PythonConnectionStringBuilder.PythonHomeKey, _builder.PythonHome, EnvironmentVariableTarget.Process);
-            if (_builder.ContainsKey(PythonConnectionStringBuilder.PathKey))
-                Environment.SetEnvironmentVariable(PythonConnectionStringBuilder.PathKey, _builder.Path, EnvironmentVariableTarget.Process);
-            if (_builder.ContainsKey(PythonConnectionStringBuilder.PythonPathKey))
-                Environment.SetEnvironmentVariable(PythonConnectionStringBuilder.PythonPathKey, _builder.PythonPath, EnvironmentVariableTarget.Process);
-        }
-
-        void RestoreEnvironmentVariables()
-        {
-            //Restore
-            if (_pythonHome != null)
-                Environment.SetEnvironmentVariable(PythonConnectionStringBuilder.PythonHomeKey, _pythonHome, EnvironmentVariableTarget.Process);
-            if (_path != null)
-                Environment.SetEnvironmentVariable(PythonConnectionStringBuilder.PathKey, _path, EnvironmentVariableTarget.Process);
-            if (_pythonPath != null)
-                Environment.SetEnvironmentVariable(PythonConnectionStringBuilder.PythonPathKey, _pythonPath, EnvironmentVariableTarget.Process);
-
-            //Reset
-            _pythonHome = null;
-            _path = null;
-            _pythonPath = null;
-        }
-
         /// <inheritdoc />
         /// <summary>
         /// Opens a database connection with the settings specified by the <see cref="P:Pike.PythonClient64.Data.PythonConnection.ConnectionString" />
         /// </summary>
         public override void Open()
         {
-            BackupAndSetEnvironmentVariables();
+            Runtime.PythonDLL = _builder.PythonDll;
+            PythonEngine.PythonPath = _builder.PythonPath;
+            PythonEngine.Initialize();
 
             GilState = Py.GIL();
-            Scope = Py.CreateScope();
+            Module = Py.CreateScope();
 
             _state = ConnectionState.Open;
         }
@@ -122,12 +85,10 @@ namespace Pike.PythonClient64.Data
         /// </summary>
         public override void Close()
         {
-            RestoreEnvironmentVariables();
-
-            if (Scope != null)
+            if (Module != null)
             {
-                Scope.Dispose();
-                Scope = null;
+                Module.Dispose();
+                Module = null;
             }
 
             if (GilState != null)
@@ -136,6 +97,7 @@ namespace Pike.PythonClient64.Data
                 GilState = null;
             }
 
+            PythonEngine.Shutdown();
             _state = ConnectionState.Closed;
         }
 
