@@ -112,6 +112,7 @@
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Data\PythonConnectionStringBuilder.cs" />
+    <Compile Include="PythonDbDataReader.cs" />
     <Compile Include="PythonUtils.cs" />
   </ItemGroup>
   <ItemGroup>
