@@ -264,3 +264,4 @@ __pycache__/
 /PythonTest/PythonTest.csproj
 /PythonTest/.editorconfig
 /PythonTest/Program.cs
+/Pike.PythonClient64/PythonDbDataReader.cs
