@@ -1,6 +1,9 @@
-﻿using System;
+﻿using Python.Runtime;
+using System;
+using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
+using Pike.PythonClient64.ColumnConverters;
 
 namespace Pike.PythonClient64.Data
 {
@@ -155,6 +158,20 @@ namespace Pike.PythonClient64.Data
         public override void ResetDbType()
         {
             _dbType = DbType.String;
+        }
+
+        /// <summary>
+        /// Convert parameter to python object
+        /// </summary>
+        /// <returns>KeyValuePair of parameter name and parameter value</returns>
+        public KeyValuePair<string, PyObject> ToPythonParameter()
+        {
+            if (DbType != DbType.DateTime) return new KeyValuePair<string, PyObject>(ParameterName, Value.ToPython());
+
+            var dt = (DateTime)Value;
+            var ticks = (dt.Ticks - DateTimeConverter.NumPyDateTime.Ticks)*100;
+            using (dynamic module = Py.Import("numpy"))
+                return new KeyValuePair<string, PyObject>(ParameterName, (PyObject)module.datetime64(ticks, "ns"));
         }
     }
 }

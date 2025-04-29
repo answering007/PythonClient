@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.IO;
+using Pike.PythonClient64.ColumnConverters;
 using Python.Runtime;
 
 namespace Pike.PythonClient64.Data
@@ -35,7 +36,7 @@ namespace Pike.PythonClient64.Data
         public override CommandType CommandType
         {
             get => CommandType.Text;
-            set { if (value != CommandType.Text) throw new NotSupportedException(); }
+            set { if (value != CommandType.Text) throw new NotSupportedException("Only text command is supported"); }
         }
         
         /// <inheritdoc />
@@ -61,11 +62,16 @@ namespace Pike.PythonClient64.Data
             get => _pythonConnection;
             set
             {
-                if (value == null) throw new ArgumentNullException(nameof(value));
-                if (value is PythonConnection connection)
-                    _pythonConnection = connection;
-                else
-                    throw new ArgumentException($"Connection of type {value.GetType()} is not supported", nameof(value));
+                switch (value)
+                {
+                    case null:
+                        throw new ArgumentNullException(nameof(value));
+                    case PythonConnection connection:
+                        _pythonConnection = connection;
+                        break;
+                    default:
+                        throw new ArgumentException($"Connection of type {value.GetType()} is not supported", nameof(value));
+                }
             }
         }
         
@@ -104,40 +110,7 @@ namespace Pike.PythonClient64.Data
         protected override DbParameter CreateDbParameter()
         {
             return new PythonParameter();
-        }
-
-        void MarshalParameters(PyDict pyDict, PythonParameterCollection parameters)
-        {
-            using (var utilities = new PythonUtils())
-            {
-                foreach (var parameter in parameters.Values)
-                {
-                    switch (parameter.DbType)
-                    {
-                        case DbType.Boolean:
-                            pyDict.SetItem(parameter.ParameterName, utilities.GetBool((bool)parameter.Value));
-                            break;
-                        case DbType.DateTime:
-                            pyDict.SetItem(parameter.ParameterName, utilities.GetDateTime((DateTime)parameter.Value));
-                            break;
-                        case DbType.Double:
-                            pyDict.SetItem(parameter.ParameterName, new PyFloat((double)parameter.Value));
-                            break;
-                        case DbType.Int32:
-                            pyDict.SetItem(parameter.ParameterName, new PyInt((int)parameter.Value));
-                            break;
-                        case DbType.Int64:
-                            pyDict.SetItem(parameter.ParameterName, new PyInt((long)parameter.Value));
-                            break;
-                        case DbType.String:
-                            pyDict.SetItem(parameter.ParameterName, new PyString((string)parameter.Value));
-                            break;
-                        default:
-                            throw new SystemException("Unknown data type");
-                    }
-                }
-            }
-        }
+        }        
 
         /// <inheritdoc />
         /// <summary>
@@ -148,7 +121,7 @@ namespace Pike.PythonClient64.Data
         protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
         {
             if (DbConnection == null) throw new InvalidOperationException("DbConnection can't be null");
-            if (_pythonConnection.State != ConnectionState.Open) throw new InvalidOperationException("Connection must be open");
+            if (DbConnection.State != ConnectionState.Open) throw new InvalidOperationException("Connection must be open");
 
             var scriptText = CommandText;
             if (!_pythonConnection.UseQueryAsScript)
@@ -159,30 +132,87 @@ namespace Pike.PythonClient64.Data
             }
             if (string.IsNullOrWhiteSpace(scriptText)) throw new InvalidOperationException("Python script can't be null or empty");
 
-            return FillDataTable(scriptText, _pythonConnection.UseQueryAsScript).CreateDataReader();
-        }
-
-        DataTable FillDataTable(string scriptText, bool useQueryAsScript)
-        {
-            using (var variables = _pythonConnection.Module.Variables())
+            using (var module = Py.CreateScope())
             {
-                if (!useQueryAsScript)
-                    variables[QueryKey] = new PyString(CommandText);
-
-                var parameters = (PythonParameterCollection)DbParameterCollection;
-
-                using (var pyDictionary = new PyDict())
+                using (dynamic variables = module.Variables())
                 {
-                    MarshalParameters(pyDictionary, parameters);
-                    variables[PythonParameterCollection.PythonName] = pyDictionary;
-                    _pythonConnection.Module.Exec(scriptText);
+                    if (!_pythonConnection.UseQueryAsScript)
+                        variables[QueryKey] = CommandText.ToPython();
 
-                    if (!variables.HasKey(ResultKey)) throw new KeyNotFoundException($"Unable to found [{ResultKey}] variable");
+                    var parameters = (PythonParameterCollection)DbParameterCollection;
+                    using (var pyDictionary = parameters.ToPythonDictionary())
+                    {
+                        variables[PythonParameterCollection.PythonName] = pyDictionary;
 
-                    var dataFrame = variables[ResultKey];
-                    return PythonUtils.DeserializeTable(dataFrame);
+                        module.Exec(scriptText);
+
+                        if (!variables.HasKey(ResultKey)) throw new KeyNotFoundException($"Python script must assign result to a variable named '{ResultKey}'");
+
+                        DataTable dataTable = ConvertDataFrameToDataTable(variables[ResultKey]);
+                        return dataTable.CreateDataReader();
+                    }
                 }
             }
+        }
+
+        static DataTable ConvertDataFrameToDataTable(dynamic df)
+        {
+            // Result table
+            var dataTable = new DataTable(ResultKey);
+
+            // Get column names
+            var columns = (PyObject[])df.columns.tolist();
+
+            // Get column types
+            var pythonTypes = df.dtypes.to_dict();
+
+            // Get number of rows and create
+            var rowsCount = (int)df.shape[0];
+
+            // Managed values
+            var tableValues = new object[columns.Length][];
+
+            // Define columns and convert data to managed values
+            for (var i = 0; i < columns.Length; i++)
+            {
+                // Column name
+                var column = columns[i];
+
+                // Define managed type
+                string pythonType = pythonTypes[column].ToString();
+                var managedConverter = SupportedTypes.Values.ContainsKey(pythonType)? SupportedTypes.Values[pythonType] : new StringConverter();
+
+                // Add columns
+                dataTable.Columns.Add(new DataColumn(column.ToString())
+                {
+                    AllowDBNull = true,
+                    DataType = managedConverter.TargetType,
+                });
+
+                // Fill values
+                var pythonValues = (object[])df[column].values.tolist();
+                var values = managedConverter.ConvertValues(pythonValues);
+
+                tableValues[i] = values;
+            }
+
+            // Dispose types dictionary
+            pythonTypes.Dispose();
+
+            // Dispose column name objects
+            foreach (var column in columns)
+                column.Dispose();
+
+            // Fill datatable
+            for (var i = 0; i < rowsCount; i++)
+            {
+                var row = dataTable.NewRow();
+                for (var j = 0; j < columns.Length; j++)
+                    row[j] = tableValues[j][i];
+                dataTable.Rows.Add(row);
+            }
+
+            return dataTable;
         }
 
         /// <inheritdoc />

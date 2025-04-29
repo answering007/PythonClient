@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Python.Runtime;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data.Common;
@@ -16,13 +17,15 @@ namespace Pike.PythonClient64.Data
         /// Python name for parameters dictionary
         /// </summary>
         public const string PythonName = "params";
-        readonly SortedList<string, PythonParameter> _list = new SortedList<string, PythonParameter>();
+        //readonly SortedList<string, PythonParameter> _collection = new SortedList<string, PythonParameter>();
+        private readonly KeyIndexCollection<string, PythonParameter> _collection =
+            new KeyIndexCollection<string, PythonParameter>();
 
         /// <inheritdoc />
         /// <summary>
         /// Specifies the number of items in the collection
         /// </summary>
-        public override int Count => _list.Count;
+        public override int Count => _collection.Count;
 
         /// <inheritdoc />
         /// <summary>
@@ -69,10 +72,10 @@ namespace Pike.PythonClient64.Data
             if (parameter == null) throw new ArgumentNullException(nameof(parameter));
             if (string.IsNullOrWhiteSpace(parameter.ParameterName))
                 throw new ArgumentException("ParameterName property can't be null or empty", nameof(parameter));
-            if (_list.ContainsKey(parameter.ParameterName)) throw new ArgumentException("The given key is already exist", nameof(parameter));
+            if (_collection.ContainsKey(parameter.ParameterName)) throw new ArgumentException("The given key is already exist", nameof(parameter));
 
-            _list.Add(parameter.ParameterName, parameter);
-            return _list.Count - 1;
+            _collection.Add(parameter.ParameterName, parameter);
+            return _collection.Count - 1;
         }
 
         /// <inheritdoc />
@@ -105,7 +108,7 @@ namespace Pike.PythonClient64.Data
         /// </summary>
         public override void Clear()
         {
-            _list.Clear();
+            _collection.Clear();
         }
 
         /// <inheritdoc />
@@ -118,7 +121,7 @@ namespace Pike.PythonClient64.Data
         {
             if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("value can't be null or empty");
 
-            return _list.ContainsKey(value);
+            return _collection.ContainsKey(value);
         }
 
         /// <inheritdoc />
@@ -142,7 +145,7 @@ namespace Pike.PythonClient64.Data
             if (parameter == null) throw new ArgumentNullException(nameof(parameter));
             if (string.IsNullOrWhiteSpace(parameter.ParameterName)) throw new ArgumentException("ParameterName property can't be null or empty");
 
-            return _list.ContainsKey(parameter.ParameterName);
+            return _collection.ContainsKey(parameter.ParameterName);
         }
 
         /// <inheritdoc />
@@ -155,9 +158,9 @@ namespace Pike.PythonClient64.Data
         {
             if (array == null) throw new ArgumentNullException(nameof(array));
             if ((index < 0) || (index > array.Length)) throw new ArgumentOutOfRangeException(nameof(index));
-            if ((array.Length - index) < _list.Count) throw new ArgumentException("(array.Length - index) < _list.Count");
+            if ((array.Length - index) < _collection.Count) throw new ArgumentException("(array.Length - index) < _collection.Count");
 
-            var q = _list.Values.ToArray();
+            var q = _collection.Values.ToArray();
             for (var i = index; i < Count; i++)
                 array.SetValue(q[i], index++);
         }
@@ -169,7 +172,7 @@ namespace Pike.PythonClient64.Data
         /// <returns>An <see cref="T:System.Collections.IEnumerator" /> that can be used to iterate through the collection</returns>
         public override IEnumerator GetEnumerator()
         {
-            return _list.GetEnumerator();
+            return _collection.GetEnumerator();
         }
 
         /// <inheritdoc />
@@ -182,7 +185,7 @@ namespace Pike.PythonClient64.Data
         {
             if (string.IsNullOrWhiteSpace(parameterName)) throw new ArgumentException("parameterName can't be null or empty");
 
-            return _list.IndexOfKey(parameterName);
+            return _collection.IndexOfKey(parameterName);
         }
 
         /// <summary>
@@ -241,7 +244,7 @@ namespace Pike.PythonClient64.Data
         {
             if (string.IsNullOrWhiteSpace(parameterName)) throw new ArgumentException("parameterName can't be null or empty");
 
-            _list.Remove(parameterName);
+            _collection.Remove(parameterName);
         }
 
         /// <inheritdoc />
@@ -251,7 +254,7 @@ namespace Pike.PythonClient64.Data
         /// <param name="index">The index where the <see cref="T:Pike.PythonClient64.Data.PythonParameter" /> object is located</param>
         public override void RemoveAt(int index)
         {
-            _list.RemoveAt(index);
+            _collection.RemoveAt(index);
         }
 
         /// <inheritdoc />
@@ -264,7 +267,7 @@ namespace Pike.PythonClient64.Data
         {
             if (string.IsNullOrWhiteSpace(parameterName)) throw new ArgumentException("parameterName can't be null or empty");
 
-            return _list[parameterName];
+            return _collection[parameterName];
         }
 
         /// <inheritdoc />
@@ -275,7 +278,8 @@ namespace Pike.PythonClient64.Data
         /// <returns>The <see cref="T:Pike.PythonClient64.Data.PythonParameter" /> object at the specified index in the collection</returns>
         protected override DbParameter GetParameter(int index)
         {
-            return _list.ElementAt(index).Value;
+            //return _collection.ElementAt(index).Value;
+            return _collection.ElementAt(index);
         }
 
         /// <inheritdoc />
@@ -291,7 +295,8 @@ namespace Pike.PythonClient64.Data
             var parameter = (PythonParameter)value;
             if (string.IsNullOrWhiteSpace(parameter.ParameterName))
                 parameter.ParameterName = parameterName;
-            _list[parameterName] = parameter;
+            //_collection[parameterName] = parameter;
+            _collection.Add(parameterName, parameter);
         }
 
         /// <inheritdoc />
@@ -310,6 +315,21 @@ namespace Pike.PythonClient64.Data
         /// <summary>
         /// Returns an enumerator that iterates through the collection
         /// </summary>
-        public IEnumerable<PythonParameter> Values => _list.Values;
+        public IEnumerable<PythonParameter> Values => _collection.Values;
+
+        /// <summary>
+        /// Convert collection to python dictionary
+        /// </summary>
+        /// <returns>Python dictionary</returns>
+        public PyDict ToPythonDictionary()
+        {
+            var dict = new PyDict();
+            foreach (var parameter in Values)
+            {
+                var kv = parameter.ToPythonParameter();
+                dict.SetItem(kv.Key, kv.Value);
+            }
+            return dict;
+        }
     }
 }

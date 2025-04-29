@@ -1,29 +1,30 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Pike.PythonClient64.Data;
-using System;
+﻿using System;
 using System.Data;
 using System.IO;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Pike.PythonClient64.Data;
 
-namespace Pike.PythonClient.Test
+namespace Pike.PythonClient.Test.Tests
 {
     [TestClass]
-    public class UnitTestMain
+    public class Basic
     {
         /// <summary>
         /// Basic test
         /// </summary>
-        /// <exception cref="FileNotFoundException"></exception>
         [TestMethod]
-        public void TestScript01()
+        public void ScriptFromFileTest()
         {
             //Python script file for test
             const string fileName = @"TestScript01.py";
-            var scriptFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName));
+            var scriptFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SettingsMain.Default.PythonScriptsFolder, fileName));
             if (!scriptFile.Exists) throw new FileNotFoundException("Where is the script?", scriptFile.FullName);
 
             //Setup python environment
-            var pythonDll = new FileInfo(@"C:\Users\Pike\anaconda3\python311.dll");   //<-- Replace it with your own path to python.dll
-            if (!pythonDll.Exists) throw new FileNotFoundException("Can'r find python*.dll file", pythonDll.FullName);
+            var pythonDll = new FileInfo(SettingsMain.Default.PythonDllPath);
+            if (!pythonDll.Exists) throw new FileNotFoundException("Can't find python*.dll file", pythonDll.FullName);
+            if (pythonDll.DirectoryName == null)
+                throw new DirectoryNotFoundException("Directory name of python*.dll file can't be null");
 
             //Compose PATH variable
             var lib = Path.Combine(pythonDll.DirectoryName, "Lib");
@@ -59,7 +60,7 @@ namespace Pike.PythonClient.Test
 
                     /*
                      * Python script must have "result" variable of type pandas DataFrame.
-                     * This variable data will be transfered to DbDataReader
+                     * This variable data will be transferred to DbDataReader
                      */
                     using (var reader = command.ExecuteReader())
                         datatable.Load(reader);
@@ -73,23 +74,24 @@ namespace Pike.PythonClient.Test
         /// <summary>
         /// Basic test with external module
         /// </summary>
-        /// <exception cref="FileNotFoundException"></exception>
         [TestMethod]
-        public void TestScript02()
+        public void ScriptFromFileWithModuleTest()
         {
             //Python script file for test
             const string fileName = @"TestScript02.py";
-            var scriptFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName));
+            var scriptFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SettingsMain.Default.PythonScriptsFolder, fileName));
             if (!scriptFile.Exists) throw new FileNotFoundException("Where is the script?", scriptFile.FullName);
 
             //Python module
             const string moduleName = @"TestModule.py";
-            var moduleFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, moduleName));
+            var moduleFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SettingsMain.Default.PythonScriptsFolder, moduleName));
             if (!moduleFile.Exists) throw new FileNotFoundException("Where is the module?", moduleFile.FullName);
 
             //Setup python environment
-            var pythonDll = new FileInfo(@"C:\Users\Pike\anaconda3\python311.dll");   //<-- Replace it with your own path to python.dll
-            if (!pythonDll.Exists) throw new FileNotFoundException("Can'r find python*.dll file", pythonDll.FullName);
+            var pythonDll = new FileInfo(SettingsMain.Default.PythonDllPath);
+            if (!pythonDll.Exists) throw new FileNotFoundException("Can't find python*.dll file", pythonDll.FullName);
+            if (pythonDll.DirectoryName == null)
+                throw new DirectoryNotFoundException("Directory name of python*.dll file can't be null");
 
             //Compose PATH variable
             var lib = Path.Combine(pythonDll.DirectoryName, "Lib");
@@ -125,7 +127,7 @@ namespace Pike.PythonClient.Test
 
                     /*
                      * Python script must have "result" variable of type pandas DataFrame.
-                     * This variable data will be transfered to DbDataReader
+                     * This variable data will be transferred to DbDataReader
                      */
                     using (var reader = command.ExecuteReader())
                         datatable.Load(reader);
@@ -139,18 +141,14 @@ namespace Pike.PythonClient.Test
         /// <summary>
         /// Use query text as python script
         /// </summary>
-        /// <exception cref="FileNotFoundException"></exception>
         [TestMethod]
-        public void TestScript03()
+        public void ScriptFromCommandText()
         {
             //Python script text
             const string scriptText = @"import pandas as pd
 
 query_text = globals()['query'] if 'query' in globals() else None
-print('Query text is:', query_text)
-
 query_params = globals()['params'] if 'params' in globals() else None
-print('Query parameters:', query_params)
 
 result = pd.DataFrame(
 	[[True, 99.0],
@@ -159,8 +157,10 @@ result = pd.DataFrame(
 	[False, 69.3]])";
 
             //Setup python environment
-            var pythonDll = new FileInfo(@"C:\Users\Pike\anaconda3\python311.dll");   //<-- Replace it with your own path to python.dll
-            if (!pythonDll.Exists) throw new FileNotFoundException("Can'r find python*.dll file", pythonDll.FullName);
+            var pythonDll = new FileInfo(SettingsMain.Default.PythonDllPath);
+            if (!pythonDll.Exists) throw new FileNotFoundException("Can't find python*.dll file", pythonDll.FullName);
+            if (pythonDll.DirectoryName == null)
+                throw new DirectoryNotFoundException("Directory name of python*.dll file can't be null");
 
             //Compose PATH variable
             var lib = Path.Combine(pythonDll.DirectoryName, "Lib");
@@ -195,7 +195,7 @@ result = pd.DataFrame(
 
                     /*
                      * Python script must have "result" variable of type pandas DataFrame.
-                     * This variable data will be transfered to DbDataReader
+                     * This variable data will be transferred to DbDataReader
                      */
                     using (var reader = command.ExecuteReader())
                         datatable.Load(reader);
@@ -211,7 +211,7 @@ result = pd.DataFrame(
         /// </summary>
         /// <exception cref="FileNotFoundException"></exception>
         [TestMethod]
-        public void TestScript04()
+        public void CustomEnvironmentTest()
         {
             //Python script text
             const string scriptText = @"import pandas as pd
@@ -229,8 +229,10 @@ result = pd.DataFrame(
 	[False, 69.3]])";
 
             //Setup python environment
-            var pythonDll = new FileInfo(@"C:\Users\Pike\anaconda3\envs\Test\python311.dll");   //<-- Replace it with your own path to python.dll
-            if (!pythonDll.Exists) throw new FileNotFoundException("Can'r find python*.dll file", pythonDll.FullName);
+            var pythonDll = new FileInfo(SettingsMain.Default.EnvPythonDllPath);
+            if (!pythonDll.Exists) throw new FileNotFoundException("Can't find python*.dll file", pythonDll.FullName);
+            if (pythonDll.DirectoryName == null)
+                throw new DirectoryNotFoundException("Directory name of python*.dll file can't be null");
 
             //Compose PATH variable
             var lib = Path.Combine(pythonDll.DirectoryName, "Lib");
@@ -265,7 +267,7 @@ result = pd.DataFrame(
 
                     /*
                      * Python script must have "result" variable of type pandas DataFrame.
-                     * This variable data will be transfered to DbDataReader
+                     * This variable data will be transferred to DbDataReader
                      */
                     using (var reader = command.ExecuteReader())
                         datatable.Load(reader);
