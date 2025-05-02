@@ -1,14 +1,15 @@
-﻿using System;
+﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Pike.PythonClient64;
+using System.Linq;
+using System;
+using System.IO;
 using System.Collections.Generic;
 using System.Data;
-using System.IO;
-using System.Linq;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Pike.PythonClient.Test.Tests
 {
     [TestClass]
-    public class PythonQueryBuilder
+    public class DataQuery
     {
         [TestMethod]
         public void TestEmptyDataFrame()
@@ -16,13 +17,16 @@ namespace Pike.PythonClient.Test.Tests
             const string code = @"import pandas as pd
 result = pd.DataFrame()";
 
-            var table = new PythonClient64.PythonQueryBuilder().SetPythonDllPath(SettingsMain.Default.PythonDllPath).SetPathComponents()
-                .SetPythonCode(code).GetData();
+            PythonDataProvider.PythonDllPath = SettingsMain.Default.PythonDllPath;
+            PythonDataProvider.Open();
+            var table = PythonDataQuery.RunScript(code);
+            PythonDataProvider.Close();
             Assert.AreEqual(0, table.Rows.Count);
         }
 
         [TestMethod]
-        public void TestScriptAsCommandText()
+        [DataRow((byte)3)]
+        public void TestScriptAsCommandText(byte numberOfRuns)
         {
             const string code = @"import numpy as np
 import pandas as pd
@@ -43,17 +47,23 @@ result = pd.DataFrame({
             var thirdRow = new object[]
                 { "Amol", false, 456.789, 789123L, new TimeSpan(12, 0, 0), new DateTime(2020, 1, 1) };
 
-            var table = new PythonClient64.PythonQueryBuilder().SetPythonDllPath(SettingsMain.Default.PythonDllPath).SetPathComponents()
-                .SetPythonCode(code).GetData();
+            PythonDataProvider.PythonDllPath = SettingsMain.Default.PythonDllPath;
+            PythonDataProvider.Open();
 
-            var compare = new[]
+            for (var i = 0; i < numberOfRuns; i++)
             {
-                firstRow.SequenceEqual(table.Rows[0].ItemArray),
-                secondRow.SequenceEqual(table.Rows[1].ItemArray),
-                thirdRow.SequenceEqual(table.Rows[2].ItemArray),
-            };
+                var table = PythonDataQuery.RunScript(code);
+                var compare = new[]
+                {
+                    firstRow.SequenceEqual(table.Rows[0].ItemArray),
+                    secondRow.SequenceEqual(table.Rows[1].ItemArray),
+                    thirdRow.SequenceEqual(table.Rows[2].ItemArray),
+                };
 
-            Assert.AreEqual(true, compare.All(v => v.Equals(true)));
+                Assert.AreEqual(true, compare.All(v => v.Equals(true)));
+            }
+            
+            PythonDataProvider.Close();
         }
 
         [TestMethod]
@@ -63,6 +73,7 @@ result = pd.DataFrame({
             const string fileName = @"TestScript01.py";
             var scriptFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SettingsMain.Default.PythonScriptsFolder, fileName));
             if (!scriptFile.Exists) throw new FileNotFoundException("Where is the script?", scriptFile.FullName);
+            var code = File.ReadAllText(scriptFile.FullName);
 
             var firstRow = new object[]
                 { "Pike", true, 123.456, 123456L, new TimeSpan(10, 0, 0), new DateTime(2000, 1, 1) };
@@ -71,8 +82,10 @@ result = pd.DataFrame({
             var thirdRow = new object[]
                 { "Amol", false, 456.789, 789123L, new TimeSpan(12, 0, 0), new DateTime(2020, 1, 1) };
 
-            var table = new PythonClient64.PythonQueryBuilder().SetPythonDllPath(SettingsMain.Default.PythonDllPath).SetPathComponents()
-                .SetScriptPath(scriptFile.FullName).GetData();
+            PythonDataProvider.PythonDllPath = SettingsMain.Default.PythonDllPath;
+            PythonDataProvider.Open();
+            var table = PythonDataQuery.RunScript(code);
+            PythonDataProvider.Close();
 
             var compare = new[]
             {
@@ -91,6 +104,7 @@ result = pd.DataFrame({
             const string fileName = @"TestScript01.py";
             var scriptFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SettingsMain.Default.PythonScriptsFolder, fileName));
             if (!scriptFile.Exists) throw new FileNotFoundException("Where is the script?", scriptFile.FullName);
+            var code = File.ReadAllText(scriptFile.FullName);
 
             //Python module
             const string moduleName = @"TestModule.py";
@@ -104,8 +118,10 @@ result = pd.DataFrame({
             var thirdRow = new object[]
                 { "Amol", false, 456.789, 789123L, new TimeSpan(12, 0, 0), new DateTime(2020, 1, 1) };
 
-            var table = new PythonClient64.PythonQueryBuilder().SetPythonDllPath(SettingsMain.Default.PythonDllPath).SetPathComponents()
-                .SetPathComponents(new []{moduleFile.DirectoryName}).SetScriptPath(scriptFile.FullName).GetData();
+            PythonDataProvider.PythonDllPath = SettingsMain.Default.PythonDllPath;
+            PythonDataProvider.Open(false, new[] { moduleFile.DirectoryName });
+            var table = PythonDataQuery.RunScript(code);
+            PythonDataProvider.Close();
 
             var compare = new[]
             {
@@ -115,6 +131,25 @@ result = pd.DataFrame({
             };
 
             Assert.AreEqual(true, compare.All(v => v.Equals(true)));
+        }
+        [TestMethod]
+        public void TestQueryParameter()
+        {
+            const string code = @"import pandas as pd
+
+query = globals()['query'] if 'query' in globals() else None
+result = pd.DataFrame({'StringColumn': [query]})";
+
+            const string query = "Hello";
+
+            PythonDataProvider.PythonDllPath = SettingsMain.Default.PythonDllPath;
+            PythonDataProvider.Open();
+            PythonDataQuery.Reset();
+            PythonDataQuery.Query = query;
+            var table = PythonDataQuery.RunScript(code);
+            PythonDataProvider.Close();
+
+            Assert.AreEqual(query, table.Rows[0][0]);
         }
 
         [TestMethod]
@@ -135,8 +170,13 @@ result = pd.DataFrame(params, index=[0])";
                 ["DateTimeValue"] = new DateTime(2020, 12, 21)
             };
 
-            var table = new PythonClient64.PythonQueryBuilder().SetPythonDllPath(SettingsMain.Default.PythonDllPath).SetPathComponents()
-                .SetPythonCode(code).SetParameters(parameters).GetData();
+            PythonDataProvider.PythonDllPath = SettingsMain.Default.PythonDllPath;
+            PythonDataProvider.Open();
+            PythonDataQuery.Reset();
+            foreach (var parameter in parameters)
+                PythonDataQuery.Parameters[parameter.Key] = parameter.Value;
+            var table = PythonDataQuery.RunScript(code);
+            PythonDataProvider.Close();
 
             var compare = new[]
             {
@@ -145,54 +185,6 @@ result = pd.DataFrame(params, index=[0])";
             };
 
             Assert.AreEqual(true, compare.All(v => v.Equals(true)));
-        }
-
-        [TestMethod]
-        [DataRow((byte)10)]
-        public void TestScriptAsCommandTextMultipleTimes(byte numberOfRuns)
-        {
-            const string code = @"import numpy as np
-import pandas as pd
-
-result = pd.DataFrame({
-    'StringColumn':		['Pike',	None,	'Amol'],
-    'BoolColumn':		[True,		True,	False],
-    'FloatColumn':		[123.456,	np.nan,	456.789],
-    'IntColumn':		[123456,	456789,	789123],
-    'TimeDeltaColumn':	[np.timedelta64(10, 'h'), None, np.timedelta64(12, 'h')],
-    'DateTimeColumn':	[np.datetime64(30, 'Y'), None, np.datetime64(50, 'Y')]
-})";
-
-            var firstRow = new object[]
-                { "Pike", true, 123.456, 123456L, new TimeSpan(10, 0, 0), new DateTime(2000, 1, 1) };
-            var secondRow = new object[]
-                { DBNull.Value, true, double.NaN, 456789L, DBNull.Value, DBNull.Value };
-            var thirdRow = new object[]
-                { "Amol", false, 456.789, 789123L, new TimeSpan(12, 0, 0), new DateTime(2020, 1, 1) };
-
-            var tuples = new Tuple<string, IDictionary<string, object>, Action<DataTable>>[numberOfRuns];
-            var results = new bool[numberOfRuns];
-
-            for (var i = 0; i < numberOfRuns; i++)
-            {
-                var i1 = i;
-                tuples[i] = new Tuple<string, IDictionary<string, object>, Action<DataTable>>(code, null,
-                    table =>
-                    {
-                        var compare = new[]
-                        {
-                            firstRow.SequenceEqual(table.Rows[0].ItemArray),
-                            secondRow.SequenceEqual(table.Rows[1].ItemArray),
-                            thirdRow.SequenceEqual(table.Rows[2].ItemArray),
-                        };
-                        results[i1] = compare.All(v => v.Equals(true));
-                    });
-            }
-
-            new PythonClient64.PythonQueryBuilder().SetPythonDllPath(SettingsMain.Default.PythonDllPath).SetPathComponents()
-                .SetPythonCode(code).WithCurrentConnection(tuples);
-
-            Assert.AreEqual(true, results.All(v => v.Equals(true)));
         }
     }
 }

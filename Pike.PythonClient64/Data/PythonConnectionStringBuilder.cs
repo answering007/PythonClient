@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Data.Common;
 using System.Linq;
-using Newtonsoft.Json.Serialization;
 
 namespace Pike.PythonClient64.Data
 {

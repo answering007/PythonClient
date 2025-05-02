@@ -120,6 +120,7 @@ namespace Pike.PythonClient64.Data
         /// <returns>A <see cref="T:System.Data.DataTableReader" /> object</returns>
         protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
         {
+            Logger.Log.Debug("PythonCommand.ExecuteDbDataReader");
             if (DbConnection == null) throw new InvalidOperationException("DbConnection can't be null");
             if (DbConnection.State != ConnectionState.Open) throw new InvalidOperationException("Connection must be open");
 
@@ -132,23 +133,31 @@ namespace Pike.PythonClient64.Data
             }
             if (string.IsNullOrWhiteSpace(scriptText)) throw new InvalidOperationException("Python script can't be null or empty");
 
+            Logger.Log.Debug("PythonCommand: start executing");
             using (var module = Py.CreateScope())
             {
+                Logger.Log.Debug("Py.CreateScope()");
                 using (dynamic variables = module.Variables())
                 {
+                    Logger.Log.Debug("module.Variables()");
                     if (!_pythonConnection.UseQueryAsScript)
                         variables[QueryKey] = CommandText.ToPython();
 
                     var parameters = (PythonParameterCollection)DbParameterCollection;
                     using (var pyDictionary = parameters.ToPythonDictionary())
                     {
+                        Logger.Log.Debug("parameters.ToPythonDictionary()");
                         variables[PythonParameterCollection.PythonName] = pyDictionary;
 
                         module.Exec(scriptText);
+                        Logger.Log.Debug("module.Exec(scriptText);");
 
                         if (!variables.HasKey(ResultKey)) throw new KeyNotFoundException($"Python script must assign result to a variable named '{ResultKey}'");
 
                         DataTable dataTable = ConvertDataFrameToDataTable(variables[ResultKey]);
+                        Logger.Log.Debug("ConvertDataFrameToDataTable(variables[ResultKey])");
+                        Logger.Log.Debug("Number of datatable rows = " + dataTable.Rows.Count);
+                        //Logger.Log.Debug(dataTable.ToStringData());
                         return dataTable.CreateDataReader();
                     }
                 }

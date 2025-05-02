@@ -8,12 +8,10 @@ namespace Pike.PythonClient.Test.Tests
     [TestClass]
     public class Connection
     {
-        const string PathToPythonDll = @"C:\Users\Pike\anaconda3\python311.dll";
-
         [TestMethod]
         public void ConnectionCanBeOpenedAndClosed()
         {
-            var builder = new PythonConnectionStringBuilder { PythonDll = PathToPythonDll };
+            var builder = new PythonConnectionStringBuilder { PythonDll = SettingsMain.Default.PythonDllPath };
             bool isOpened;
             using (var connection = new PythonConnection())
             {
@@ -28,7 +26,7 @@ namespace Pike.PythonClient.Test.Tests
         [DataRow((byte)20)]
         public void ConnectionCanBeOpenedAndClosedMultipleTimes(byte numberOfRuns)
         {
-            var builder = new PythonConnectionStringBuilder { PythonDll = PathToPythonDll };
+            var builder = new PythonConnectionStringBuilder { PythonDll = SettingsMain.Default.PythonDllPath };
 
             var isOpened = new bool[numberOfRuns];
             for (var i = 0; i < numberOfRuns; i++)
