@@ -21,25 +21,5 @@ namespace Pike.PythonClient.Test.Tests
             }
             Assert.AreEqual(true, isOpened);
         }
-
-        [TestMethod]
-        [DataRow((byte)20)]
-        public void ConnectionCanBeOpenedAndClosedMultipleTimes(byte numberOfRuns)
-        {
-            var builder = new PythonConnectionStringBuilder { PythonDll = SettingsMain.Default.PythonDllPath };
-
-            var isOpened = new bool[numberOfRuns];
-            for (var i = 0; i < numberOfRuns; i++)
-            {
-                using (var connection = new PythonConnection())
-                {
-                    connection.ConnectionString = builder.ConnectionString;
-                    connection.Open();
-                    isOpened[i] = connection.State == ConnectionState.Open;
-                }
-            }
-            var allTrue = isOpened.All(v => v.Equals(true));
-            Assert.AreEqual(true, allTrue);
-        }
     }
 }

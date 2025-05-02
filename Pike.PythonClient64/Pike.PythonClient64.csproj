@@ -53,12 +53,10 @@
       <HintPath>..\packages\pythonnet.3.0.5\lib\netstandard2.0\Python.Runtime.dll</HintPath>
     </Reference>
     <Reference Include="System" />
-    <Reference Include="System.Configuration" />
     <Reference Include="System.Configuration.Install" />
     <Reference Include="System.Core" />
     <Reference Include="Microsoft.CSharp" />
     <Reference Include="System.Data" />
-    <Reference Include="System.Web" />
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
@@ -93,12 +91,9 @@
     <Compile Include="Data\PythonConnectionStringBuilder.cs" />
     <Compile Include="PythonDataProvider.cs" />
     <Compile Include="PythonDataQuery.cs" />
-    <Compile Include="PythonQueryBuilder.cs" />
-    <Compile Include="ThreadWorker.cs" />
     <Compile Include="SupportedTypes.cs" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="app.config" />
     <None Include="key.snk" />
     <None Include="packages.config" />
   </ItemGroup>

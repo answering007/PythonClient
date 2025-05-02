@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Data;
 using System.Data.Common;
-using System.Threading;
 using Python.Runtime;
 
 namespace Pike.PythonClient64.Data
@@ -13,21 +12,14 @@ namespace Pike.PythonClient64.Data
     public class PythonConnection: DbConnection
     {
         PythonConnectionStringBuilder _builder = new PythonConnectionStringBuilder();
-        dynamic _sys;
 
         public PythonConnection()
         {
             ConnectionName = Guid.NewGuid().ToString();
-            Logger.Log.Debug("PythonConnection created: " + ConnectionName);
-            Logger.Log.Debug("Thread: " + Thread.CurrentThread.ManagedThreadId);
+            //Logger.Log.Debug("PythonConnection created: " + ConnectionName);
         }
 
         public string ConnectionName { get; }
-
-        /// <summary>
-        /// Python global interpreter lock
-        /// </summary>
-        public Py.GILState GilState { get; private set; }
 
         /// <inheritdoc />
         /// <summary>
@@ -60,14 +52,13 @@ namespace Pike.PythonClient64.Data
         /// <summary>
         /// Version of <see cref="PythonEngine"/>
         /// </summary>
-        public override string ServerVersion => PythonEngine.Version;
-
-        ConnectionState _state = ConnectionState.Closed;
+        public override string ServerVersion => PythonDataProvider.Version;
+        
         /// <inheritdoc />
         /// <summary>
         /// Get the current connection state
         /// </summary>
-        public override ConnectionState State => _state;
+        public override ConnectionState State => PythonDataProvider.State;
         
         /// <inheritdoc />
         /// <summary>
@@ -77,34 +68,17 @@ namespace Pike.PythonClient64.Data
         {
             try
             {
-                Logger.Log.Debug("PythonConnection.Open: " + ConnectionName);
-                Logger.Log.Debug("Thread: " + Thread.CurrentThread.ManagedThreadId);
-                Logger.Log.Debug("PythonConnection.ConnectionState = " + State);
-                if (State == ConnectionState.Open) return;
+                //Logger.Log.Debug("PythonConnection.Open: " + ConnectionName);
+                if (PythonDataProvider.State == ConnectionState.Open) return;
                 
-                Logger.Log.Debug("_builder.PythonDll = " + _builder.PythonDll);
-                //PythonEngine.Shutdown();
-                Logger.Log.Debug("PythonConnection.Open: PythonEngine.Shutdown()");
-                Runtime.PythonDLL = _builder.PythonDll;
-                Logger.Log.Debug("Runtime.PythonDLL = " + Runtime.PythonDLL);
-                PythonEngine.Initialize();
-                Logger.Log.Debug("PythonEngine.Initialize();");
-
-                GilState = Py.GIL();
-                Logger.Log.Debug("GilState = Py.GIL();");
+                PythonDataProvider.PythonDllPath = _builder.PythonDll;
 
                 // Import path components
-                _sys = Py.Import("sys");
-                Logger.Log.Debug("_sys = Py.Import(\"sys\");");
-                foreach (var pathComponent in _builder.PythonPathComponents)
-                    _sys.path.append(pathComponent);
-
-                _state = ConnectionState.Open;
-                Logger.Log.Debug("_state = ConnectionState.Open;");
+                PythonDataProvider.Open(_builder.PythonPathComponents);
+                //Logger.Log.Debug("ConnectionState: " + State);
             }
             catch (Exception exception)
             {
-                //Logger.Log.Debug("PythonConnection.Open Exception: " + exception.Message + "StackTrace" + exception.StackTrace);
                 Logger.Log.Debug("PythonConnection.Open Exception: " + exception);
                 throw;
             }
@@ -118,33 +92,12 @@ namespace Pike.PythonClient64.Data
         {
             try
             {
-                Logger.Log.Debug("PythonConnection.Close: " + ConnectionName);
-                Logger.Log.Debug("Thread: " + Thread.CurrentThread.ManagedThreadId);
-                Logger.Log.Debug("PythonConnection.ConnectionState = " + State);
-                if (State == ConnectionState.Closed) return;
-                
-                if (_sys != null)
-                {
-                    _sys.Dispose();
-                    _sys = null;
-                    Logger.Log.Debug("_sys.Dispose();");
-                }
-
-                if (GilState != null)
-                {
-                    GilState.Dispose();
-                    GilState = null;
-                    Logger.Log.Debug("GilState.Dispose();");
-                }
-
-                PythonEngine.Shutdown();
-                Logger.Log.Debug("PythonEngine.Shutdown();");
-                _state = ConnectionState.Closed;
-                Logger.Log.Debug("_state = ConnectionState.Closed;");
+                //Logger.Log.Debug("PythonConnection.Close: " + ConnectionName);
+                PythonDataProvider.Close();
+                //Logger.Log.Debug("ConnectionState: " + State);
             }
             catch (Exception exception)
             {
-                //Logger.Log.Debug("PythonConnection.Close Exception: " + exception.Message + "StackTrace" + exception.StackTrace);
                 Logger.Log.Debug("PythonConnection.Close Exception: " + exception);
                 throw;
             }

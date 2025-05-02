@@ -20,7 +20,7 @@ namespace Pike.PythonClient64
             if (string.IsNullOrWhiteSpace(scriptText)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(scriptText));
             if (PythonDataProvider.State != ConnectionState.Open) throw new InvalidOperationException("Connection must be open");
 
-            lock (PythonDataProvider.Locker)
+            //lock (PythonDataProvider.Locker)
             {
                 using (var module = Py.CreateScope())
                 {
@@ -70,7 +70,7 @@ namespace Pike.PythonClient64
             return dict;
         }
 
-        public static DataTable ConvertDataFrameToDataTable(dynamic df)
+        static DataTable ConvertDataFrameToDataTable(dynamic df)
         {
             // Result table
             var dataTable = new DataTable(ResultKey);

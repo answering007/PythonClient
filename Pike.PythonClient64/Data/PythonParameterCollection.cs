@@ -1,5 +1,4 @@
-﻿using Python.Runtime;
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Data.Common;
@@ -13,10 +12,6 @@ namespace Pike.PythonClient64.Data
     /// </summary>
     public class PythonParameterCollection : DbParameterCollection
     {
-        /// <summary>
-        /// Python name for parameters dictionary
-        /// </summary>
-        public const string PythonName = "params";
         //readonly SortedList<string, PythonParameter> _collection = new SortedList<string, PythonParameter>();
         private readonly KeyIndexCollection<string, PythonParameter> _collection =
             new KeyIndexCollection<string, PythonParameter>();
@@ -316,20 +311,5 @@ namespace Pike.PythonClient64.Data
         /// Returns an enumerator that iterates through the collection
         /// </summary>
         public IEnumerable<PythonParameter> Values => _collection.Values;
-
-        /// <summary>
-        /// Convert collection to python dictionary
-        /// </summary>
-        /// <returns>Python dictionary</returns>
-        public PyDict ToPythonDictionary()
-        {
-            var dict = new PyDict();
-            foreach (var parameter in Values)
-            {
-                var kv = parameter.ToPythonParameter();
-                dict.SetItem(kv.Key, kv.Value);
-            }
-            return dict;
-        }
     }
 }

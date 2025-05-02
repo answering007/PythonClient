@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data;
+using System.Diagnostics;
 using System.IO;
 using Python.Runtime;
 using static Python.Runtime.Py;
@@ -13,8 +14,19 @@ namespace Pike.PythonClient64
         static dynamic _sys;
 
         public static object Locker { get; } = new object();
-        
-        public static ConnectionState State { get; private set; } = ConnectionState.Closed;
+
+        private static ConnectionState _state = ConnectionState.Closed;
+        public static ConnectionState State
+        {
+            get
+            {
+                Logger.Log.Debug("State: Locker.Enter = " + _state);
+                return _state;
+
+            }
+        }
+
+        public static string Version => PythonEngine.Version;
 
         public static string PythonDllPath { get; set; }
 
@@ -40,11 +52,15 @@ namespace Pike.PythonClient64
 
         public static void Open(IEnumerable<string> pathComponents = null)
         {
+            if (!Debugger.IsAttached)
+                Debugger.Launch();
+            
             if (string.IsNullOrWhiteSpace(PythonDllPath)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(PythonDllPath));
 
-            lock (Locker)
+            //lock (Locker)
             {
-                if (State == ConnectionState.Open) return;
+                Logger.Log.Debug("Open: Locker.Enter");
+                if (_state == ConnectionState.Open) return;
 
                 Runtime.PythonDLL = PythonDllPath;
                 PythonEngine.Initialize();
@@ -60,7 +76,8 @@ namespace Pike.PythonClient64
                     }
                 }
 
-                State = ConnectionState.Open;
+                _state = ConnectionState.Open;
+                Logger.Log.Debug("Open: Locker.Exit");
             }
         }
 
@@ -76,9 +93,10 @@ namespace Pike.PythonClient64
 
         public static void Close()
         {
-            lock (Locker)
+            //lock (Locker)
             {
-                if (State == ConnectionState.Closed) return;
+                Logger.Log.Debug("Close: Locker.Enter");
+                if (_state == ConnectionState.Closed) return;
 
                 if (_sys != null)
                 {
@@ -92,10 +110,10 @@ namespace Pike.PythonClient64
                     _gilState = null;
                 }
 
+                _state = ConnectionState.Closed;
                 PythonEngine.Shutdown();
-                _gilState = GIL();
-
-                State = ConnectionState.Closed;
+                
+                Logger.Log.Debug("Close: Locker.Exit");
             }
         }
     }

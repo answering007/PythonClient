@@ -1,10 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.IO;
-using Pike.PythonClient64.ColumnConverters;
-using Python.Runtime;
 
 namespace Pike.PythonClient64.Data
 {
@@ -14,9 +11,6 @@ namespace Pike.PythonClient64.Data
     /// </summary>
     public class PythonCommand: DbCommand
     {
-        const string QueryKey = "query";
-        const string ResultKey = "result";
-
         /// <inheritdoc />
         /// <summary>
         /// Gets or sets the text command to run against the data source
@@ -120,7 +114,7 @@ namespace Pike.PythonClient64.Data
         /// <returns>A <see cref="T:System.Data.DataTableReader" /> object</returns>
         protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
         {
-            Logger.Log.Debug("PythonCommand.ExecuteDbDataReader");
+            //Logger.Log.Debug("PythonCommand.ExecuteDbDataReader");
             if (DbConnection == null) throw new InvalidOperationException("DbConnection can't be null");
             if (DbConnection.State != ConnectionState.Open) throw new InvalidOperationException("Connection must be open");
 
@@ -133,95 +127,19 @@ namespace Pike.PythonClient64.Data
             }
             if (string.IsNullOrWhiteSpace(scriptText)) throw new InvalidOperationException("Python script can't be null or empty");
 
-            Logger.Log.Debug("PythonCommand: start executing");
-            using (var module = Py.CreateScope())
-            {
-                Logger.Log.Debug("Py.CreateScope()");
-                using (dynamic variables = module.Variables())
-                {
-                    Logger.Log.Debug("module.Variables()");
-                    if (!_pythonConnection.UseQueryAsScript)
-                        variables[QueryKey] = CommandText.ToPython();
+            //Logger.Log.Debug("PythonCommand: start executing");
+            
+            PythonDataQuery.Reset();
+            if (!_pythonConnection.UseQueryAsScript)
+                PythonDataQuery.Query = CommandText;
 
-                    var parameters = (PythonParameterCollection)DbParameterCollection;
-                    using (var pyDictionary = parameters.ToPythonDictionary())
-                    {
-                        Logger.Log.Debug("parameters.ToPythonDictionary()");
-                        variables[PythonParameterCollection.PythonName] = pyDictionary;
+            var parameters = (PythonParameterCollection)DbParameterCollection;
+            foreach (var parameter in parameters.Values)
+                PythonDataQuery.Parameters[parameter.ParameterName] = parameter.Value;
 
-                        module.Exec(scriptText);
-                        Logger.Log.Debug("module.Exec(scriptText);");
-
-                        if (!variables.HasKey(ResultKey)) throw new KeyNotFoundException($"Python script must assign result to a variable named '{ResultKey}'");
-
-                        DataTable dataTable = ConvertDataFrameToDataTable(variables[ResultKey]);
-                        Logger.Log.Debug("ConvertDataFrameToDataTable(variables[ResultKey])");
-                        Logger.Log.Debug("Number of datatable rows = " + dataTable.Rows.Count);
-                        //Logger.Log.Debug(dataTable.ToStringData());
-                        return dataTable.CreateDataReader();
-                    }
-                }
-            }
-        }
-
-        static DataTable ConvertDataFrameToDataTable(dynamic df)
-        {
-            // Result table
-            var dataTable = new DataTable(ResultKey);
-
-            // Get column names
-            var columns = (PyObject[])df.columns.tolist();
-
-            // Get column types
-            var pythonTypes = df.dtypes.to_dict();
-
-            // Get number of rows and create
-            var rowsCount = (int)df.shape[0];
-
-            // Managed values
-            var tableValues = new object[columns.Length][];
-
-            // Define columns and convert data to managed values
-            for (var i = 0; i < columns.Length; i++)
-            {
-                // Column name
-                var column = columns[i];
-
-                // Define managed type
-                string pythonType = pythonTypes[column].ToString();
-                var managedConverter = SupportedTypes.Values.ContainsKey(pythonType)? SupportedTypes.Values[pythonType] : new StringConverter();
-
-                // Add columns
-                dataTable.Columns.Add(new DataColumn(column.ToString())
-                {
-                    AllowDBNull = true,
-                    DataType = managedConverter.TargetType,
-                });
-
-                // Fill values
-                var pythonValues = (object[])df[column].values.tolist();
-                var values = managedConverter.ConvertValues(pythonValues);
-
-                tableValues[i] = values;
-            }
-
-            // Dispose types dictionary
-            pythonTypes.Dispose();
-
-            // Dispose column name objects
-            foreach (var column in columns)
-                column.Dispose();
-
-            // Fill datatable
-            for (var i = 0; i < rowsCount; i++)
-            {
-                var row = dataTable.NewRow();
-                for (var j = 0; j < columns.Length; j++)
-                    row[j] = tableValues[j][i];
-                dataTable.Rows.Add(row);
-            }
-
-            return dataTable;
+            var dataTable = PythonDataQuery.RunScript(scriptText);
+            //Logger.Log.Debug("PythonCommand: dataTable has rows = " + dataTable.Rows.Count);
+            return dataTable.CreateDataReader();
         }
 
         /// <inheritdoc />
