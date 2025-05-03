@@ -1,11 +1,14 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
+﻿using System;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Pike.PythonClient64.Data;
 using System.Data;
 using System.Data.Common;
-using System.Diagnostics;
 
 namespace Pike.PythonClient.Test.Tests
 {
+    /// <summary>
+    /// Test <see cref="PythonProviderFactory"/>. Works only after installation
+    /// </summary>
     [TestClass]
     public class DbProviderFactory
     {
@@ -36,7 +39,7 @@ namespace Pike.PythonClient.Test.Tests
             bool isOpened;
             using (var dbConnection = factory.CreateConnection())
             {
-                Debug.Assert(dbConnection != null, nameof(dbConnection) + " != null");
+                if (dbConnection == null) throw new Exception("'dbConnection' can't be null");
 
                 dbConnection.ConnectionString = builder.ConnectionString;
                 dbConnection.Open();
@@ -62,7 +65,7 @@ result = pd.DataFrame({'StringColumn': ['Pike']})";
             var factory = DbProviderFactories.GetFactory(_factoryName);
             using (var dbConnection = factory.CreateConnection())
             {
-                Debug.Assert(dbConnection != null, nameof(dbConnection) + " != null");
+                if (dbConnection == null) throw new Exception("'dbConnection' can't be null");
 
                 dbConnection.ConnectionString = builder.ConnectionString;
                 dbConnection.Open();
