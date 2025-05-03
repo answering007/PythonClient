@@ -63,20 +63,13 @@
     <Compile Include="Tests\DbProviderFactory.cs" />
     <Compile Include="Tests\DataProvider.cs" />
     <Compile Include="Tests\DataQuery.cs" />
-    <Compile Include="Tests\UnitTest1.cs" />
-    <Compile Include="Tests\Worker.cs" />
-    <Compile Include="WorkerTask.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />
-    <Content Include="Excel\PowerQuery - 01 - Basic example.xlsx" />
-    <Content Include="Excel\PowerQuery - 02 - Transfer table to script.xlsx" />
-    <Content Include="Excel\PowerQuery - 03 - Query as script.xlsx" />
-    <Content Include="Excel\PowerQuery - 04 - Use module.xlsx" />
-    <Content Include="Excel\TestModule04.py" />
-    <Content Include="Excel\TestScript01.py" />
-    <Content Include="Excel\TestScript02.py" />
-    <Content Include="Excel\TestScript04.py" />
+    <None Include="Excel\PowerQuery - 01 - Basic example.xlsx" />
+    <None Include="Excel\PowerQuery - 02 - Python code as query.xlsx" />
+    <None Include="Excel\PowerQuery - 03 - Use custom module.xlsx" />
+    <None Include="Excel\PowerQuery - 04 - Transfer table to script.xlsx" />
     <None Include="packages.config" />
     <Content Include="Python\TestScript01.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
@@ -85,6 +78,9 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <Content Include="Python\TestScript02.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="Python\TestScript03.py">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
     <None Include="SettingsMain.settings">

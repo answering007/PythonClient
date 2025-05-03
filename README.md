@@ -1,29 +1,48 @@
 # PythonClient
-Ado.net provider that uses python script as the datasource. This project is based on Python 3.8 x64 and [pythonnet](https://github.com/pythonnet/pythonnet)
+Ado.net x64 provider that uses python script as the datasource. This project is based on [pythonnet](https://github.com/pythonnet/pythonnet)
+
+## Table of content
+<!--TOC-->
+  - [Quik example](#quik-example)
+    - [C#](#c)
+    - [Python script](#python-script)
+  - [Python script text via command text](#python-script-text-via-command-text)
+  - [Power Query](#power-query)
+  - [Examples](#examples)
+  - [Supported DataFrame column types](#supported-dataframe-column-types)
+  - [Supported parameter types](#supported-parameter-types)
+  - [Installation](#installation)
+<!--/TOC-->
+
 ## Quik example
 ### C#
 ```C#
 //Python script file for test
 const string fileName = @"TestScript01.py";
-var scriptFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName));
+var scriptFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SettingsMain.Default.PythonScriptsFolder, fileName));
 if (!scriptFile.Exists) throw new FileNotFoundException("Where is the script?", scriptFile.FullName);
 
 //Setup python environment
-const string pythonHome = @"C:\Users\Pike\anaconda3";   //<-- Replace it with your own path to anaconda
-//Compose PATH environment variable
-var lib = Path.Combine(pythonHome, "Lib");
-var dlls = Path.Combine(pythonHome, "DLLs");
+var pythonDll = new FileInfo(SettingsMain.Default.PythonDllPath);
+if (!pythonDll.Exists) throw new FileNotFoundException("Can't find python*.dll file", pythonDll.FullName);
+if (pythonDll.DirectoryName == null)
+    throw new DirectoryNotFoundException("Directory name of python*.dll file can't be null");
+
+//Compose PATH variable
+var lib = Path.Combine(pythonDll.DirectoryName, "Lib");
+var dlls = Path.Combine(pythonDll.DirectoryName, "DLLs");
 var packages = Path.Combine(lib, "site-packages");
-var libraryBin = Path.Combine(pythonHome, "Library", "bin");
+var libraryBin = Path.Combine(pythonDll.DirectoryName, "Library", "bin");
 
 //Create connection string
 var stringBuilder = new PythonConnectionStringBuilder
 {
     File = scriptFile.FullName,
-    PythonHome = pythonHome,
-    Path = string.Join(";", pythonHome, lib, dlls, packages, libraryBin)
+    PythonDll = pythonDll.FullName,
+    PythonPath = string.Join(";", lib, dlls, packages, libraryBin)
 };
 
+var datatable = new DataTable();
 using (var connection = new PythonConnection())
 {
     connection.ConnectionString = stringBuilder.ConnectionString;
@@ -42,40 +61,31 @@ using (var connection = new PythonConnection())
         command.Parameters.Add(new PythonParameter { ParameterName = "string", Value = "String parameter" });
 
         /*
-         * Python script must have "result" variable of type pandas DataFrame.
-         * This variable data will be transfered to DbDataReader
-         */
+            * Python script must have "result" variable of type pandas DataFrame.
+            * This variable data will be transferred to DbDataReader
+            */
         using (var reader = command.ExecuteReader())
-        {
-            var datatable = new DataTable();
             datatable.Load(reader);
-
-            //Print data
-            PrintDataTable(datatable);
-        }
     }
 }
-
-Console.WriteLine("Done!");
-Console.ReadLine();
 ```
 ### Python script
 ```Python
-query_text = globals()['query'] if 'query' in globals() else None
-print("Query text is:", query_text)
-
-query_params = globals()['params'] if 'params' in globals() else None
-print("Query parameters:", query_params)
-
+"""TestScript01."""
 import numpy as np
 import pandas as pd
 
-result = pd.DataFrame(
-	[['Pike', True, 99.0, 78, np.timedelta64(10, 'h'), np.datetime64(30, 'Y')],
-	[None, True, 56.1, 88, np.timedelta64(11, 'h'), np.datetime64(31, 'Y')],
-	['Amol', False, 73.2, 45, np.timedelta64(12, 'h'), np.datetime64(40, 'Y')],
-	['Lini', False, 69.3, 87, np.timedelta64(13, 'h'), np.datetime64(33, 'Y')]],
-	columns=['name', 'physics', 'chemistry','algebra','timedelta', 'datetime'])
+query_text = globals()['query'] if 'query' in globals() else None
+query_params = globals()['params'] if 'params' in globals() else None
+
+result = pd.DataFrame({
+    'StringColumn':		['Pike',	None,	'Amol'],
+    'BoolColumn':		[True,		True,	False],
+    'FloatColumn':		[123.456,	np.nan,	456.789],
+    'IntColumn':		[123456,	456789,	789123],
+    'TimeDeltaColumn':	[np.timedelta64(10, 'h'), None, np.timedelta64(12, 'h')],
+    'DateTimeColumn':	[np.datetime64(30, 'Y'), None, np.datetime64(50, 'Y')]
+})
 ```
 ## Python script text via command text
 It is possible to use [DbCommand.CommandText](https://docs.microsoft.com/en-us/dotnet/api/system.data.common.dbcommand.commandtext?view=netframework-4.6.1) to set python script text (instead of py file):
@@ -84,30 +94,59 @@ It is possible to use [DbCommand.CommandText](https://docs.microsoft.com/en-us/d
 const string scriptText = @"import pandas as pd
 
 query_text = globals()['query'] if 'query' in globals() else None
-print('Query text is:', query_text)
-
 query_params = globals()['params'] if 'params' in globals() else None
-print('Query parameters:', query_params)
 
 result = pd.DataFrame(
-	[[True, 99.0],
-	[True, 56.1],
-	[False, 73.2],
-	[False, 69.3]])";
+[[True, 99.0],
+[True, 56.1],
+[False, 73.2],
+[False, 69.3]])";
 
 //Setup python environment
-const string pythonHome = @"C:\Python37";   //<-- Replace it with your own path to python 3.7
+var pythonDll = new FileInfo(SettingsMain.Default.PythonDllPath);
+if (!pythonDll.Exists) throw new FileNotFoundException("Can't find python*.dll file", pythonDll.FullName);
+if (pythonDll.DirectoryName == null)
+    throw new DirectoryNotFoundException("Directory name of python*.dll file can't be null");
+
+//Compose PATH variable
+var lib = Path.Combine(pythonDll.DirectoryName, "Lib");
+var dlls = Path.Combine(pythonDll.DirectoryName, "DLLs");
+var packages = Path.Combine(lib, "site-packages");
+var libraryBin = Path.Combine(pythonDll.DirectoryName, "Library", "bin");
 
 //Create connection string
-var stringBuilder = new PythonConnectionStringBuilder   //<-- No need to set File property
+var stringBuilder = new PythonConnectionStringBuilder
 {
-    PythonHome = pythonHome
+    PythonDll = pythonDll.FullName,
+    PythonPath = string.Join(";", lib, dlls, packages, libraryBin)
 };
-...
-using (var command = connection.CreateCommand())
+
+var datatable = new DataTable();
+using (var connection = new PythonConnection())
 {
-    command.CommandText = scriptText;
-...
+    connection.ConnectionString = stringBuilder.ConnectionString;
+    connection.Open();
+    using (var command = connection.CreateCommand())
+    {
+        //In this case there is no "query" global variable in python
+        command.CommandText = scriptText;
+
+        //Set query parameters. It will be passed to python "params" variable
+        command.Parameters.Add(new PythonParameter { ParameterName = "bool", Value = true });
+        command.Parameters.Add(new PythonParameter { ParameterName = "dt", Value = DateTime.Today });
+        command.Parameters.Add(new PythonParameter { ParameterName = "double", Value = 1235.0 });
+        command.Parameters.Add(new PythonParameter { ParameterName = "int", Value = 789 });
+        command.Parameters.Add(new PythonParameter { ParameterName = "long", Value = 1024L });
+        command.Parameters.Add(new PythonParameter { ParameterName = "string", Value = "String parameter" });
+
+        /*
+            * Python script must have "result" variable of type pandas DataFrame.
+            * This variable data will be transferred to DbDataReader
+            */
+        using (var reader = command.ExecuteReader())
+            datatable.Load(reader);
+    }
+}
 ```
 ## Power Query
 [Power Query M formula language](https://docs.microsoft.com/en-us/powerquery-m/) supports [AdoDotNet.Query](https://docs.microsoft.com/en-us/powerquery-m/adodotnet-query) and it's possible to use PythonClient as a datasource:
@@ -139,9 +178,53 @@ query = AdoDotNet.Query(
 ```
 3. Decode data in python script:
 ```Python
-def decode_table(text)->pd.DataFrame:
+def decode_table(text: str)->pd.DataFrame:
+    """
+    Decode a base64 encoded string, decompress it using gzip,
+    and then load it into a pandas DataFrame using json.loads.
+    
+    Parameters
+    ----------
+    text : str
+        The string to be decoded.
+    
+    Returns
+    -------
+    pd.DataFrame
+        The DataFrame containing the data from the string.
+    """
     decoded = base64.b64decode(text)
-    rawdata = gzip.decompress(decoded)
-    data = json.loads(rawdata)
-    return pd.DataFrame(data)
+    raw_data = gzip.decompress(decoded)
+    json_data = json.loads(raw_data)
+    return pd.DataFrame(json_data)
 ```
+## Examples
+* C# examples can be found [HERE](https://github.com/answering007/PythonClient/tree/master/Pike.PythonClient.Test/Tests)
+* Excel examples can be found [HERE](https://github.com/answering007/PythonClient/tree/master/Pike.PythonClient.Test/Excel)
+
+## Supported DataFrame column types
+| Python | .NET |
+| ----------- | ----------- |
+| bool | bool |
+| datetime64[ns] | DateTime |
+| float64 | double |
+| int32 | int |
+| int64 | long |
+| object | string |
+| timedelta64[ns] | TimeSpan |
+
+## Supported parameter types
+| .NET | Python |
+| ----------- | ----------- |
+| bool | bool |
+| DateTime | datetime64[ns] |
+| double | float64 |
+| int | int32 |
+| long | int64 |
+| string | object |
+
+## Installation
+
+1. Download latest [release](https://github.com/answering007/PythonClient/releases)
+2. Extract files
+3. Run **setup.exe** as administrator

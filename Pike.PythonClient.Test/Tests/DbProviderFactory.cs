@@ -11,12 +11,23 @@ namespace Pike.PythonClient.Test.Tests
     {
         string _factoryName;
 
+        /// <summary>
+        /// Initialize the test class by setting up the factory name
+        /// </summary>
         [TestInitialize]
         public void Setup()
         {
             _factoryName = typeof(PythonProviderFactory).FullName;
         }
         
+        /// <summary>
+        /// Test whether the connection can be opened and closed.
+        /// </summary>
+        /// <remarks>
+        /// Tests that the connection can be opened and closed. This is a basic test
+        /// that the connection can be established and is a pre-requisite for all
+        /// other tests.
+        /// </remarks>
         [TestMethod]
         public void ConnectionCanBeOpenedAndClosed()
         {
@@ -34,6 +45,12 @@ namespace Pike.PythonClient.Test.Tests
             Assert.AreEqual(true, isOpened);
         }
 
+        /// <summary>
+        /// Test that the ExecuteScalar method runs the query as expected and returns the correct value.
+        /// </summary>
+        /// <remarks>
+        /// This test makes sure that the ExecuteScalar method runs the query as expected and returns the correct value.
+        /// </remarks>
         [TestMethod]
         public void TestScriptAsCommandText()
         {

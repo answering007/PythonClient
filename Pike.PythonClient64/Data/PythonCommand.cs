@@ -114,7 +114,6 @@ namespace Pike.PythonClient64.Data
         /// <returns>A <see cref="T:System.Data.DataTableReader" /> object</returns>
         protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
         {
-            //Logger.Log.Debug("PythonCommand.ExecuteDbDataReader");
             if (DbConnection == null) throw new InvalidOperationException("DbConnection can't be null");
             if (DbConnection.State != ConnectionState.Open) throw new InvalidOperationException("Connection must be open");
 
@@ -126,19 +125,21 @@ namespace Pike.PythonClient64.Data
                 scriptText = File.ReadAllText(_pythonConnection.DataSource ?? throw new InvalidOperationException());
             }
             if (string.IsNullOrWhiteSpace(scriptText)) throw new InvalidOperationException("Python script can't be null or empty");
-
-            //Logger.Log.Debug("PythonCommand: start executing");
             
+            // Reset query parameters
             PythonDataQuery.Reset();
+            
+            // Fill query
             if (!_pythonConnection.UseQueryAsScript)
                 PythonDataQuery.Query = CommandText;
 
+            // Fill parameters
             var parameters = (PythonParameterCollection)DbParameterCollection;
             foreach (var parameter in parameters.Values)
                 PythonDataQuery.Parameters[parameter.ParameterName] = parameter.Value;
 
+            // Run script
             var dataTable = PythonDataQuery.RunScript(scriptText);
-            //Logger.Log.Debug("PythonCommand: dataTable has rows = " + dataTable.Rows.Count);
             return dataTable.CreateDataReader();
         }
 

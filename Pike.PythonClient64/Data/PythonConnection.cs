@@ -13,14 +13,6 @@ namespace Pike.PythonClient64.Data
     {
         PythonConnectionStringBuilder _builder = new PythonConnectionStringBuilder();
 
-        public PythonConnection()
-        {
-            ConnectionName = Guid.NewGuid().ToString();
-            //Logger.Log.Debug("PythonConnection created: " + ConnectionName);
-        }
-
-        public string ConnectionName { get; }
-
         /// <inheritdoc />
         /// <summary>
         /// Get or set python connection string
@@ -66,22 +58,13 @@ namespace Pike.PythonClient64.Data
         /// </summary>
         public override void Open()
         {
-            try
-            {
-                //Logger.Log.Debug("PythonConnection.Open: " + ConnectionName);
-                if (PythonDataProvider.State == ConnectionState.Open) return;
-                
-                PythonDataProvider.PythonDllPath = _builder.PythonDll;
+            if (PythonDataProvider.State == ConnectionState.Open) return;
 
-                // Import path components
-                PythonDataProvider.Open(_builder.PythonPathComponents);
-                //Logger.Log.Debug("ConnectionState: " + State);
-            }
-            catch (Exception exception)
-            {
-                Logger.Log.Debug("PythonConnection.Open Exception: " + exception);
-                throw;
-            }
+            // Set python*.dll path
+            PythonDataProvider.PythonDllPath = _builder.PythonDll;
+
+            // Import path components
+            PythonDataProvider.Open(_builder.PythonPathComponents);
         }
 
         /// <inheritdoc />
@@ -90,17 +73,7 @@ namespace Pike.PythonClient64.Data
         /// </summary>
         public override void Close()
         {
-            try
-            {
-                //Logger.Log.Debug("PythonConnection.Close: " + ConnectionName);
-                PythonDataProvider.Close();
-                //Logger.Log.Debug("ConnectionState: " + State);
-            }
-            catch (Exception exception)
-            {
-                Logger.Log.Debug("PythonConnection.Close Exception: " + exception);
-                throw;
-            }
+            PythonDataProvider.Close();
         }
 
         /// <inheritdoc />

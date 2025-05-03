@@ -21,6 +21,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_17BA31F40F854B329024B4F1B99CB21A"
+        "OwnerKey" = "8:_UNDEFINED"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_2246A1D0B0095E21058EEFBCA64F3FAF"
         "OwnerKey" = "8:_14A60F97A36547BE9AE0A4FB0F85ED5C"
         "MsmSig" = "8:_UNDEFINED"
@@ -35,12 +41,6 @@
         {
         "MsmKey" = "8:_2246A1D0B0095E21058EEFBCA64F3FAF"
         "OwnerKey" = "8:_6908860E1AA9DE66F7993955352926AE"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
-        "MsmKey" = "8:_24CED50B413EB6546FE8EBEE11DE6B07"
-        "OwnerKey" = "8:_14A60F97A36547BE9AE0A4FB0F85ED5C"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
@@ -105,6 +105,12 @@
         }
         "Entry"
         {
+        "MsmKey" = "8:_A2B4CA11946094DAF1DA5040305DC631"
+        "OwnerKey" = "8:_17BA31F40F854B329024B4F1B99CB21A"
+        "MsmSig" = "8:_UNDEFINED"
+        }
+        "Entry"
+        {
         "MsmKey" = "8:_C693C1E46A931DEA1F9EE508472A2BAF"
         "OwnerKey" = "8:_14A60F97A36547BE9AE0A4FB0F85ED5C"
         "MsmSig" = "8:_UNDEFINED"
@@ -131,12 +137,6 @@
         {
         "MsmKey" = "8:_UNDEFINED"
         "OwnerKey" = "8:_14A60F97A36547BE9AE0A4FB0F85ED5C"
-        "MsmSig" = "8:_UNDEFINED"
-        }
-        "Entry"
-        {
-        "MsmKey" = "8:_UNDEFINED"
-        "OwnerKey" = "8:_24CED50B413EB6546FE8EBEE11DE6B07"
         "MsmSig" = "8:_UNDEFINED"
         }
         "Entry"
@@ -353,37 +353,6 @@
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_1BC5B9B05D6E49CEBC6ED688EC0C1E79"
-            "Condition" = "8:"
-            "Transitive" = "11:FALSE"
-            "Vital" = "11:TRUE"
-            "ReadOnly" = "11:FALSE"
-            "Hidden" = "11:FALSE"
-            "System" = "11:FALSE"
-            "Permanent" = "11:FALSE"
-            "SharedLegacy" = "11:FALSE"
-            "PackageAs" = "3:1"
-            "Register" = "3:1"
-            "Exclude" = "11:FALSE"
-            "IsDependency" = "11:TRUE"
-            "IsolateTo" = "8:"
-            }
-            "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_24CED50B413EB6546FE8EBEE11DE6B07"
-            {
-            "AssemblyRegister" = "3:1"
-            "AssemblyIsInGAC" = "11:FALSE"
-            "AssemblyAsmDisplayName" = "8:log4net, Version=3.0.4.0, Culture=neutral, PublicKeyToken=669e0ddf0bb1aa2a, processorArchitecture=MSIL"
-                "ScatterAssemblies"
-                {
-                    "_24CED50B413EB6546FE8EBEE11DE6B07"
-                    {
-                    "Name" = "8:log4net.dll"
-                    "Attributes" = "3:512"
-                    }
-                }
-            "SourcePath" = "8:log4net.dll"
-            "TargetName" = "8:"
-            "Tag" = "8:"
-            "Folder" = "8:_426A037D0FA34300ACE68FE47A8B19AB"
             "Condition" = "8:"
             "Transitive" = "11:FALSE"
             "Vital" = "11:TRUE"
@@ -615,6 +584,26 @@
             "IsDependency" = "11:TRUE"
             "IsolateTo" = "8:"
             }
+            "{1FB2D0AE-D3B9-43D4-B9DD-F88EC61E35DE}:_A2B4CA11946094DAF1DA5040305DC631"
+            {
+            "SourcePath" = "8:Python.Runtime.xml"
+            "TargetName" = "8:Python.Runtime.xml"
+            "Tag" = "8:"
+            "Folder" = "8:_1BC5B9B05D6E49CEBC6ED688EC0C1E79"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:TRUE"
+            "IsolateTo" = "8:"
+            }
             "{9F6F8455-1EF1-4B85-886A-4223BCC8E7F7}:_C693C1E46A931DEA1F9EE508472A2BAF"
             {
             "AssemblyRegister" = "3:1"
@@ -692,7 +681,7 @@
         "Name" = "8:Microsoft Visual Studio"
         "ProductName" = "8:PythonClient64"
         "ProductCode" = "8:{B3BE9187-B040-4AEE-AB3F-7B298F564B2C}"
-        "PackageCode" = "8:{75B8229D-E38B-44EC-BBC0-A40AC2C68E47}"
+        "PackageCode" = "8:{2CD28F2D-5D91-416C-94AD-E02279CA6339}"
         "UpgradeCode" = "8:{9C680FF5-6FBE-40CE-A58D-3ABCD82D9CEA}"
         "AspNetVersion" = "8:4.0.30319.0"
         "RestartWWWService" = "11:FALSE"
@@ -1156,7 +1145,7 @@
         {
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_14A60F97A36547BE9AE0A4FB0F85ED5C"
             {
-            "SourcePath" = "8:..\\Pike.PythonClient64\\obj\\Debug\\Pike.PythonClient64.dll"
+            "SourcePath" = "8:..\\Pike.PythonClient64\\obj\\Release\\Pike.PythonClient64.dll"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_426A037D0FA34300ACE68FE47A8B19AB"
@@ -1182,9 +1171,37 @@
                 {
                 }
             }
+            "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_17BA31F40F854B329024B4F1B99CB21A"
+            {
+            "SourcePath" = "8:..\\Pike.PythonClient64\\bin\\Release\\Pike.PythonClient64.xml"
+            "TargetName" = "8:"
+            "Tag" = "8:"
+            "Folder" = "8:_1BC5B9B05D6E49CEBC6ED688EC0C1E79"
+            "Condition" = "8:"
+            "Transitive" = "11:FALSE"
+            "Vital" = "11:TRUE"
+            "ReadOnly" = "11:FALSE"
+            "Hidden" = "11:FALSE"
+            "System" = "11:FALSE"
+            "Permanent" = "11:FALSE"
+            "SharedLegacy" = "11:FALSE"
+            "PackageAs" = "3:1"
+            "Register" = "3:1"
+            "Exclude" = "11:FALSE"
+            "IsDependency" = "11:FALSE"
+            "IsolateTo" = "8:"
+            "ProjectOutputGroupRegister" = "3:1"
+            "OutputConfiguration" = "8:"
+            "OutputGroupCanonicalName" = "8:Documentation"
+            "OutputProjectGuid" = "8:{B9C12A50-2E5D-413B-8CDD-AE4FEF3C021C}"
+            "ShowKeyOutput" = "11:TRUE"
+                "ExcludeFilters"
+                {
+                }
+            }
             "{5259A561-127C-4D43-A0A1-72F10C7B3BF8}:_25F06A47312048FEA52E760AE2CEAA21"
             {
-            "SourcePath" = "8:..\\Pike.PythonClient64\\obj\\Debug\\Pike.PythonClient64.dll"
+            "SourcePath" = "8:..\\Pike.PythonClient64\\obj\\Release\\Pike.PythonClient64.dll"
             "TargetName" = "8:"
             "Tag" = "8:"
             "Folder" = "8:_1BC5B9B05D6E49CEBC6ED688EC0C1E79"

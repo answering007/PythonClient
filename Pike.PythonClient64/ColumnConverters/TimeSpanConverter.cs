@@ -4,12 +4,18 @@ using System.Linq;
 
 namespace Pike.PythonClient64.ColumnConverters
 {
+    /// <summary>
+    /// TimeSpan values converter
+    /// </summary>
     public class TimeSpanConverter : IColumnConverter
     {
+        /// <inheritdoc />
         public string PythonTypeName => "timedelta64[ns]";
 
+        /// <inheritdoc />
         public Type TargetType => typeof(TimeSpan);
 
+        /// <inheritdoc />
         public object[] ConvertValues(object[] pythonValues)
         {
             return pythonValues.Select(SpanConverter).ToArray();
