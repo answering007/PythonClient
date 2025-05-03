@@ -25,6 +25,7 @@
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType>pdbonly</DebugType>
@@ -35,6 +36,7 @@
     <WarningLevel>4</WarningLevel>
     <DocumentationFile>bin\Release\Pike.PythonClient64.xml</DocumentationFile>
     <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
   </PropertyGroup>
   <PropertyGroup>
     <SignAssembly>true</SignAssembly>
@@ -44,12 +46,8 @@
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="Microsoft.Build.Utilities.v4.0" />
-    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>..\packages\Newtonsoft.Json.13.0.1\lib\net45\Newtonsoft.Json.dll</HintPath>
-    </Reference>
-    <Reference Include="Python.Runtime, Version=2.5.2.0, Culture=neutral, processorArchitecture=AMD64">
-      <HintPath>..\packages\pythonnet_py38_win.2.5.2\lib\net40\Python.Runtime.dll</HintPath>
-      <Private>True</Private>
+    <Reference Include="Python.Runtime, Version=3.0.5.0, Culture=neutral, PublicKeyToken=5000fea6cba702dd, processorArchitecture=MSIL">
+      <HintPath>..\packages\pythonnet.3.0.5\lib\netstandard2.0\Python.Runtime.dll</HintPath>
     </Reference>
     <Reference Include="System" />
     <Reference Include="System.Configuration.Install" />
@@ -59,14 +57,20 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="DataTableReadConverter.cs" />
+    <Compile Include="ColumnConverters\IntegerConverter.cs" />
+    <Compile Include="ColumnConverters\LongConverter.cs" />
+    <Compile Include="ColumnConverters\DateTimeConverter.cs" />
+    <Compile Include="ColumnConverters\TimeSpanConverter.cs" />
+    <Compile Include="ColumnConverters\StringConverter.cs" />
+    <Compile Include="ColumnConverters\BooleanConverter.cs" />
+    <Compile Include="ColumnConverters\DoubleConverter.cs" />
+    <Compile Include="ColumnConverters\IColumnConverter.cs" />
     <Compile Include="Data\PythonCommand.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Data\PythonParameter.cs" />
     <Compile Include="Data\PythonParameterCollection.cs" />
     <Compile Include="Data\PythonProviderFactory.cs" />
-    <Compile Include="FieldInfo.cs" />
     <Compile Include="Install\DataProviderInstallationBase.cs" />
     <Compile Include="Install\DbProviderInstallation.cs" />
     <Compile Include="Install\InstallerMain.cs">
@@ -75,33 +79,24 @@
     <Compile Include="Install\InstallerMain.designer.cs">
       <DependentUpon>InstallerMain.cs</DependentUpon>
     </Compile>
+    <Compile Include="KeyIndexCollection.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Data\PythonConnection.cs">
       <SubType>Component</SubType>
     </Compile>
     <Compile Include="Data\PythonConnectionStringBuilder.cs" />
-    <Compile Include="PythonUtils.cs" />
+    <Compile Include="PythonDataProvider.cs" />
+    <Compile Include="PythonDataQuery.cs" />
+    <Compile Include="SupportedTypes.cs" />
   </ItemGroup>
   <ItemGroup>
-    <EmbeddedResource Include="Helper.py" />
-    <Content Include="Examples\PowerQuery - 01 - Basic example.xlsx" />
-    <Content Include="Examples\PowerQuery - 02 - Transfer table to script.xlsx" />
-    <Content Include="Examples\TestScript01.py" />
-    <Content Include="Examples\TestScript02.py" />
-    <Content Include="Examples\PowerQuery - 03 - Query as script.xlsx" />
-    <Content Include="Examples\PowerQuery - 04 - Use module.xlsx" />
-    <Content Include="Examples\TestModule04.py" />
-    <Content Include="Examples\TestScript04.py" />
     <None Include="key.snk" />
     <None Include="packages.config" />
   </ItemGroup>
-  <ItemGroup />
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Import Project="..\packages\StrongNamer.0.2.5\build\StrongNamer.targets" Condition="Exists('..\packages\StrongNamer.0.2.5\build\StrongNamer.targets')" />
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>This project references NuGet package(s) that are missing on this computer. Use NuGet Package Restore to download them.  For more information, see http://go.microsoft.com/fwlink/?LinkID=322105. The missing file is {0}.</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('..\packages\StrongNamer.0.2.5\build\StrongNamer.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\StrongNamer.0.2.5\build\StrongNamer.targets'))" />
-  </Target>
+  <PropertyGroup>
+    <PostBuildEvent>if $(ConfigurationName) == Release (
+cd $(TargetDir)
+del Pike.PythonClient64.pdb)</PostBuildEvent>
+  </PropertyGroup>
 </Project>

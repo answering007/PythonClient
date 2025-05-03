@@ -1,59 +1,46 @@
-using System;
+﻿using System;
 using System.Data;
 using System.IO;
-using System.Linq;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Pike.PythonClient64.Data;
 
-namespace PythonClientExample
+namespace Pike.PythonClient.Test.Tests
 {
-    class Program
+    [TestClass]
+    public class Basic
     {
-        static void PrintDataTable(DataTable dataTable)
-        {
-            var columnLine = string.Join("\t", dataTable.Columns.Cast<DataColumn>().Select(c => c.ColumnName));
-            Console.WriteLine(columnLine);
-            foreach (var row in dataTable.Rows.Cast<DataRow>())
-            {
-                var rowLine = string.Join("\t", row.ItemArray);
-                Console.WriteLine(rowLine);
-            }
-        }
-
-        static void Main()
-        {
-            //TestScript01();
-            TestScript02();
-            //TestScript03();
-            //TestScript04();
-            //TestScript05();
-        }
-
         /// <summary>
-        /// Basic anaconda test
+        /// Basic test
         /// </summary>
-        public static void TestScript01()
+        [TestMethod]
+        public void ScriptFromFileTest()
         {
             //Python script file for test
             const string fileName = @"TestScript01.py";
-            var scriptFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName));
+            var scriptFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SettingsMain.Default.PythonScriptsFolder, fileName));
             if (!scriptFile.Exists) throw new FileNotFoundException("Where is the script?", scriptFile.FullName);
 
             //Setup python environment
-            const string pythonHome = @"C:\Users\Pike\anaconda3";   //<-- Replace it with your own path to anaconda
-            //Compose PATH environment variable
-            var lib = Path.Combine(pythonHome, "Lib");
-            var dlls = Path.Combine(pythonHome, "DLLs");
+            var pythonDll = new FileInfo(SettingsMain.Default.PythonDllPath);
+            if (!pythonDll.Exists) throw new FileNotFoundException("Can't find python*.dll file", pythonDll.FullName);
+            if (pythonDll.DirectoryName == null)
+                throw new DirectoryNotFoundException("Directory name of python*.dll file can't be null");
+
+            //Compose PATH variable
+            var lib = Path.Combine(pythonDll.DirectoryName, "Lib");
+            var dlls = Path.Combine(pythonDll.DirectoryName, "DLLs");
             var packages = Path.Combine(lib, "site-packages");
-            var libraryBin = Path.Combine(pythonHome, "Library", "bin");
+            var libraryBin = Path.Combine(pythonDll.DirectoryName, "Library", "bin");
 
             //Create connection string
             var stringBuilder = new PythonConnectionStringBuilder
             {
                 File = scriptFile.FullName,
-                PythonHome = pythonHome,
-                Path = string.Join(";", pythonHome, lib, dlls, packages, libraryBin)
+                PythonDll = pythonDll.FullName,
+                PythonPath = string.Join(";", lib, dlls, packages, libraryBin)
             };
 
+            var datatable = new DataTable();
             using (var connection = new PythonConnection())
             {
                 connection.ConnectionString = stringBuilder.ConnectionString;
@@ -73,55 +60,54 @@ namespace PythonClientExample
 
                     /*
                      * Python script must have "result" variable of type pandas DataFrame.
-                     * This variable data will be transfered to DbDataReader
+                     * This variable data will be transferred to DbDataReader
                      */
                     using (var reader = command.ExecuteReader())
-                    {
-                        var datatable = new DataTable();
                         datatable.Load(reader);
-
-                        //Print data
-                        PrintDataTable(datatable);
-                    }
                 }
             }
 
-            Console.WriteLine("Done!");
-            Console.ReadLine();
+            var firstValue = datatable.Rows[0][0].ToString();
+            Assert.AreEqual("Pike", firstValue);
         }
 
         /// <summary>
-        /// Basic anaconda test with external module
+        /// Basic test with external module
         /// </summary>
-        public static void TestScript02()
+        [TestMethod]
+        public void ScriptFromFileWithModuleTest()
         {
             //Python script file for test
             const string fileName = @"TestScript02.py";
-            var scriptFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", fileName));
+            var scriptFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SettingsMain.Default.PythonScriptsFolder, fileName));
             if (!scriptFile.Exists) throw new FileNotFoundException("Where is the script?", scriptFile.FullName);
 
             //Python module
             const string moduleName = @"TestModule.py";
-            var moduleFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "Scripts", moduleName));
+            var moduleFile = new FileInfo(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, SettingsMain.Default.PythonScriptsFolder, moduleName));
             if (!moduleFile.Exists) throw new FileNotFoundException("Where is the module?", moduleFile.FullName);
 
             //Setup python environment
-            const string pythonHome = @"C:\Users\Pike\anaconda3";   //<-- Replace it with your own path to anaconda
-            //Compose PATH environment variable
-            var lib = Path.Combine(pythonHome, "Lib");
-            var dlls = Path.Combine(pythonHome, "DLLs");
+            var pythonDll = new FileInfo(SettingsMain.Default.PythonDllPath);
+            if (!pythonDll.Exists) throw new FileNotFoundException("Can't find python*.dll file", pythonDll.FullName);
+            if (pythonDll.DirectoryName == null)
+                throw new DirectoryNotFoundException("Directory name of python*.dll file can't be null");
+
+            //Compose PATH variable
+            var lib = Path.Combine(pythonDll.DirectoryName, "Lib");
+            var dlls = Path.Combine(pythonDll.DirectoryName, "DLLs");
             var packages = Path.Combine(lib, "site-packages");
-            var libraryBin = Path.Combine(pythonHome, "Library", "bin");
+            var libraryBin = Path.Combine(pythonDll.DirectoryName, "Library", "bin");
 
             //Create connection string
             var stringBuilder = new PythonConnectionStringBuilder
             {
                 File = scriptFile.FullName,
-                PythonHome = pythonHome,
-                Path = string.Join(";", pythonHome, lib, dlls, packages, libraryBin),
-                PythonPath = string.Join(";", scriptFile.DirectoryName)
+                PythonDll = pythonDll.FullName,
+                PythonPath = string.Join(";", lib, dlls, packages, libraryBin, scriptFile.DirectoryName, moduleFile.DirectoryName)
             };
 
+            var datatable = new DataTable();
             using (var connection = new PythonConnection())
             {
                 connection.ConnectionString = stringBuilder.ConnectionString;
@@ -141,36 +127,28 @@ namespace PythonClientExample
 
                     /*
                      * Python script must have "result" variable of type pandas DataFrame.
-                     * This variable data will be transfered to DbDataReader
+                     * This variable data will be transferred to DbDataReader
                      */
                     using (var reader = command.ExecuteReader())
-                    {
-                        var datatable = new DataTable();
                         datatable.Load(reader);
-
-                        //Print data
-                        PrintDataTable(datatable);
-                    }
                 }
             }
 
-            Console.WriteLine("Done!");
-            Console.ReadLine();
+            var tableValue = datatable.Rows[0][6].ToString();
+            Assert.AreEqual("test", tableValue);
         }
 
         /// <summary>
         /// Use query text as python script
         /// </summary>
-        public static void TestScript03()
+        [TestMethod]
+        public void ScriptFromCommandText()
         {
             //Python script text
             const string scriptText = @"import pandas as pd
 
 query_text = globals()['query'] if 'query' in globals() else None
-print('Query text is:', query_text)
-
 query_params = globals()['params'] if 'params' in globals() else None
-print('Query parameters:', query_params)
 
 result = pd.DataFrame(
 	[[True, 99.0],
@@ -179,20 +157,25 @@ result = pd.DataFrame(
 	[False, 69.3]])";
 
             //Setup python environment
-            const string pythonHome = @"C:\Users\Pike\anaconda3";   //<-- Replace it with your own path to anaconda
-            //Compose PATH environment variable
-            var lib = Path.Combine(pythonHome, "Lib");
-            var dlls = Path.Combine(pythonHome, "DLLs");
+            var pythonDll = new FileInfo(SettingsMain.Default.PythonDllPath);
+            if (!pythonDll.Exists) throw new FileNotFoundException("Can't find python*.dll file", pythonDll.FullName);
+            if (pythonDll.DirectoryName == null)
+                throw new DirectoryNotFoundException("Directory name of python*.dll file can't be null");
+
+            //Compose PATH variable
+            var lib = Path.Combine(pythonDll.DirectoryName, "Lib");
+            var dlls = Path.Combine(pythonDll.DirectoryName, "DLLs");
             var packages = Path.Combine(lib, "site-packages");
-            var libraryBin = Path.Combine(pythonHome, "Library", "bin");
+            var libraryBin = Path.Combine(pythonDll.DirectoryName, "Library", "bin");
 
             //Create connection string
             var stringBuilder = new PythonConnectionStringBuilder
             {
-                PythonHome = pythonHome,
-                Path = string.Join(";", pythonHome, lib, dlls, packages, libraryBin)
+                PythonDll = pythonDll.FullName,
+                PythonPath = string.Join(";", lib, dlls, packages, libraryBin)
             };
 
+            var datatable = new DataTable();
             using (var connection = new PythonConnection())
             {
                 connection.ConnectionString = stringBuilder.ConnectionString;
@@ -212,27 +195,23 @@ result = pd.DataFrame(
 
                     /*
                      * Python script must have "result" variable of type pandas DataFrame.
-                     * This variable data will be transfered to DbDataReader
+                     * This variable data will be transferred to DbDataReader
                      */
                     using (var reader = command.ExecuteReader())
-                    {
-                        var datatable = new DataTable();
                         datatable.Load(reader);
-
-                        //Print data
-                        PrintDataTable(datatable);
-                    }
                 }
             }
 
-            Console.WriteLine("Done!");
-            Console.ReadLine();
+            var tableValue = (bool)datatable.Rows[0][0];
+            Assert.AreEqual(true, tableValue);
         }
 
         /// <summary>
-        /// Basic python test (environment variables already set by python installer)
+        /// Use virtual environment
         /// </summary>
-        public static void TestScript04()
+        /// <exception cref="FileNotFoundException"></exception>
+        [TestMethod]
+        public void CustomEnvironmentTest()
         {
             //Python script text
             const string scriptText = @"import pandas as pd
@@ -250,85 +229,25 @@ result = pd.DataFrame(
 	[False, 69.3]])";
 
             //Setup python environment
-            const string pythonHome = @"C:\Python37";   //<-- Replace it with your own path to python 3.7
+            var pythonDll = new FileInfo(SettingsMain.Default.EnvPythonDllPath);
+            if (!pythonDll.Exists) throw new FileNotFoundException("Can't find python*.dll file", pythonDll.FullName);
+            if (pythonDll.DirectoryName == null)
+                throw new DirectoryNotFoundException("Directory name of python*.dll file can't be null");
 
-            //Create connection string
-            var stringBuilder = new PythonConnectionStringBuilder   //<-- No need to set File property
-            {
-                PythonHome = pythonHome
-            };
-
-            using (var connection = new PythonConnection())
-            {
-                connection.ConnectionString = stringBuilder.ConnectionString;
-                connection.Open();
-                using (var command = connection.CreateCommand())
-                {
-                    //In this case there is no "query" global variable in python
-                    command.CommandText = scriptText;
-
-                    //Set query parameters. It will be passed to python "params" variable
-                    command.Parameters.Add(new PythonParameter { ParameterName = "bool", Value = true });
-                    command.Parameters.Add(new PythonParameter { ParameterName = "dt", Value = DateTime.Today });
-                    command.Parameters.Add(new PythonParameter { ParameterName = "double", Value = 1235.0 });
-                    command.Parameters.Add(new PythonParameter { ParameterName = "int", Value = 789 });
-                    command.Parameters.Add(new PythonParameter { ParameterName = "long", Value = 1024L });
-                    command.Parameters.Add(new PythonParameter { ParameterName = "string", Value = "String parameter" });
-
-                    /*
-                     * Python script must have "result" variable of type pandas DataFrame.
-                     * This variable data will be transfered to DbDataReader
-                     */
-                    using (var reader = command.ExecuteReader())
-                    {
-                        var datatable = new DataTable();
-                        datatable.Load(reader);
-
-                        //Print data
-                        PrintDataTable(datatable);
-                    }
-                }
-            }
-
-            Console.WriteLine("Done!");
-            Console.ReadLine();
-        }
-
-        /// <summary>
-        /// Use anaconda virtual environment
-        /// </summary>
-        public static void TestScript05()
-        {
-            //Python script text
-            const string scriptText = @"import pandas as pd
-
-query_text = globals()['query'] if 'query' in globals() else None
-print('Query text is:', query_text)
-
-query_params = globals()['params'] if 'params' in globals() else None
-print('Query parameters:', query_params)
-
-result = pd.DataFrame(
-	[[True, 99.0],
-	[True, 56.1],
-	[False, 73.2],
-	[False, 69.3]])";
-
-            //Setup python environment
-            const string pythonHome = @"C:\Users\Pike\anaconda3\envs\Test";   //<-- Replace it with your own path to anaconda virtual environment
-            //Compose PATH environment variable
-            var lib = Path.Combine(pythonHome, "Lib");
-            var dlls = Path.Combine(pythonHome, "DLLs");
+            //Compose PATH variable
+            var lib = Path.Combine(pythonDll.DirectoryName, "Lib");
+            var dlls = Path.Combine(pythonDll.DirectoryName, "DLLs");
             var packages = Path.Combine(lib, "site-packages");
-            var libraryBin = Path.Combine(pythonHome, "Library", "bin");
+            var libraryBin = Path.Combine(pythonDll.DirectoryName, "Library", "bin");
 
             //Create connection string
             var stringBuilder = new PythonConnectionStringBuilder
             {
-                PythonHome = pythonHome,
-                Path = string.Join(";", pythonHome, lib, dlls, packages, libraryBin)
+                PythonDll = pythonDll.FullName,
+                PythonPath = string.Join(";", lib, dlls, packages, libraryBin)
             };
 
+            var datatable = new DataTable();
             using (var connection = new PythonConnection())
             {
                 connection.ConnectionString = stringBuilder.ConnectionString;
@@ -348,21 +267,15 @@ result = pd.DataFrame(
 
                     /*
                      * Python script must have "result" variable of type pandas DataFrame.
-                     * This variable data will be transfered to DbDataReader
+                     * This variable data will be transferred to DbDataReader
                      */
                     using (var reader = command.ExecuteReader())
-                    {
-                        var datatable = new DataTable();
                         datatable.Load(reader);
-
-                        //Print data
-                        PrintDataTable(datatable);
-                    }
                 }
             }
 
-            Console.WriteLine("Done!");
-            Console.ReadLine();
+            var tableValue = (bool)datatable.Rows[0][0];
+            Assert.AreEqual(true, tableValue);
         }
     }
 }

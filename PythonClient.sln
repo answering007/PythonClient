@@ -1,18 +1,18 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.28307.1300
+# Visual Studio Version 17
+VisualStudioVersion = 17.13.35931.197
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pike.PythonClient64", "Pike.PythonClient64\Pike.PythonClient64.csproj", "{B9C12A50-2E5D-413B-8CDD-AE4FEF3C021C}"
 EndProject
 Project("{54435603-DBB4-11D2-8724-00A0C9A8B90C}") = "PythonClient64Setup", "PythonClient64Setup\PythonClient64Setup.vdproj", "{837CDE90-8052-4FDD-A433-83F2BBD6B445}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PythonClientExample", "PythonClientExample\PythonClientExample.csproj", "{E5A963C1-7982-4EBF-8C52-E12BC8577BCE}"
-EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{4474B567-9A1A-49B7-8E91-8A5E8DFD3196}"
 	ProjectSection(SolutionItems) = preProject
 		README.md = README.md
 	EndProjectSection
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pike.PythonClient.Test", "Pike.PythonClient.Test\Pike.PythonClient.Test.csproj", "{054D8B7B-498D-4AC5-854C-24CFB71C9C6F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -26,10 +26,10 @@ Global
 		{B9C12A50-2E5D-413B-8CDD-AE4FEF3C021C}.Release|Any CPU.Build.0 = Release|Any CPU
 		{837CDE90-8052-4FDD-A433-83F2BBD6B445}.Debug|Any CPU.ActiveCfg = Debug
 		{837CDE90-8052-4FDD-A433-83F2BBD6B445}.Release|Any CPU.ActiveCfg = Release
-		{E5A963C1-7982-4EBF-8C52-E12BC8577BCE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{E5A963C1-7982-4EBF-8C52-E12BC8577BCE}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{E5A963C1-7982-4EBF-8C52-E12BC8577BCE}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{E5A963C1-7982-4EBF-8C52-E12BC8577BCE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{054D8B7B-498D-4AC5-854C-24CFB71C9C6F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{054D8B7B-498D-4AC5-854C-24CFB71C9C6F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{054D8B7B-498D-4AC5-854C-24CFB71C9C6F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{054D8B7B-498D-4AC5-854C-24CFB71C9C6F}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

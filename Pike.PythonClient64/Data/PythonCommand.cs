@@ -1,9 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Data;
 using System.Data.Common;
 using System.IO;
-using Python.Runtime;
 
 namespace Pike.PythonClient64.Data
 {
@@ -13,19 +11,18 @@ namespace Pike.PythonClient64.Data
     /// </summary>
     public class PythonCommand: DbCommand
     {
-        const string QueryKey = "query";
-        const string ResultKey = "result";
-
         /// <inheritdoc />
         /// <summary>
         /// Gets or sets the text command to run against the data source
         /// </summary>
         public override string CommandText { get; set; } = string.Empty;
+        
         /// <inheritdoc />
         /// <summary>
         /// Gets or sets the wait time in seconds before terminating the attempt to execute a command and generating an error. Default value is 0
         /// </summary>
         public override int CommandTimeout { get; set; } = 0;
+        
         /// <inheritdoc />
         /// <summary>
         /// Indicates or specifies how the <see cref="P:Pike.PythonClient64.Data.PythonCommand.CommandText" /> property is interpreted. Only CommandType.Text is supported
@@ -33,13 +30,15 @@ namespace Pike.PythonClient64.Data
         public override CommandType CommandType
         {
             get => CommandType.Text;
-            set { if (value != CommandType.Text) throw new NotSupportedException(); }
+            set { if (value != CommandType.Text) throw new NotSupportedException("Only text command is supported"); }
         }
+        
         /// <inheritdoc />
         /// <summary>
         /// Gets or sets a value indicating whether the command object should be visible in a customized interface control
         /// </summary>
         public override bool DesignTimeVisible { get; set; } = true;
+        
         /// <inheritdoc />
         /// <summary>
         /// Gets or sets how command results are applied to the <see cref="T:System.Data.DataRow" /> when used by the Update method of a <see cref="T:System.Data.Common.DbDataAdapter" />. Default value is UpdateRowSource.None
@@ -47,6 +46,7 @@ namespace Pike.PythonClient64.Data
         public override UpdateRowSource UpdatedRowSource { get; set; } = UpdateRowSource.None;
 
         PythonConnection _pythonConnection;
+        
         /// <inheritdoc />
         /// <summary>
         /// Gets or sets the <see cref="T:Pike.PythonClient64.Data.PythonConnection" /> used by this <see cref="T:Pike.PythonClient64.Data.PythonCommand" />
@@ -56,18 +56,25 @@ namespace Pike.PythonClient64.Data
             get => _pythonConnection;
             set
             {
-                if (value == null) throw new ArgumentNullException(nameof(value));
-                if (value is PythonConnection connection)
-                    _pythonConnection = connection;
-                else
-                    throw new ArgumentException($"Connection of type {value.GetType()} is not supported", nameof(value));
+                switch (value)
+                {
+                    case null:
+                        throw new ArgumentNullException(nameof(value));
+                    case PythonConnection connection:
+                        _pythonConnection = connection;
+                        break;
+                    default:
+                        throw new ArgumentException($"Connection of type {value.GetType()} is not supported", nameof(value));
+                }
             }
         }
+        
         /// <inheritdoc />
         /// <summary>
         /// Gets the collection of <see cref="T:Pike.PythonClient64.Data.PythonParameter" /> objects
         /// </summary>
         protected override DbParameterCollection DbParameterCollection { get; } = new PythonParameterCollection();
+        
         /// <inheritdoc />
         /// <summary>
         /// Gets or sets the <see cref="P:Pike.PythonClient64.Data.PythonCommand.DbTransaction" /> within which this <see cref="T:System.Data.Common.DbCommand" /> object executes
@@ -97,40 +104,7 @@ namespace Pike.PythonClient64.Data
         protected override DbParameter CreateDbParameter()
         {
             return new PythonParameter();
-        }
-
-        void MarshalParameters(PyDict pyDict, PythonParameterCollection parameters)
-        {
-            using (var utilities = new PythonUtils())
-            {
-                foreach (var parameter in parameters.Values)
-                {
-                    switch (parameter.DbType)
-                    {
-                        case DbType.Boolean:
-                            pyDict.SetItem(parameter.ParameterName, utilities.GetBool((bool)parameter.Value));
-                            break;
-                        case DbType.DateTime:
-                            pyDict.SetItem(parameter.ParameterName, utilities.GetDateTime((DateTime)parameter.Value));
-                            break;
-                        case DbType.Double:
-                            pyDict.SetItem(parameter.ParameterName, new PyFloat((double)parameter.Value));
-                            break;
-                        case DbType.Int32:
-                            pyDict.SetItem(parameter.ParameterName, new PyInt((int)parameter.Value));
-                            break;
-                        case DbType.Int64:
-                            pyDict.SetItem(parameter.ParameterName, new PyLong((long)parameter.Value));
-                            break;
-                        case DbType.String:
-                            pyDict.SetItem(parameter.ParameterName, new PyString((string)parameter.Value));
-                            break;
-                        default:
-                            throw new SystemException("Unknown data type");
-                    }
-                }
-            }
-        }
+        }        
 
         /// <inheritdoc />
         /// <summary>
@@ -141,7 +115,7 @@ namespace Pike.PythonClient64.Data
         protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
         {
             if (DbConnection == null) throw new InvalidOperationException("DbConnection can't be null");
-            if (_pythonConnection.State != ConnectionState.Open) throw new InvalidOperationException("Connection must be open");
+            if (DbConnection.State != ConnectionState.Open) throw new InvalidOperationException("Connection must be open");
 
             var scriptText = CommandText;
             if (!_pythonConnection.UseQueryAsScript)
@@ -151,31 +125,22 @@ namespace Pike.PythonClient64.Data
                 scriptText = File.ReadAllText(_pythonConnection.DataSource ?? throw new InvalidOperationException());
             }
             if (string.IsNullOrWhiteSpace(scriptText)) throw new InvalidOperationException("Python script can't be null or empty");
+            
+            // Reset query parameters
+            PythonDataQuery.Reset();
+            
+            // Fill query
+            if (!_pythonConnection.UseQueryAsScript)
+                PythonDataQuery.Query = CommandText;
 
-            return FillDataTable(scriptText, _pythonConnection.UseQueryAsScript).CreateDataReader();
-        }
+            // Fill parameters
+            var parameters = (PythonParameterCollection)DbParameterCollection;
+            foreach (var parameter in parameters.Values)
+                PythonDataQuery.Parameters[parameter.ParameterName] = parameter.Value;
 
-        DataTable FillDataTable(string scriptText, bool useQueryAsScript)
-        {
-            using (var variables = _pythonConnection.Scope.Variables())
-            {
-                if (!useQueryAsScript)
-                    variables[QueryKey] = new PyString(CommandText);
-
-                var parameters = (PythonParameterCollection)DbParameterCollection;
-
-                using (var pyDictionary = new PyDict())
-                {
-                    MarshalParameters(pyDictionary, parameters);
-                    variables[PythonParameterCollection.PythonName] = pyDictionary;
-                    _pythonConnection.Scope.Exec(scriptText);
-
-                    if (!variables.HasKey(ResultKey)) throw new KeyNotFoundException($"Unable to found [{ResultKey}] variable");
-
-                    var dataFrame = variables[ResultKey];
-                    return PythonUtils.DeserializeTable(dataFrame);
-                }
-            }
+            // Run script
+            var dataTable = PythonDataQuery.RunScript(scriptText);
+            return dataTable.CreateDataReader();
         }
 
         /// <inheritdoc />

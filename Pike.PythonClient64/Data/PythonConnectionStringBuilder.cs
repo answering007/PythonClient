@@ -12,28 +12,17 @@ namespace Pike.PythonClient64.Data
     /// </summary>
     public class PythonConnectionStringBuilder: DbConnectionStringBuilder
     {
-        /// <summary>
-        /// PATH environment variable name
-        /// </summary>
-        public const string PathKey = "PATH";
-        /// <summary>
-        /// PYTHONHOME environment variable name
-        /// </summary>
-        public const string PythonHomeKey = "PYTHONHOME";
-        /// <summary>
-        /// PYTHONPATH environment variable name
-        /// </summary>
-        public const string PythonPathKey = "PYTHONPATH";
-
+        const string PythonDllKey = "PYTHONDLL";
+        const string PythonPathKey = "PYTHONPATH";
         const string FileKey = "FILE";
 
-        static readonly string[] KeyConstans = {PathKey, PythonHomeKey, PythonPathKey, FileKey};
+        static readonly string[] KeyConstants = { PythonDllKey, PythonPathKey, FileKey };
 
         /// <inheritdoc />
         /// <summary>
         /// Collection of keys
         /// </summary>
-        public override ICollection Keys => KeyConstans.ToArray();
+        public override ICollection Keys => KeyConstants.ToArray();
 
         /// <inheritdoc />
         /// <summary>
@@ -46,32 +35,32 @@ namespace Pike.PythonClient64.Data
             get
             {
                 if (string.IsNullOrWhiteSpace(keyword)) throw new ArgumentException("keyword can't be null or empty");
-                if (!KeyConstans.Contains(keyword))
+                if (!KeyConstants.Contains(keyword))
                     throw new KeyNotFoundException(
-                        $"Given keyword is not supported. Supported keyword are: {string.Join(",", KeyConstans)}");
+                        $"Given keyword is not supported. Supported keyword are: {string.Join(",", KeyConstants)}");
                 return base[keyword];
             }
             set
             {
                 if (string.IsNullOrWhiteSpace(keyword)) throw new ArgumentException("keyword can't be null or empty");
-                if (!KeyConstans.Contains(keyword))
+                if (!KeyConstants.Contains(keyword))
                     throw new KeyNotFoundException(
-                        $"Given keyword is not supported. Supported keyword are: {string.Join(",", KeyConstans)}");
-                base[keyword] = value ?? throw new ArgumentException(nameof(value));
+                        $"Given keyword is not supported. Supported keyword are: {string.Join(",", KeyConstants)}");
+                base[keyword] = value;
             }
         }
 
         /// <summary>
-        /// Represent PATH environment variable
+        /// Represent PythonDll full path. Typical value is ../python38.dll (Windows)
         /// </summary>
-        public string Path
+        public string PythonDll
         {
-            get => ContainsKey(PathKey) ? this[PathKey] as string : null;
-            set => this[PathKey] = value;
+            get => ContainsKey(PythonDllKey) ? this[PythonDllKey] as string : null;
+            set => this[PythonDllKey] = value;
         }
 
         /// <summary>
-        /// Represent PYTHONPATH environment variable
+        /// Represent PATH variable
         /// </summary>
         public string PythonPath
         {
@@ -80,13 +69,11 @@ namespace Pike.PythonClient64.Data
         }
 
         /// <summary>
-        /// Represent PYTHONHOME environment variable
+        /// Get PATH components
         /// </summary>
-        public string PythonHome
-        {
-            get => ContainsKey(PythonHomeKey) ? this[PythonHomeKey] as string : null;
-            set => this[PythonHomeKey] = value;
-        }
+        public string[] PythonPathComponents => string.IsNullOrWhiteSpace(PythonPath)
+            ? new string[] { }
+            : PythonPath.Split(new[] { ";" }, StringSplitOptions.RemoveEmptyEntries);
 
         /// <summary>
         /// Full path to python script file
@@ -109,7 +96,7 @@ namespace Pike.PythonClient64.Data
             var comparableConnectionString = connectionString.ToUpperInvariant();
 
             const string equalSymbol = "=";
-            var existedKeys = KeyConstans.Select(k => k + equalSymbol)
+            var existedKeys = KeyConstants.Select(k => k + equalSymbol)
                 .Where(comparableConnectionString.Contains)
                 .Select(k =>
                     new KeyValuePair<string, int>(k,

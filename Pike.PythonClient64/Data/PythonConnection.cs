@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Data;
 using System.Data.Common;
-using System.IO;
 using Python.Runtime;
 
 namespace Pike.PythonClient64.Data
@@ -12,21 +11,7 @@ namespace Pike.PythonClient64.Data
     /// </summary>
     public class PythonConnection: DbConnection
     {
-        string _pythonHome;
-        string _path;
-        string _pythonPath;
-
         PythonConnectionStringBuilder _builder = new PythonConnectionStringBuilder();
-
-        /// <summary>
-        /// Python global interpreter lock
-        /// </summary>
-        public Py.GILState GilState { get; private set; }
-
-        /// <summary>
-        /// Python scope
-        /// </summary>
-        public PyScope Scope { get; private set; }
 
         /// <inheritdoc />
         /// <summary>
@@ -51,72 +36,35 @@ namespace Pike.PythonClient64.Data
 
         /// <inheritdoc />
         /// <summary>
-        /// Not used
+        /// Python database
         /// </summary>
-        public override string Database => string.Empty;
-        
+        public override string Database => "Python";
+
         /// <inheritdoc />
         /// <summary>
-        /// Not used
+        /// Version of <see cref="PythonEngine"/>
         /// </summary>
-        public override string ServerVersion => string.Empty;
-
-        ConnectionState _state = ConnectionState.Closed;
+        public override string ServerVersion => PythonDataProvider.Version;
+        
         /// <inheritdoc />
         /// <summary>
         /// Get the current connection state
         /// </summary>
-        public override ConnectionState State => _state;
-
-        void BackupAndSetEnvironmentVariables()
-        {
-            //Backup
-            _pythonHome = Environment.GetEnvironmentVariable(PythonConnectionStringBuilder.PythonHomeKey,
-                EnvironmentVariableTarget.Process);
-            _path = Environment.GetEnvironmentVariable(PythonConnectionStringBuilder.PathKey,
-                EnvironmentVariableTarget.Process);
-            _pythonPath = Environment.GetEnvironmentVariable(PythonConnectionStringBuilder.PythonPathKey,
-                EnvironmentVariableTarget.Process);
-
-            //Set
-            Environment.SetEnvironmentVariable(PythonConnectionStringBuilder.PythonHomeKey, _builder.PythonHome, EnvironmentVariableTarget.Process);
-            if (_builder.ContainsKey(PythonConnectionStringBuilder.PathKey))
-                Environment.SetEnvironmentVariable(PythonConnectionStringBuilder.PathKey, _builder.Path, EnvironmentVariableTarget.Process);
-            if (_builder.ContainsKey(PythonConnectionStringBuilder.PythonPathKey))
-                Environment.SetEnvironmentVariable(PythonConnectionStringBuilder.PythonPathKey, _builder.PythonPath, EnvironmentVariableTarget.Process);
-        }
-
-        void RestoreEnvironmentVariables()
-        {
-            //Restore
-            if (_pythonHome != null)
-                Environment.SetEnvironmentVariable(PythonConnectionStringBuilder.PythonHomeKey, _pythonHome, EnvironmentVariableTarget.Process);
-            if (_path != null)
-                Environment.SetEnvironmentVariable(PythonConnectionStringBuilder.PathKey, _path, EnvironmentVariableTarget.Process);
-            if (_pythonPath != null)
-                Environment.SetEnvironmentVariable(PythonConnectionStringBuilder.PythonPathKey, _pythonPath, EnvironmentVariableTarget.Process);
-
-            //Reset
-            _pythonHome = null;
-            _path = null;
-            _pythonPath = null;
-        }
-
+        public override ConnectionState State => PythonDataProvider.State;
+        
         /// <inheritdoc />
         /// <summary>
         /// Opens a database connection with the settings specified by the <see cref="P:Pike.PythonClient64.Data.PythonConnection.ConnectionString" />
         /// </summary>
         public override void Open()
         {
-            BackupAndSetEnvironmentVariables();
+            if (PythonDataProvider.State == ConnectionState.Open) return;
 
-            var cwd = new FileInfo(_builder.File).DirectoryName;
-            Directory.SetCurrentDirectory(cwd ?? throw new InvalidOperationException());
+            // Set python*.dll path
+            PythonDataProvider.PythonDllPath = _builder.PythonDll;
 
-            GilState = Py.GIL();
-            Scope = Py.CreateScope();
-
-            _state = ConnectionState.Open;
+            // Import path components
+            PythonDataProvider.Open(_builder.PythonPathComponents);
         }
 
         /// <inheritdoc />
@@ -125,21 +73,7 @@ namespace Pike.PythonClient64.Data
         /// </summary>
         public override void Close()
         {
-            RestoreEnvironmentVariables();
-
-            if (Scope != null)
-            {
-                Scope.Dispose();
-                Scope = null;
-            }
-
-            if (GilState != null)
-            {
-                GilState.Dispose();
-                GilState = null;
-            }
-
-            _state = ConnectionState.Closed;
+            PythonDataProvider.Close();
         }
 
         /// <inheritdoc />
@@ -167,7 +101,7 @@ namespace Pike.PythonClient64.Data
 
         /// <inheritdoc />
         /// <summary>
-        /// Starts a database transaction. Currently throw <see cref="T:System.NotImplementedException" />
+        /// Starts a database transaction. Currently, throw <see cref="T:System.NotImplementedException" />
         /// </summary>
         /// <param name="isolationLevel">A <see cref="T:System.Data.IsolationLevel" /> object</param>
         /// <returns></returns>
@@ -178,7 +112,7 @@ namespace Pike.PythonClient64.Data
 
         /// <inheritdoc />
         /// <summary>
-        /// Changes the current database for an open connection.  Currently throw <see cref="T:System.NotImplementedException" />
+        /// Changes the current database for an open connection. Currently, throw <see cref="T:System.NotImplementedException" />
         /// </summary>
         /// <param name="databaseName">Specifies the name of the database for the connection to use</param>
         public override void ChangeDatabase(string databaseName)

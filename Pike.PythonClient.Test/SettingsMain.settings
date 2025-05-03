@@ -1,0 +1,15 @@
+﻿<?xml version='1.0' encoding='utf-8'?>
+<SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="Pike.PythonClient.Test" GeneratedClassName="SettingsMain">
+  <Profiles />
+  <Settings>
+    <Setting Name="PythonDllPath" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">C:\Users\Pike\anaconda3\python311.dll</Value>
+    </Setting>
+    <Setting Name="EnvPythonDllPath" Type="System.String" Scope="Application">
+      <Value Profile="(Default)">C:\Users\Pike\anaconda3\envs\Test\python311.dll</Value>
+    </Setting>
+    <Setting Name="PythonScriptsFolder" Type="System.String" Scope="User">
+      <Value Profile="(Default)">Python</Value>
+    </Setting>
+  </Settings>
+</SettingsFile>
