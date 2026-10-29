@@ -269,3 +269,36 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
     `DateTime` проходит без изменений;
   - `timedelta`: `3.6e12 ns → 01:00:00`, `-3.6e12 ns → -01:00:00`, `NaT`/`null` → `DBNull`.
 
+
+### 2.2 P0-9 (P2-6): реестр dtype `SupportedTypes` — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Pike.PythonClient64\SupportedTypes.cs`
+
+**Сделано**
+- `SupportedTypes` стал статическим реестром с ленивой потокобезопасной инициализацией (`Lazy<T>` + `lock`),
+  `Values` теперь `IReadOnlyDictionary<string, IColumnConverter>` (внешняя мутация глобального состояния невозможна).
+- `NormalizeDtype`: снимает numpy byte-order маркер (`<i8`, `>i8`, `|O`) и параметры dtype
+  (`datetime64[ns, UTC]` → `datetime64`, `string[python]` → `string`, `timedelta64[ns]` → `timedelta64`).
+- Реестр использует `StringComparer.OrdinalIgnoreCase`, поэтому nullable extension dtypes (`Int8/Int32/Int64`,
+  `UInt*`, `Float*`, `boolean`) попадают на те же конвертеры, что и numpy-аналоги.
+- Покрытие dtype: `bool/boolean`, `int8/int16/int32/uint8/uint16/uint32` → `IntegerConverter`,
+  `int64/uint64` → `LongConverter`, `float32/float64` → `DoubleConverter`, `datetime64`/`timestamp` →
+  `DateTimeConverter`, `timedelta64` → `TimeSpanConverter`, `object/str/string/category/unicode` → `StringConverter`.
+- `TryGetConverter`/`GetConverter` (неизвестный dtype → `NotSupportedException` — вместо молчаливого
+  превращения в строку), `Register(converter, params string[] dtypeNames)`, `Reset()`.
+
+### 2.3 P0-9: конвертеры колонок на основе `PythonValue` — ✅ (2026-10-29)
+
+**Изменённые файлы:** `ColumnConverters\IntegerConverter.cs`, `LongConverter.cs`, `DoubleConverter.cs`,
+`BooleanConverter.cs`, `StringConverter.cs`
+
+**Сделано**
+- Все конвертеры переведены на `PythonValue` (никаких прямых приведений `(PyInt)obj`, которые падали на
+  `None`/`pd.NA`/`np.nan`).
+- Единая политика: `None`/`null`/`DBNull` → `DBNull`; `np.nan` → `DBNull`; значение вне диапазона целевого типа
+  (`int`) → `DBNull`; непонятное значение → `DBNull` вместо исключения.
+- `StringConverter` больше не вызывает `ToString()` у `None` (раньше это давало строку `"None"`).
+
+**Проверка**
+- Сборка `Debug` — успешно, новых предупреждений нет.
+

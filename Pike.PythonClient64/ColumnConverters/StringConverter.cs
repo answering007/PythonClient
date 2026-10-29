@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 
 namespace Pike.PythonClient64.ColumnConverters
 {
@@ -17,14 +16,11 @@ namespace Pike.PythonClient64.ColumnConverters
         /// <inheritdoc />
         public object[] ConvertValues(object[] pythonValues)
         {
-            return pythonValues.Select(StringConverter).ToArray();
+            var result = new object[pythonValues.Length];
+            for (var i = 0; i < pythonValues.Length; i++)
+                result[i] = PythonValue.ToManagedString(pythonValues[i]);
 
-            // Values converter
-            object StringConverter(object obj)
-            {
-                if (obj == null) return DBNull.Value;
-                return obj.ToString();
-            }
+            return result;
         }
     }
 }
