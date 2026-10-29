@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Data;
 using System.Data.Common;
+using System.Threading;
+using System.Threading.Tasks;
 using Python.Runtime;
 
 namespace Pike.PythonClient64.Data
@@ -83,6 +85,18 @@ namespace Pike.PythonClient64.Data
             // Import path components
             PythonDataProvider.Open(_builder.PythonPathComponents);
             _isOpen = true;
+        }
+
+        /// <inheritdoc />
+        /// <summary>
+        /// Opens the connection asynchronously. The engine initialization is executed on a thread pool thread;
+        /// the token is checked before the execution starts
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>A task that represents the asynchronous open operation</returns>
+        public override Task OpenAsync(CancellationToken cancellationToken)
+        {
+            return Task.Run((Action)Open, cancellationToken);
         }
 
         /// <inheritdoc />

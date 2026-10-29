@@ -35,7 +35,8 @@ if ([string]::IsNullOrWhiteSpace($OutputPath)) {
 
 $solution = Join-Path $root 'PythonClient.sln'
 $project = Join-Path $root 'Pike.PythonClient64\Pike.PythonClient64.csproj'
-$binPath = Join-Path $root "Pike.PythonClient64\bin\$Configuration"
+# net48 build is deployed to Excel / Power Query
+$binPath = Join-Path $root "Pike.PythonClient64\bin\$Configuration\net48"
 $installBinPath = Join-Path $root "Pike.PythonClient64.Install\bin\$Configuration"
 
 New-Item -ItemType Directory -Force -Path $OutputPath | Out-Null

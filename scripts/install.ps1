@@ -34,7 +34,8 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent $PSScriptRoot
-$runtimePath = Join-Path $root "Pike.PythonClient64\bin\$Configuration"
+# net48 is the deployment target for Excel / Power Query
+$runtimePath = Join-Path $root "Pike.PythonClient64\bin\$Configuration\net48"
 $installBinPath = Join-Path $root "Pike.PythonClient64.Install\bin\$Configuration"
 
 if (-not (Test-Path $runtimePath)) {

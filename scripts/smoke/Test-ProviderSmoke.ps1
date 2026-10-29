@@ -32,7 +32,7 @@ param(
 $ErrorActionPreference = 'Stop'
 
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$assemblyPath = Join-Path $root "Pike.PythonClient64\bin\$Configuration\Pike.PythonClient64.dll"
+$assemblyPath = Join-Path $root "Pike.PythonClient64\bin\$Configuration\net48\Pike.PythonClient64.dll"
 
 if (-not (Test-Path $assemblyPath)) {
     throw "Assembly '$assemblyPath' is not found, build the solution first: dotnet build PythonClient.sln -c $Configuration"

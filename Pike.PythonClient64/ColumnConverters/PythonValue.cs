@@ -16,17 +16,22 @@ namespace Pike.PythonClient64.ColumnConverters
 
         /// <summary>
         /// Determines whether the value represents a missing value: null, <see cref="DBNull"/>,
-        /// python None, pandas NA or pandas NaT
+        /// python None, pandas NA/NaT or NaN
         /// </summary>
         /// <param name="value">Value to check</param>
         /// <returns>True if the value is missing</returns>
         public static bool IsNone(object value)
         {
             if (value == null || value == DBNull.Value) return true;
+            if (value is double doubleValue && double.IsNaN(doubleValue)) return true;
+            if (value is float floatValue && float.IsNaN(floatValue)) return true;
 
             var pyObject = value as PyObject;
             if (pyObject == null) return false;
             if (pyObject.IsNone()) return true;
+
+            // pandas stores missing values in the string/object columns as NaN (pandas 3 default dtype)
+            if (PyFloat.IsFloatType(pyObject)) return double.IsNaN(pyObject.As<double>());
 
             // pandas NA/NaT singletons have no NoneType, but their repr is stable
             var text = pyObject.ToString();

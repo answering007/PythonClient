@@ -207,11 +207,19 @@ namespace Pike.PythonClient64
         }
 
         /// <summary>
-        /// Releases the saved thread state and finalizes the python engine
+        /// Releases the saved thread state and finalizes the python engine.
+        /// The saved thread state can be restored only on the thread that saved it, so the finalization is skipped
+        /// when it is requested from another thread: the interpreter then stays alive until the process exits
         /// </summary>
         static void ShutdownEngine()
         {
             if (!PythonEngine.IsInitialized) return;
+
+            if (Thread.CurrentThread.ManagedThreadId != _ownerThreadId)
+            {
+                // The GIL is released, so other threads can still use the engine; the process exit finalizes it
+                return;
+            }
 
             var threadState = _savedThreadState;
             _savedThreadState = IntPtr.Zero;
@@ -220,8 +228,6 @@ namespace Pike.PythonClient64
             {
                 try
                 {
-                    // Thread state is restored on the current thread: pythonnet keeps a single global state,
-                    // so the interpreter can be finalized from a thread other than the initializing one
                     PythonEngine.EndAllowThreads(threadState);
                 }
                 catch (Exception)
@@ -230,9 +236,17 @@ namespace Pike.PythonClient64
                 }
             }
 
-            if (Thread.CurrentThread.ManagedThreadId == _ownerThreadId) _ownerThreadId = 0;
+            _ownerThreadId = 0;
 
-            PythonEngine.Shutdown();
+            try
+            {
+                PythonEngine.Shutdown();
+            }
+            catch (PlatformNotSupportedException)
+            {
+                // pythonnet 3.0.5 serializes the runtime state with BinaryFormatter, which is not available
+                // on .NET 8+. The interpreter then stays alive until the process exits (safe fallback)
+            }
         }
 
         /// <summary>

@@ -16,6 +16,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pike.PythonClient.Test", "P
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pike.PythonClient64.Install", "Pike.PythonClient64.Install\Pike.PythonClient64.Install.csproj", "{165DB677-1563-41BA-8BA8-50732EEDEE95}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "samples", "samples", "{5D20AA90-6969-D8BD-9DCD-8634F4692FDA}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Pike.PythonClient64.Sample", "samples\Pike.PythonClient64.Sample\Pike.PythonClient64.Sample.csproj", "{1E73DDA7-1B5B-41BC-AC55-38A8F2023F6D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -68,9 +72,24 @@ Global
 		{165DB677-1563-41BA-8BA8-50732EEDEE95}.Release|x64.Build.0 = Release|Any CPU
 		{165DB677-1563-41BA-8BA8-50732EEDEE95}.Release|x86.ActiveCfg = Release|Any CPU
 		{165DB677-1563-41BA-8BA8-50732EEDEE95}.Release|x86.Build.0 = Release|Any CPU
+		{1E73DDA7-1B5B-41BC-AC55-38A8F2023F6D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{1E73DDA7-1B5B-41BC-AC55-38A8F2023F6D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{1E73DDA7-1B5B-41BC-AC55-38A8F2023F6D}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{1E73DDA7-1B5B-41BC-AC55-38A8F2023F6D}.Debug|x64.Build.0 = Debug|Any CPU
+		{1E73DDA7-1B5B-41BC-AC55-38A8F2023F6D}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{1E73DDA7-1B5B-41BC-AC55-38A8F2023F6D}.Debug|x86.Build.0 = Debug|Any CPU
+		{1E73DDA7-1B5B-41BC-AC55-38A8F2023F6D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{1E73DDA7-1B5B-41BC-AC55-38A8F2023F6D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{1E73DDA7-1B5B-41BC-AC55-38A8F2023F6D}.Release|x64.ActiveCfg = Release|Any CPU
+		{1E73DDA7-1B5B-41BC-AC55-38A8F2023F6D}.Release|x64.Build.0 = Release|Any CPU
+		{1E73DDA7-1B5B-41BC-AC55-38A8F2023F6D}.Release|x86.ActiveCfg = Release|Any CPU
+		{1E73DDA7-1B5B-41BC-AC55-38A8F2023F6D}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{1E73DDA7-1B5B-41BC-AC55-38A8F2023F6D} = {5D20AA90-6969-D8BD-9DCD-8634F4692FDA}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {3838F31B-526A-48D2-8F0A-29AEEE045FB9}

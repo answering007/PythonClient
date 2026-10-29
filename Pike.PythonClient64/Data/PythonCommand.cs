@@ -4,6 +4,8 @@ using System.Data;
 using System.Data.Common;
 using System.IO;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace Pike.PythonClient64.Data
 {
@@ -52,6 +54,19 @@ namespace Pike.PythonClient64.Data
         /// Gets or sets how command results are applied to the <see cref="T:System.Data.DataRow" /> when used by the Update method of a <see cref="T:System.Data.Common.DbDataAdapter" />. Default value is UpdateRowSource.None
         /// </summary>
         public override UpdateRowSource UpdatedRowSource { get; set; } = UpdateRowSource.None;
+
+        /// <summary>
+        /// True to return a streaming <see cref="PythonDataReader"/> over the DataFrame instead of materializing
+        /// a <see cref="DataTable"/>. The frame is read in chunks of <see cref="StreamingChunkSize"/> rows, so a large
+        /// result does not have to fit into memory at once. Default value is false.
+        /// <see cref="ExecuteNonQuery"/> and <see cref="ExecuteScalar"/> always materialize the result
+        /// </summary>
+        public bool Streaming { get; set; }
+
+        /// <summary>
+        /// Number of rows read at once in streaming mode. Default value is 4096
+        /// </summary>
+        public int StreamingChunkSize { get; set; } = 4096;
 
         PythonConnection _pythonConnection;
         
@@ -125,7 +140,39 @@ namespace Pike.PythonClient64.Data
         /// <returns>A <see cref="T:System.Data.DataTableReader" /> object</returns>
         protected override DbDataReader ExecuteDbDataReader(CommandBehavior behavior)
         {
-            return ExecuteScript(behavior).CreateDataReader();
+            return Streaming ? ExecuteStreamingScript(behavior) : ExecuteScript(behavior).CreateDataReader();
+        }
+
+        /// <summary>
+        /// Executes the script and returns a streaming reader over the result DataFrame
+        /// </summary>
+        /// <param name="behavior">Command behavior</param>
+        /// <returns>Reader over the result rows</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the connection is not set or not open</exception>
+        /// <exception cref="NotSupportedException">Thrown when a timeout or a transaction is set</exception>
+        DbDataReader ExecuteStreamingScript(CommandBehavior behavior)
+        {
+            EnsureCanExecute();
+
+            var scriptText = GetRequiredScriptText();
+            var context = CreateContext(true);
+            var cursor = PythonDataQuery.CreateCursor(scriptText, context, Math.Max(1, StreamingChunkSize));
+
+            try
+            {
+                var schemaOnly = (behavior & CommandBehavior.SchemaOnly) != 0;
+                var maxRows = (behavior & CommandBehavior.SingleRow) != 0 ? 1 : int.MaxValue;
+                var closeConnection = (behavior & CommandBehavior.CloseConnection) != 0
+                    ? new Action(() => _pythonConnection?.Close())
+                    : null;
+
+                return new PythonDataReader(cursor, schemaOnly, maxRows, closeConnection);
+            }
+            catch (Exception)
+            {
+                cursor.Dispose();
+                throw;
+            }
         }
 
         /// <inheritdoc />
@@ -153,6 +200,42 @@ namespace Pike.PythonClient64.Data
             return dataTable.Rows[0][0];
         }
 
+        /// <inheritdoc />
+        /// <summary>
+        /// Executes the command text asynchronously. The python script itself can't be interrupted, so the work is
+        /// executed on a thread pool thread and the token is checked before the execution starts
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>The number of rows affected</returns>
+        public override Task<int> ExecuteNonQueryAsync(CancellationToken cancellationToken)
+        {
+            return Task.Run(() => ExecuteNonQuery(), cancellationToken);
+        }
+
+        /// <inheritdoc />
+        /// <summary>
+        /// Executes the query asynchronously and returns the first column of the first row
+        /// </summary>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>The first column of the first row in the result set</returns>
+        public override Task<object> ExecuteScalarAsync(CancellationToken cancellationToken)
+        {
+            return Task.Run(() => ExecuteScalar(), cancellationToken);
+        }
+
+        /// <inheritdoc />
+        /// <summary>
+        /// Executes the command text asynchronously and returns a data reader
+        /// </summary>
+        /// <param name="behavior">Command behavior</param>
+        /// <param name="cancellationToken">Cancellation token</param>
+        /// <returns>A <see cref="DbDataReader"/> over the result</returns>
+        protected override Task<DbDataReader> ExecuteDbDataReaderAsync(CommandBehavior behavior,
+            CancellationToken cancellationToken)
+        {
+            return Task.Run(() => ExecuteDbDataReader(behavior), cancellationToken);
+        }
+
         /// <summary>
         /// Executes the script and returns the result table
         /// </summary>
@@ -164,15 +247,9 @@ namespace Pike.PythonClient64.Data
         /// <exception cref="FileNotFoundException">Thrown when the script file is not found</exception>
         DataTable ExecuteScript(CommandBehavior behavior, bool resultRequired = true)
         {
-            if (DbConnection == null) throw new InvalidOperationException("DbConnection can't be null");
-            if (DbConnection.State != ConnectionState.Open) throw new InvalidOperationException("Connection must be open");
-            if (CommandTimeout > 0)
-                throw new NotSupportedException(
-                    "CommandTimeout is not supported, python scripts can't be interrupted reliably");
-            if (DbTransaction != null) throw new NotSupportedException("Transactions are not supported");
+            EnsureCanExecute();
 
-            var scriptText = GetScriptText();
-            if (string.IsNullOrWhiteSpace(scriptText)) throw new InvalidOperationException("Python script can't be null or empty");
+            var scriptText = GetRequiredScriptText();
 
             try
             {
@@ -218,6 +295,35 @@ namespace Pike.PythonClient64.Data
             }
 
             return context;
+        }
+
+        /// <summary>
+        /// Validates the command state before the execution
+        /// </summary>
+        /// <exception cref="InvalidOperationException">Thrown when the connection is not set or not open</exception>
+        /// <exception cref="NotSupportedException">Thrown when a timeout or a transaction is set</exception>
+        void EnsureCanExecute()
+        {
+            if (DbConnection == null) throw new InvalidOperationException("DbConnection can't be null");
+            if (DbConnection.State != ConnectionState.Open) throw new InvalidOperationException("Connection must be open");
+            if (CommandTimeout > 0)
+                throw new NotSupportedException(
+                    "CommandTimeout is not supported, python scripts can't be interrupted reliably");
+            if (DbTransaction != null) throw new NotSupportedException("Transactions are not supported");
+        }
+
+        /// <summary>
+        /// Gets the validated script text
+        /// </summary>
+        /// <returns>Script text</returns>
+        /// <exception cref="InvalidOperationException">Thrown when the script is empty</exception>
+        string GetRequiredScriptText()
+        {
+            var scriptText = GetScriptText();
+            if (string.IsNullOrWhiteSpace(scriptText))
+                throw new InvalidOperationException("Python script can't be null or empty");
+
+            return scriptText;
         }
 
         /// <summary>

@@ -102,6 +102,23 @@ result = pd.DataFrame({
         }
 
         /// <summary>
+        /// Missing values of the inferred string dtype (pandas 3 keeps them as NaN) become DBNull (P0-9)
+        /// </summary>
+        [TestMethod]
+        public void P0_9_MissingStringValuesBecomeDbNull()
+        {
+            const string code = @"import pandas as pd
+result = pd.DataFrame({'Text': ['Pike', None, 'Amol']})";
+
+            var table = PythonDataQuery.RunScript(code);
+
+            Assert.AreEqual(typeof(string), table.Columns["Text"].DataType);
+            Assert.AreEqual("Pike", table.Rows[0]["Text"]);
+            Assert.AreEqual(DBNull.Value, table.Rows[1]["Text"]);
+            Assert.AreEqual("Amol", table.Rows[2]["Text"]);
+        }
+
+        /// <summary>
         /// Invalid DataColumn characters are replaced and colliding names are uniquified (P0-9)
         /// </summary>
         [TestMethod]
