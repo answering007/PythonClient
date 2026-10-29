@@ -1,0 +1,58 @@
+name: ci
+
+on:
+  push:
+    branches: [dev, master]
+  pull_request:
+    branches: [dev, master]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: 'x64'
+
+      - name: Install Python packages
+        run: python -m pip install --upgrade pip numpy pandas
+
+      - name: Restore
+        run: dotnet restore PythonClient.sln
+
+      - name: Build
+        run: dotnet build PythonClient.sln -c Release --no-restore
+
+      - name: Unit tests (no Python required)
+        run: >
+          vstest.console.exe Pike.PythonClient.Test\bin\Release\Pike.PythonClient.Test.dll
+          /TestCaseFilter:"TestCategory=Unit"
+          /logger:"console;verbosity=normal"
+
+      - name: Integration tests (Python + pandas)
+        env:
+          PYTHONNET_TEST_DLL: ${{ env.pythonLocation }}\python311.dll
+        run: >
+          vstest.console.exe Pike.PythonClient.Test\bin\Release\Pike.PythonClient.Test.dll
+          /TestCaseFilter:"TestCategory=Python"
+          /logger:"console;verbosity=normal"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pike.PythonClient64
+          path: |
+            Pike.PythonClient64/bin/Release/Pike.PythonClient64.dll
+            Pike.PythonClient64/bin/Release/Pike.PythonClient64.xml
+            Pike.PythonClient64/bin/Release/Pike.PythonClient64.pdb
+            Pike.PythonClient64/bin/Release/Python.Runtime.dll

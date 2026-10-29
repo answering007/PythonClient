@@ -57,7 +57,32 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 | 3 | P0-6, P0-7: GIL на операцию, refcount движка, жизненный цикл соединения | ✅ |
 | 4 | P0-5: безопасная регистрация в `machine.config` | ✅ |
 | 5 | P1-1…P1-5: контракты `DbCommand`/`DbParameter`/`DbConnection`, контекст выполнения | ✅ |
-| 6 | P2-1…P2-6: SDK-style, вынос install, тестовая инфраструктура, документация, CI | ⬜ |
+| 6 | P2-1…P2-6: SDK-style, вынос install, тестовая инфраструктура, документация, CI | ✅ |
+
+## Итоги (2026-10-29)
+
+Все этапы плана (P0, P1, P2) выполнены в ветке `dev`.
+
+| Проверка | Результат |
+|---|---|
+| `dotnet build PythonClient.sln -c Debug` / `-c Release` | успешно, 0 предупреждений, 0 ошибок |
+| `msbuild PythonClient.sln /restore` (legacy-путь) | успешно |
+| `vstest --TestCaseFilter:TestCategory=Unit` | **85 / 85 пройдено** |
+| `vstest --TestCaseFilter:TestCategory=Python` | 45 тестов, **все пропущены** (`Inconclusive`: Python не установлен) |
+| `dotnet test`/интеграционный прогон | не выполнялся: нет Python 3.x + numpy/pandas; требуется `PYTHONNET_TEST_DLL` |
+
+Остаточные риски и что проверить на машине с Python/Excel:
+
+1. Прогнать набор `TestCategory=Python` (45 тестов) с `PYTHONNET_TEST_DLL` — проверяются GIL/refcount, параметры,
+   `CommandBehavior`, типы колонок и `NaT`/`NaN`.
+2. Проверить сценарии Power Query на примерах `Pike.PythonClient.Test\Excel\PowerQuery - 01..04.xlsx`
+   после `install.ps1` (регистрация в `machine.config`).
+3. `PyObject`-обёртки отдельных элементов `tolist()` освобождаются только GC (зафиксировано в 2.4) — при больших
+   DataFrame стоит оценить потребление памяти и при необходимости перейти на типизированный доступ по numpy-буферам.
+4. `key.snk` остаётся в репозитории (решение зафиксировано в `SECURITY.md`); при ротации ключа изменится
+   `PublicKeyToken`, потребуется повторная регистрация провайдера.
+5. `PythonClient64Setup.vdproj` не удалён, но считается устаревшим: поставка — `install.ps1`/`uninstall.ps1`.
+
 
 ---
 
@@ -579,4 +604,60 @@ vstest --TestCaseFilter:TestCategory=Unit  # 85/85
 ```
 Артефакты `bin\Release`: `Pike.PythonClient64.dll`, `Pike.PythonClient64.pdb` (больше не удаляется),
 `Pike.PythonClient64.xml`, `Python.Runtime.dll`. Предупреждений `NU1701` нет.
+
+
+### 6.2 P2-2/P2-5: `install.ps1` / `uninstall.ps1` вместо `.vdproj` — ✅ (2026-10-29)
+
+**Изменённые файлы:** `install.ps1`, `uninstall.ps1` (новые)
+
+**Сделано**
+- `install.ps1`: копирует `Pike.PythonClient64.dll/.xml`, `Python.Runtime.dll/.xml` в
+  `%ProgramFiles%\Pike\PythonClient64` (параметр `-InstallPath`) и регистрирует провайдер в x64 `machine.config`
+  через публичный `DbProviderInstallation.RegisterProvider` (бэкап и атомарная запись — из P0-5).
+  Проверяет права администратора, поддерживает `-Configuration` и `-SkipMachineConfig`.
+- `uninstall.ps1`: снимает запись из `machine.config` (`UnregisterProvider`) и удаляет установленные файлы и
+  каталог (если он опустел).
+- Зависимость рантайм-сборки от `Microsoft.Build.Utilities` убрана ещё в P0-5, поэтому для регистрации больше не
+  нужен MSBuild. `.vdproj` остаётся в репозитории как устаревший вариант (требует расширения VS Installer Projects);
+  рекомендуемый путь — скрипты (зафиксировано в README и CHANGELOG).
+
+**Проверка**
+- Скрипты проверены статически (сборка не требуется); регистрация провайдера покрыта Unit-тестами
+  `DataProviderInstallationUnit` (9 тестов, включая бэкап, обновление записи и unregister).
+- Ручная проверка `install.ps1 -SkipMachineConfig` на этом окружении не выполнялась: требуется Python/Excel-сценарий;
+  скрипт не изменяет систему без явного запуска.
+
+### 6.3 P2-6: качество кода `SupportedTypes` / `KeyIndexCollection` — ✅ (2026-10-29)
+
+Сделано в рамках шагов 1.2, 2.2 и 4.1 (реестр конвертеров, `Set/Insert/TryGetValue/RenameKey`, упорядоченные
+`Values`/перечисление, потокобезопасная инициализация).
+
+### 6.4 P2-4/P2-5 + раздел 8: документация — ✅ (2026-10-29)
+
+**Изменённые файлы:** `README.md` (переписан), `CHANGELOG.md`, `LICENSE`, `SECURITY.md`, `.editorconfig`,
+`docs/connection-strings.md`, `docs/power-query.md`
+
+**Сделано**
+- `README.md`: требования (.NET 4.8 x64, pythonnet 3.0.5, Python 3.7–3.13 x64, numpy/pandas, 64-bit Excel),
+  установка через скрипты и ручная регистрация, self-contained quick start (без `SettingsMain` из тестового проекта),
+  источники скрипта, все ключи connection string с квотированием, таблица параметров и типов колонок, политика
+  `NaN`/`NaT`/`None` → `DBNull`, ограничения (один движок, нет транзакций/таймаута, threading, память),
+  Power Query, troubleshooting-таблица, сборка/тесты, раздел безопасности, опечатки («Quik», «Commpress») исправлены.
+- `CHANGELOG.md` (Keep a Changelog) с разделами Fixed/Added/Changed/Deprecated/Breaking changes и инструкцией миграции
+  по квотированию `PYTHONPATH`.
+- `LICENSE` (MIT), `SECURITY.md` (модель угроз, политика раскрытия, статус `key.snk`),
+  `.editorconfig` (UTF-8, отступы, окончания строк), `docs/connection-strings.md`, `docs/power-query.md`.
+
+### 6.5 CI — ✅ (2026-10-29)
+
+**Изменённые файлы:** `.github/workflows/ci.yml` (новый)
+
+**Сделано**
+- GitHub Actions (`windows-latest`): setup-dotnet 8, setup-python 3.11 x64 + `numpy`/`pandas`, `dotnet restore`,
+  `dotnet build -c Release`, быстрый набор `TestCategory=Unit`, интеграционный набор `TestCategory=Python`
+  с `PYTHONNET_TEST_DLL`, публикация артефактов (dll/xml/pdb/`Python.Runtime.dll`).
+
+**Проверка**
+- Локально повторены шаги сборки и обоих фильтров тестов (Unit 85/85, Python — 45 пропущено без Python).
+  Прогон workflow возможен только в GitHub после push.
 
