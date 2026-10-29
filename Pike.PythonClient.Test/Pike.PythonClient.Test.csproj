@@ -63,10 +63,12 @@
     <Compile Include="Tests\DbProviderFactory.cs" />
     <Compile Include="Tests\DataProvider.cs" />
     <Compile Include="Tests\DataQuery.cs" />
+    <Compile Include="Tests\Unit\ColumnConverterUnit.cs" />
     <Compile Include="Tests\Unit\ConnectionStringBuilderUnit.cs" />
     <Compile Include="Tests\Unit\KeyIndexCollectionUnit.cs" />
     <Compile Include="Tests\Unit\ParameterCollectionUnit.cs" />
     <Compile Include="Tests\Unit\ParameterUnit.cs" />
+    <Compile Include="Tests\Unit\SupportedTypesUnit.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="app.config" />

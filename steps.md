@@ -302,3 +302,34 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 **Проверка**
 - Сборка `Debug` — успешно, новых предупреждений нет.
 
+
+### 2.4 P0-9: конвертация `DataFrame` → `DataTable` — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Pike.PythonClient64\PythonDataQuery.cs`
+
+**Сделано**
+- `RunScript`: результат скрипта освобождается (`using (PyObject result = AsPyObject(variables[ResultKey]))`) —
+  ранее объект `result` утекал.
+- `ConvertDataFrameToDataTable(PyObject)` вместо `dynamic`: проверка результата (должен иметь `columns`/`dtypes`,
+  иначе `InvalidOperationException("'result' must be a pandas.DataFrame, got <type>")`), работа через
+  типизированный `PyObject` API с `using` для `df.columns`, списка имён, `df[column]`, `dtype`, `.values`, `.tolist()`.
+- dtype берётся у конкретной колонки (`series.dtype`) и нормализуется через `SupportedTypes`; неизвестный dtype →
+  `NotSupportedException("Column '<name>' has unsupported dtype '<dtype>'")` (управляется `PythonDataQuery.StrictColumnTypes`,
+  по умолчанию `true`; `false` — fallback на строковый конвертер).
+- Уникальные и корректные имена колонок: пустые → `Column{i}`, символы `[`/`]`/`.` заменяются, дубликаты получают
+  суффикс `_2`, `_3` (ранее дубликаты давали `DuplicateNameException`, а имена с `[`/`]`/`.` — исключение).
+- Колонки `datetime64`/`timedelta64` читаются как точные наносекунды (`series.astype("int64")`), поэтому
+  значения не теряют точность и корректно дают `DBNull` на `NaT`; для tz-aware (`datetime64[ns, UTC]`) приведение
+  к `int64` невозможно — используется fallback на питоновские значения.
+- Заполнение таблицы: `BeginLoadData()`/`EndLoadData()` + `Rows.Add(object[])`, количество строк ограничено
+  минимальной длиной колонок (защита от рассинхронизации).
+- `StrictColumnTypes` — новый публичный флаг (по умолчанию `true`).
+
+**Ограничение (зафиксировано):** PyObject-обёртки отдельных элементов `object[]`, полученных из `tolist()`,
+по-прежнему освобождаются только сборщиком мусора. Массовое освобождение элементов требует отдельного
+прогона с реальным pandas (риск refcount-ошибок без тестов), поэтому вынесено за рамки этого шага.
+
+**Проверка**
+- Сборка `Debug` — успешно, новых предупреждений нет.
+- Интеграционная проверка (нужен Python) — см. тесты категории `Python`; в текущем окружении не выполнялась.
+
