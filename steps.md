@@ -52,7 +52,7 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 | Этап | Содержание | Статус |
 |---|---|---|
 | 0 | Подготовка: restore, baseline-сборка, журнал | ✅ |
-| 1 | P0-1…P0-4: connection string, коллекции параметров, `PythonParameter` + Unit-тесты | ⬜ |
+| 1 | P0-1…P0-4: connection string, коллекции параметров, `PythonParameter` + Unit-тесты | ✅ |
 | 2 | P0-8, P0-9: конвертеры, реестр dtype, конвертация DataFrame | ⬜ |
 | 3 | P0-6, P0-7: GIL на операцию, refcount движка, жизненный цикл соединения | ⬜ |
 | 4 | P0-5: безопасная регистрация в `machine.config` | ⬜ |
@@ -239,4 +239,33 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 **Наблюдение по поведению базового парсера:** `"PYTHONPATH="` (пустое значение) не создаёт ключ —
 `DbConnectionStringBuilder` трактует его как отсутствующий. Тест `P0_1_ConnectionString_EmptyValueIsTreatedAsMissing`
 фиксирует это как ожидаемое поведение («пустое значение = не задано»).
+
+
+---
+
+## Этап 2. P0-8, P0-9 — конвертеры и конвертация DataFrame
+
+### 2.1 P0-8: `DateTimeConverter`/`TimeSpanConverter` + `PythonValue` — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Pike.PythonClient64\ColumnConverters\PythonValue.cs` (новый),
+`ColumnConverters\DateTimeConverter.cs`, `ColumnConverters\TimeSpanConverter.cs`, `Pike.PythonClient64.csproj`
+
+**Сделано**
+- Новый внутренний helper `PythonValue` — единая точка разбора «сырых» значений: `IsNone()` (null, `DBNull`,
+  python `None`), `TryToInt64()` (терпимо к `long/int/short/byte/sbyte/ushort/uint/ulong`, `DateTime`, `TimeSpan`,
+  `PyInt`, `PyObject`), `TryToDouble()`, `TryToBoolean()`, `ToManagedString()`. Исключения конвертации
+  перехватываются и трактуются как «значение не сконвертировано».
+- `DateTimeConverter`: numpy `datetime64` → `DateTime` через деление наносекунд на 100 (тики) **без** создания
+  промежуточного `new DateTime(ticks)`, поэтому даты до 1970 больше не падают; `NaT` (`long.MinValue`) и значения
+  вне диапазона `DateTime` → `DBNull`; значение, уже пришедшее как `DateTime`, возвращается как есть.
+- `TimeSpanConverter`: аналогично, с проверкой диапазона `TimeSpan` (переполнение → `DBNull`), поддержкой
+  готового `TimeSpan` и `NaT`.
+
+**Проверка**
+- Сборка `Debug` — успешно, новых предупреждений нет.
+- Smoke-скрипт на собранной сборке (без Python):
+  - `datetime[0] = 1970-01-01`, `1.6e18 ns → 2020-09-13 12:26:40`, `-315619200000000000 ns → 1960-01-01`
+    (ранее `ArgumentOutOfRangeException`), `long.MinValue (NaT)`, `null`, `DBNull` → `DBNull`, готовый
+    `DateTime` проходит без изменений;
+  - `timedelta`: `3.6e12 ns → 01:00:00`, `-3.6e12 ns → -01:00:00`, `NaT`/`null` → `DBNull`.
 

@@ -65,6 +65,7 @@
     <Compile Include="ColumnConverters\BooleanConverter.cs" />
     <Compile Include="ColumnConverters\DoubleConverter.cs" />
     <Compile Include="ColumnConverters\IColumnConverter.cs" />
+    <Compile Include="ColumnConverters\PythonValue.cs" />
     <Compile Include="Data\PythonCommand.cs">
       <SubType>Component</SubType>
     </Compile>
