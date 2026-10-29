@@ -67,8 +67,8 @@ Manual registration (x64 `machine.config`):
 </configuration>
 ```
 
-The legacy Visual Studio Installer project (`PythonClient64Setup\PythonClient64Setup.vdproj`) requires a separate
-VS extension and is deprecated, use `scripts\install.ps1` instead.
+There is no installer project in the solution anymore: the legacy Visual Studio Installer project (`.vdproj`, which
+required a separate VS extension) was removed in 2.1.0, use the scripts above.
 
 ### Build artifacts and NuGet package
 

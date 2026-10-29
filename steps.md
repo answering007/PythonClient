@@ -87,7 +87,8 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
    DataFrame стоит оценить потребление памяти и при необходимости перейти на типизированный доступ по numpy-буферам.
 4. `key.snk` остаётся в репозитории (решение зафиксировано в `SECURITY.md`); при ротации ключа изменится
    `PublicKeyToken`, потребуется повторная регистрация провайдера.
-5. `PythonClient64Setup.vdproj` не удалён, но считается устаревшим: поставка — `scripts\install.ps1`/`uninstall.ps1`.
+5. ~~`PythonClient64Setup.vdproj` не удалён~~ — проект удалён в 2.1.0: поставка и регистрация выполняются только
+   через `scripts\install.ps1`/`uninstall.ps1` (см. §11.5).
 6. `PythonEngine.Shutdown()` с импортированными numpy/pandas не всегда финализирует интерпретатор
    (`PythonEngine.IsInitialized` может остаться `true`); провайдер трактует финализацию как best-effort и
    полагается на счётчик ссылок. Для Excel/PQ рекомендуется `PythonDataProvider.ShutdownOnLastClose = false`.
@@ -629,8 +630,8 @@ vstest --TestCaseFilter:TestCategory=Unit  # 85/85
 - `uninstall.ps1`: снимает запись из `machine.config` (`UnregisterProvider`) и удаляет установленные файлы и
   каталог (если он опустел).
 - Зависимость рантайм-сборки от `Microsoft.Build.Utilities` убрана ещё в P0-5, поэтому для регистрации больше не
-  нужен MSBuild. `.vdproj` остаётся в репозитории как устаревший вариант (требует расширения VS Installer Projects);
-  рекомендуемый путь — скрипты (зафиксировано в README и CHANGELOG).
+  нужен MSBuild. `.vdproj` был оставлен в репозитории как устаревший вариант (требует расширения VS Installer
+  Projects), но удалён в 2.1.0 (см. §11.5); единственный путь поставки — скрипты (зафиксировано в README и CHANGELOG).
 
 **Проверка**
 - Скрипты проверены статически (сборка не требуется); регистрация провайдера покрыта Unit-тестами
@@ -964,6 +965,30 @@ samples\Pike.PythonClient64.Sample\bin\Debug\net48\Pike.PythonClient64.Sample.ex
 dotnet build PythonClient.sln -c Debug / -c Release   # 0 предупреждений (нет CS0618/CS1574), 0 ошибок
 git grep -n 'AmbientContext|Obsolete' -- '*.cs'       # пусто
 Invoke-Tests.ps1 -Category All                        # 145 / 145
+```
+
+### 11.6 Чистка репозитория и локальных остатков — ✅ (2026-10-30)
+
+**Изменённые файлы:** `PythonClient64Setup\PythonClient64Setup.vdproj` (удалён), `PythonClient.sln`, `README.md`,
+`CHANGELOG.md`, `steps.md`
+
+**Сделано**
+- Удалён устаревший проект Visual Studio Installer (`PythonClient64Setup.vdproj`) вместе с записями в
+  `PythonClient.sln` (`Project…EndProject` и 6 строк `ProjectConfigurationPlatforms`): в решении осталось 6 проектов.
+  Это был единственный потребитель папки `packages\` (`SourcePath` в `.vdproj`), поэтому локальная `packages\`
+  (27,9 МБ, 423 файла) тоже удалена — все проекты на `PackageReference`, restore идёт из глобального кэша NuGet.
+- Удалены локальные остатки (в git не попадали): `UpgradeLog.htm` (лог конвертации из VS), `TestResults\` (22 `.trx`,
+  2,2 МБ), `artifacts\` (nupkg/snupkg + папка деплоя), `bin\`/`obj\` всех четырёх проектов, оба `*.csproj.user`.
+  Сохранены: `.venv\` и `.venv-matrix\` (окружения для `Invoke-Tests`/`Invoke-VersionMatrix`), `.vs\` (кэш открытой VS).
+- README (абзац про `.vdproj`), CHANGELOG (пункт в `### Removed` для 2.1.0 и пометка «removed in 2.1.0» в 2.0.0)
+  и этот файл (п. 5 итогов, §6.2) приведены в соответствие.
+
+**Проверка**
+```
+dotnet build PythonClient.sln -c Release / -c Debug   # 0 предупреждений, 0 ошибок; restore без packages\
+Invoke-Tests.ps1 -Category All                        # 145 / 145
+Test-ProviderSmoke.ps1 -Configuration Release         # 41 / 41
+pack.ps1                                              # nupkg/snupkg 2.1.0 пересобраны в artifacts\
 ```
 
 **Итоговый прогон**

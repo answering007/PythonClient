@@ -34,6 +34,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   with the internal ambient context: the execution state is passed explicitly via `PythonScriptContext` /
   `PythonCommand`, so there is no hidden static state and no `AsyncLocal` fallback anymore;
   `RunScript(scriptText)` uses a new default context.
+- The legacy Visual Studio Installer project `PythonClient64Setup\PythonClient64Setup.vdproj` (deprecated in 2.0.0,
+  required a separate VS extension) is removed from the solution: deployment and registration are done by
+  `scripts\install.ps1` / `uninstall.ps1` only.
 
 ### Fixed
 
@@ -147,7 +150,7 @@ Performance baseline: `TestLargeDataFrame` (90 000 rows × 6 columns) takes ~0.3
 
 - Projects migrated to SDK-style (`Microsoft.NET.Sdk`) with `PackageReference`; `packages.config` removed.
 - Release builds keep portable PDB files (the post-build PDB deletion was removed).
-- The legacy Visual Studio Installer project (`.vdproj`) is deprecated in favour of `install.ps1`.
+- The legacy Visual Studio Installer project (`.vdproj`) is deprecated in favour of `install.ps1` (removed in 2.1.0).
 
 ### Deprecated
 
