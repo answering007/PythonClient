@@ -1,0 +1,79 @@
+using System;
+using System.IO;
+using System.Linq;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Pike.PythonClient64;
+using Pike.PythonClient64.Data;
+
+namespace Pike.PythonClient.Test
+{
+    /// <summary>
+    /// Test environment helpers: python runtime location and connection string creation.
+    /// Python path is taken from the PYTHONNET_TEST_DLL environment variable,
+    /// the settings value is used as a fallback
+    /// </summary>
+    static class TestEnvironment
+    {
+        const string PythonDllVariable = "PYTHONNET_TEST_DLL";
+
+        /// <summary>
+        /// Full path to python*.dll
+        /// </summary>
+        public static string PythonDll =>
+            Environment.GetEnvironmentVariable(PythonDllVariable) ?? SettingsMain.Default.PythonDllPath;
+
+        /// <summary>
+        /// True if the python runtime is available
+        /// </summary>
+        public static bool IsPythonAvailable => !string.IsNullOrWhiteSpace(PythonDll) && File.Exists(PythonDll);
+
+        /// <summary>
+        /// Marks the test as inconclusive when the python runtime is not configured
+        /// </summary>
+        public static void SkipIfNoPython()
+        {
+            if (!IsPythonAvailable)
+                Assert.Inconclusive(
+                    $"Python runtime is not configured (set {PythonDllVariable} or SettingsMain.PythonDllPath)");
+        }
+
+        /// <summary>
+        /// Creates connection string builder with the configured python runtime and default path components
+        /// </summary>
+        /// <param name="scriptFile">Optional python script file</param>
+        /// <returns>Connection string builder</returns>
+        public static PythonConnectionStringBuilder CreateBuilder(string scriptFile = null)
+        {
+            var builder = new PythonConnectionStringBuilder { PythonDll = PythonDll };
+            if (!string.IsNullOrEmpty(scriptFile)) builder.File = scriptFile;
+
+            PythonDataProvider.PythonDllPath = PythonDll;
+            var components = PythonDataProvider.DefaultPathComponents.ToArray();
+            if (components.Length > 0) builder.PythonPath = string.Join(";", components);
+
+            return builder;
+        }
+
+        /// <summary>
+        /// Creates and opens the connection with the configured python runtime
+        /// </summary>
+        /// <param name="scriptFile">Optional python script file</param>
+        /// <returns>Opened connection</returns>
+        public static PythonConnection CreateConnection(string scriptFile = null)
+        {
+            var builder = CreateBuilder(scriptFile);
+            var connection = new PythonConnection { ConnectionString = builder.ConnectionString };
+            connection.Open();
+
+            return connection;
+        }
+
+        /// <summary>
+        /// Shuts the python engine down, so the next test gets a clean state
+        /// </summary>
+        public static void ShutdownIfOwned()
+        {
+            PythonDataProvider.Shutdown();
+        }
+    }
+}

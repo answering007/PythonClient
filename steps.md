@@ -359,3 +359,60 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 **Этап 2 завершён.** Все дефекты P0-8/P0-9 исправлены; интеграционные проверки с реальным pandas
 (категория `Python`) остаются непройденными в этом окружении из-за отсутствия Python.
 
+
+---
+
+## Этап 3. P0-6, P0-7 — GIL и жизненный цикл движка
+
+### 3.1–3.3 P0-6/P0-7: GIL на операцию и refcount движка — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Pike.PythonClient64\PythonDataProvider.cs`, `Pike.PythonClient64\PythonDataQuery.cs`,
+`Pike.PythonClient64\Data\PythonConnection.cs`
+
+**Сделано**
+- Удалён статический `GILState`, который захватывался один раз в `Open()` и удерживался до `Close()` —
+  источник `AccessViolationException`/порчи интерпретатора при вызовах из другого потока.
+  Теперь GIL захватывается на каждую операцию: `using (Py.GIL())` в `RunScript` и в `AddPathComponents`.
+- `PythonDataProvider.Open` работает под `lock (Sync)` и со счётчиком ссылок: повторный `Open()` при живом
+  движке увеличивает счётчик и добавляет новые пути (ранее молча игнорировал дополнительные пути).
+- `Close()` уменьшает счётчик и вызывает `PythonEngine.Shutdown()` **только** когда счётчик дошёл до нуля и
+  `ShutdownOnLastClose == true`; появился `ShutdownOnLastClose` (по умолчанию `true` для обратной
+  совместимости; для Excel/PQ рекомендуется `false`) и принудительный `Shutdown()`.
+- Инициализация отказоустойчива: `File.Exists(PythonDllPath)` до `Initialize()`, при исключении между
+  `Initialize()` и настройкой путей выполняется `Shutdown()` и `State = Closed` (раньше движок оставался
+  поднятым с `State = Closed`, и следующий `Open()` ничего не инициализировал).
+- `DefaultPathComponents`: пути фильтруются по `Directory.Exists`, добавлена поддержка `PYTHONHOME`/`PYTHONPATH`,
+  дубликаты убираются; пути добавляются через `sys.path.insert(0, …)` (приоритет пользовательских путей).
+- `Version` кэшируется при инициализации и возвращает пустую строку на закрытом движке (раньше обращался к
+  `Py_GetVersion()` вне инициализированного интерпретатора).
+- `PythonConnection` запоминает собственное состояние (`_isOpen`): `State`, `ServerVersion` и `Close()`
+  больше не зависят от глобального состояния; двойной `Close()` не освобождает чужую ссылку,
+  `Dispose` закрывает соединение только при `disposing == true`.
+
+**Проверка**
+- Сборка `Debug` — успешно, новых предупреждений нет.
+- `vstest '/TestCaseFilter:TestCategory=Unit'` → 65/65 пройдено (регрессий нет).
+- Интеграционная проверка P0-6/P0-7 требует Python (см. 3.4).
+
+### 3.4 Интеграционные тесты жизненного цикла + `TestEnvironment` — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Pike.PythonClient.Test\TestEnvironment.cs` (новый),
+`Tests\Python\EngineLifecycleTests.cs` (новый), `Pike.PythonClient.Test\Pike.PythonClient.Test.csproj`
+
+**Сделано**
+- `TestEnvironment`: путь к `python*.dll` из `PYTHONNET_TEST_DLL` с фолбэком на настройки, `IsPythonAvailable`,
+  `SkipIfNoPython()` (→ `Assert.Inconclusive` вместо падения), `CreateBuilder`/`CreateConnection`
+  (используют публичный `PythonDataProvider.DefaultPathComponents`), `ShutdownIfOwned()`.
+- `EngineLifecycleTests` (`[TestCategory("Python")]`): закрытие одного соединения не гасит движок для второго;
+  движок гасится при закрытии последнего соединения; двойной `Close()` не освобождает чужую ссылку;
+  `RunScript` из другого потока; параллельные соединения (`Parallel.For`) без исключений.
+- Тестовый проект получил прямую ссылку на `Python.Runtime` (нужна для проверок `PythonEngine.IsInitialized`).
+
+**Проверка**
+```
+& $vstest '...Pike.PythonClient.Test.dll' '/TestCaseFilter:TestCategory=Unit'    # 65/65 пройдено
+& $vstest '...Pike.PythonClient.Test.dll' '/TestCaseFilter:TestCategory=Python'  # 5 тестов пропущено (Inconclusive)
+```
+Тесты корректно помечаются как пропущенные, т.к. `PYTHONNET_TEST_DLL` не задан и Python не установлен.
+Прогон с реальным Python остаётся за CI/машиной с Python 3.11 + numpy/pandas.
+
