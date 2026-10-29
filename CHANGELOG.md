@@ -4,6 +4,39 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0] - 2026-10-29
+
+### Added (optional roadmap stage 4 — modern hosts)
+
+- **Multi-targeting.** The runtime project targets `net48` (Power Query / Excel) **and** `net8.0-windows`
+  (modern hosts); the NuGet package contains `lib\net48` and `lib\net8.0-windows`. The `net48` build is deployed
+  to Excel / Power Query (`bin\<Configuration>\net48`).
+- **Async API.** `PythonConnection.OpenAsync`, `PythonCommand.ExecuteReaderAsync`/`ExecuteScalarAsync`/
+  `ExecuteNonQueryAsync` and `PythonDataQuery.RunScriptAsync` execute the Python work on a thread pool thread, so the
+  caller is never blocked. A cancellation token prevents the execution from starting (Python scripts are not
+  interruptible).
+- **Streaming large results.** `PythonCommand.Streaming` (+ `StreamingChunkSize`, default 4096) returns a new
+  `PythonDataReader` that reads the DataFrame in chunks (`DataFrameCursor`): bounded memory, standard ADO.NET schema
+  (`GetSchemaTable`, `DataTable.Load`), typed getters, `SchemaOnly`/`SingleRow`/`CloseConnection` support.
+  The materialization path also uses the cursor now, so a table is filled chunk by chunk with a reused row buffer.
+- **Custom converters** are documented with a complete `IColumnConverter` example
+  (`SupportedTypes.Register`/`Reset`, `TryGetConverter`, `NormalizeDtype`).
+- `samples\Pike.PythonClient64.Sample` — minimal .NET 8 host (async + streaming), executed by CI.
+- Test suite grown to **145 tests** (85 unit + 60 integration); version matrix re-validated:
+  Python 3.9/3.11/3.13 × pandas 1.5/2.2/3.1 — 60/60 in every combination.
+
+### Fixed
+
+- **`.NET 8` shutdown.** `PythonEngine.Shutdown()` of pythonnet 3.0.5 uses `BinaryFormatter`, which is removed on
+  .NET 8+, so closing the last connection crashed with `PlatformNotSupportedException`. The exception is handled:
+  the interpreter stays alive until the process exits (safe fallback), finalization still works on .NET Framework.
+- **Shutdown from a non-owner thread.** `EndAllowThreads` can be called only in the thread that saved the state;
+  with an async host the close happened on another thread and deadlocked. The finalization is now skipped in that
+  case instead of hanging.
+- **`NaN` in the inferred string dtype (pandas 3).** Missing values of the default string dtype (`nan`) were
+  transferred as the literal `"nan"`/`"не число"` string; `NaN` is now treated as a missing value and becomes
+  `DBNull` (also covers `np.nan` in object columns).
+
 ## [2.0.0] - 2026-10-29
 
 ### Fixed

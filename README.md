@@ -24,7 +24,7 @@ and designed for in-process consumers such as Power Query / Excel, DataAdapter-b
 
 | Component | Requirement |
 |---|---|
-| .NET | .NET Framework **4.8**, process must be **x64** |
+| .NET | **.NET Framework 4.8** (Power Query / Excel, `net48`) or **.NET 8** (`net8.0-windows`) — the package ships both targets; process must be **x64** |
 | pythonnet | **3.0.5** (`Python.Runtime.dll` is deployed with the provider) |
 | Python | Python **3.9 – 3.13 x64**, e.g. CPython or Anaconda (3.7/3.8 are not tested); `python3xx.dll` must match the process bitness |
 | Python packages | `numpy`, `pandas` (pandas **1.5 – 3.1**, numpy **1.26 – 2.x**) in the same environment |
@@ -78,12 +78,12 @@ VS extension and is deprecated, use `scripts\install.ps1` instead.
 
 `artifacts\` contains:
 
-- `Pike.PythonClient64.<version>.nupkg` + `.snupkg` — **runtime only** (no installer dependency): `lib\net48`
-  assemblies, XML documentation, README and the `pythonnet 3.0.5` dependency (for in-process scenarios,
-  no `machine.config` change);
-- `Pike.PythonClient64\` — flat folder with `Pike.PythonClient64.dll/.xml/.pdb`, `Python.Runtime.dll` **and**
-  `Pike.PythonClient64.Install.dll/.xml`; used by `scripts\install.ps1` and for manual deployment to Power Query /
-  Excel.
+- `Pike.PythonClient64.<version>.nupkg` + `.snupkg` — **runtime only** (no installer dependency) with `lib\net48`
+  (Power Query / Excel) and `lib\net8.0-windows` (modern hosts) assemblies, XML documentation, README and the
+  `pythonnet 3.0.5` dependency;
+- `Pike.PythonClient64\` — flat folder with the **net48** build (`Pike.PythonClient64.dll/.xml/.pdb`,
+  `Python.Runtime.dll`) **and** `Pike.PythonClient64.Install.dll/.xml`; used by `scripts\install.ps1` and for manual
+  deployment to Power Query / Excel.
 
 The version is defined once in `Directory.Build.props` (semver) and reflected in the assembly attributes,
 the NuGet package and `CHANGELOG.md`.
@@ -187,6 +187,80 @@ Parameters are passed to the script as the `params` dictionary. `@name` and `:na
 
 Only `ParameterDirection.Input` is supported: `Output`, `InputOutput` and `ReturnValue` raise `NotSupportedException`.
 
+## Async API
+
+`PythonConnection.OpenAsync`, `PythonCommand.ExecuteReaderAsync/ExecuteScalarAsync/ExecuteNonQueryAsync` and
+`PythonDataQuery.RunScriptAsync` execute the Python work on a thread pool thread, so the caller thread is not blocked:
+
+```csharp
+await using (var connection = new PythonConnection { ConnectionString = connectionString })
+{
+    await connection.OpenAsync();
+
+    await using (var command = connection.CreateCommand())
+    {
+        command.CommandText = script;
+        await using (var reader = await command.ExecuteReaderAsync())
+            while (await reader.ReadAsync())
+                Console.WriteLine(reader.GetInt64(0));
+    }
+}
+```
+
+A Python script cannot be interrupted, so the cancellation token only prevents the execution from starting
+(a pre-cancelled token returns a cancelled task). Use script-level timeouts for long computations.
+
+## Streaming large results
+
+By default the whole `DataFrame` is materialized into a `DataTable`. For large results set
+`PythonCommand.Streaming = true`: the provider returns a `PythonDataReader` that reads the frame in chunks
+(`StreamingChunkSize`, 4096 rows by default), so memory usage is bounded:
+
+```csharp
+using (var command = (PythonCommand)connection.CreateCommand())
+{
+    command.CommandText = script;
+    command.Streaming = true;
+    command.StreamingChunkSize = 10_000;
+
+    using (var reader = command.ExecuteReader())
+        while (reader.Read())
+            Process(reader.GetInt64(0), reader.GetString(1));
+}
+```
+
+Streaming mode supports `CommandBehavior.SchemaOnly`, `SingleRow` (one row) and `CloseConnection` (the connection is
+closed when the reader is closed), `GetSchemaTable()` (standard ADO.NET schema, so `DataTable.Load` works) and typed
+getters. `ExecuteNonQuery`/`ExecuteScalar` always materialize the result to compute the count/first value.
+
+## Custom converters
+
+Any dtype can be mapped by a custom `IColumnConverter`; the registry is process-wide and thread-safe:
+
+```csharp
+public sealed class CategoryConverter : IColumnConverter
+{
+    public string PythonTypeName => "category";
+    public Type TargetType => typeof(string);
+
+    public object[] ConvertValues(object[] pythonValues)
+    {
+        var result = new object[pythonValues.Length];
+        for (var i = 0; i < pythonValues.Length; i++)
+            result[i] = pythonValues[i] == null ? (object)DBNull.Value : "cat:" + pythonValues[i];
+
+        return result;
+    }
+}
+
+SupportedTypes.Register(new CategoryConverter(), "category");   // replaces the default mapping
+SupportedTypes.Reset();                                          // restores the defaults
+```
+
+`SupportedTypes.TryGetConverter(dtype, out converter)` checks the mapping without an exception,
+`NormalizeDtype` removes byte-order markers and dtype parameters (`datetime64[ns, UTC]` → `datetime64`).
+Unknown dtype is rejected with `NotSupportedException` unless `PythonDataQuery.StrictColumnTypes = false`.
+
 ## Supported DataFrame column types
 
 | pandas dtype | .NET type | Notes |
@@ -221,8 +295,9 @@ Rules:
   reliably, `Cancel()` does nothing. Use script-level timeouts.
 - **Threading.** The GIL is acquired for every operation, so parallel commands are serialized by Python itself.
   `PythonConnection`/`PythonCommand` instances are not thread-safe; use one command per thread.
-- **Memory.** The whole `DataFrame` is materialized into a `DataTable` before the reader is returned; there is no
-  streaming for very large results.
+- **Memory.** By default the whole `DataFrame` is materialized into a `DataTable` before the reader is returned.
+  Use `PythonCommand.Streaming = true` to read the frame in chunks (bounded memory) — see
+  [Streaming large results](#streaming-large-results).
 - **`CommandBehavior`**: `SchemaOnly`, `SingleRow` and `CloseConnection` are supported.
 - **`ExecuteNonQuery`** returns the number of result rows; scripts without `result` give `0`.
 
@@ -308,17 +383,32 @@ inconclusive instead of failing. The provider registration for the tests is take
 
 ### Tested versions
 
-Every combination below passes the whole integration suite (46 tests) on Windows x64, .NET Framework 4.8:
+The suite has **145 tests** (85 unit without Python + 60 integration). Every combination below passes the whole
+integration suite on Windows x64:
 
-| Python | pandas | numpy | Result |
-|---|---|---|---|
-| 3.9.25 | 1.5.3 | 1.26.4 | 46 / 46 |
-| 3.11.16 | 2.2.3 | 1.26.4 | 46 / 46 |
-| 3.11.16 | 3.1.0 | 2.4.6 | 46 / 46 |
-| 3.13.15 | 3.1.0 | 2.5.4 | 46 / 46 |
+| Runtime | Python | pandas | numpy | Result |
+|---|---|---|---|---|
+| .NET Framework 4.8 | 3.9.25 | 1.5.3 | 1.26.4 | 60 / 60 |
+| .NET Framework 4.8 | 3.11.16 | 2.2.3 | 1.26.4 | 60 / 60 |
+| .NET Framework 4.8 | 3.11.16 | 3.1.0 | 2.4.6 | 60 / 60 |
+| .NET Framework 4.8 | 3.13.15 | 3.1.0 | 2.5.4 | 60 / 60 |
 
 pandas 3 changed the default datetime resolution to microseconds (`datetime64[us]`), the provider reads the unit from
-the dtype and supports `[ns]`, `[us]`, `[ms]`, `[s]`, `[m]`, `[h]` and `[D]`.
+the dtype and supports `[ns]`, `[us]`, `[ms]`, `[s]`, `[m]`, `[h]` and `[D]`. Missing values are mapped to `DBNull`
+regardless of the representation (`None`, `pd.NA`, `pd.NaT`, `np.nan`, `nan` of the inferred string dtype).
+
+### Sample (net8.0-windows)
+
+`samples\Pike.PythonClient64.Sample` is a minimal .NET 8 host that uses the async API and the streaming reader:
+
+```powershell
+. .\scripts\test\Initialize-PythonEnvironment.ps1
+$env:PYTHONNET_SAMPLE_DLL = $env:PYTHONNET_TEST_DLL
+$env:PYTHONNET_SAMPLE_PATH = $env:PYTHONPATH
+dotnet run --project samples\Pike.PythonClient64.Sample -c Release
+```
+
+The sample is also executed by CI, so the `net8.0-windows` build is covered at runtime, not only at compile time.
 
 ### Continuous integration
 

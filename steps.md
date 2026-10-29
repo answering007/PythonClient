@@ -65,14 +65,15 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 
 | Проверка | Результат |
 |---|---|
-| `dotnet build PythonClient.sln -c Debug` / `-c Release` | успешно, 0 предупреждений, 0 ошибок |
+| `dotnet build PythonClient.sln -c Debug` / `-c Release` | успешно, 0 предупреждений, 0 ошибок (net48 + net8.0-windows) |
 | `msbuild PythonClient.sln /restore` (legacy-путь) | успешно |
 | `vstest --TestCaseFilter:TestCategory=Unit` | **85 / 85 пройдено** |
-| `vstest --TestCaseFilter:TestCategory=Python` | **46 / 46 пройдено** (Python 3.11.16, numpy 2.4.6, pandas 3.1.0, локальное окружение через `uv`) |
+| `vstest --TestCaseFilter:TestCategory=Python` | **60 / 60 пройдено** (Python 3.11.16, numpy 2.4.6, pandas 3.1.0, локальное окружение через `uv`) |
 | `scripts\smoke\Test-ProviderSmoke.ps1` | **41 / 41 проверка** |
-| `.\scripts\pack.ps1` | `Pike.PythonClient64.2.0.0.nupkg` + `.snupkg` + папка деплоя |
-| `.\scripts\test\Invoke-VersionMatrix.ps1` | Python 3.9/3.11/3.13 × pandas 1.5/2.2/3.1 — **46/46 в каждой** |
-| проекты решения | `Pike.PythonClient64` (рантайм), `Pike.PythonClient64.Install` (регистрация), `Pike.PythonClient.Test` |
+| `.\scripts\pack.ps1` | `Pike.PythonClient64.2.1.0.nupkg` + `.snupkg` (lib/net48 + lib/net8.0-windows) + папка деплоя |
+| `.\scripts\test\Invoke-VersionMatrix.ps1` | Python 3.9/3.11/3.13 × pandas 1.5/2.2/3.1 — **60/60 в каждой** |
+| `samples\Pike.PythonClient64.Sample` | net8-хост: async + streaming, запуск успешен |
+| проекты решения | `Pike.PythonClient64` (рантайм, мультитаргет), `Pike.PythonClient64.Install` (регистрация), `Pike.PythonClient.Test`, `samples\Pike.PythonClient64.Sample` |
 
 Остаточные риски и что ещё проверить:
 
@@ -863,4 +864,86 @@ XML-декларация сохранена, бэкап создан, `Unregiste
 `PythonProviderFactory.Instance` резолвится.
 
 **Регрессии:** `Invoke-Tests.ps1 -Category All` → **131 / 131**, `Test-ProviderSmoke.ps1` → **41 / 41**.
+
+
+---
+
+## Этап 11. Опциональные фичи (§9, этап 4)
+
+### 11.1 Мультитаргет `net48` + `net8.0-windows` — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Pike.PythonClient64\Pike.PythonClient64.csproj`, `scripts\install.ps1`, `scripts\pack.ps1`,
+`scripts\smoke\Test-ProviderSmoke.ps1`, `.github\workflows\ci.yml`, `samples\Pike.PythonClient64.Sample\*` (новый проект),
+`PythonClient.sln`
+
+**Сделано**
+- Рантайм-проект: `<TargetFrameworks>net48;net8.0-windows</TargetFrameworks>`; ссылки `System.Data`/`System.Xml`/
+  `Microsoft.CSharp` — только для `net48` (в .NET 8 они в общей библиотеке).
+  Убран `AppendTargetFrameworkToOutputPath=false` — выходы теперь `bin\<Configuration>\net48` и `bin\<Configuration>\net8.0-windows`.
+- Скрипты/CI: `install.ps1` и `pack.ps1` берут **net48**-сборку (её грузят Excel/Power Query), artifact-пути в CI обновлены.
+- Добавлен sample для modern-хостов: `samples\Pike.PythonClient64.Sample` (`net8.0-windows`, console, async + streaming),
+  добавлен в решение; в CI — отдельный шаг запуска.
+
+**Проверка**
+```
+dotnet build Pike.PythonClient64.csproj -c Debug   # оба таргета, 0 предупреждений
+# bin\Debug\net48\Pike.PythonClient64.dll
+# bin\Debug\net8.0-windows\Pike.PythonClient64.dll
+dotnet run --project samples\Pike.PythonClient64.Sample   # .NET 10 runtime через roll-forward: таблица + streaming 3 строки
+```
+
+### 11.2 Async API — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Data\PythonCommand.cs`, `Data\PythonConnection.cs`, `PythonDataQuery.cs`,
+`Pike.PythonClient.Test\Tests\Python\AsyncTests.cs` (новый), sample
+
+**Сделано**
+- `PythonConnection.OpenAsync`, `PythonCommand.ExecuteNonQueryAsync`/`ExecuteScalarAsync`/`ExecuteDbDataReaderAsync`,
+  `PythonDataQuery.RunScriptAsync` — работа уходит в пул потоков (`Task.Run`), вызывающий поток не блокируется;
+  предотменённый токен возвращает отменённую задачу (скрипт прервать нельзя — задокументировано).
+- Валидации команды вынесены в `EnsureCanExecute()` / `GetRequiredScriptText()` (используются и sync-, и streaming-путём).
+
+### 11.3 Стриминг больших DataFrame — ✅ (2026-10-29)
+
+**Изменённые файлы:** `DataFrameCursor.cs`, `DataFrameCursor.Conversion.cs`, `DataFrameColumn.cs` (новые),
+`Data\PythonDataReader.cs` (новый), `PythonDataQuery.cs`, `Data\PythonCommand.cs`,
+`Pike.PythonClient.Test\Tests\Python\StreamingTests.cs` (новый)
+
+**Сделано**
+- `DataFrameCursor` — описание фрейма (имена/метки/dtype/конвертеры) и чтение строк чанками через `iloc[slice]`;
+  все обращения к Python выполняются под `Py.GIL()`, объекты освобождаются в `Dispose`.
+- `PythonDataReader : DbDataReader` — потоковый ридер: `Read()` подгружает чанк, типизированные геттеры,
+  `GetSchemaTable()` (стандартная схема ADO.NET, поэтому работает `DataTable.Load`), `GetDataTypeName` = python dtype,
+  `SchemaOnly`/`SingleRow`/`CloseConnection` (соединение закрывается при закрытии ридера).
+- `PythonCommand.Streaming` (+ `StreamingChunkSize`, по умолчанию 4096) переключает `ExecuteReader` на потоковый путь;
+  `ExecuteNonQuery`/`ExecuteScalar` всегда материализуют результат.
+- Материализация (`ConvertDataFrameToDataTable`) переведена на тот же курсор: таблица заполняется чанками
+  с переиспользуемым буфером строки.
+
+**Найденные и исправленные дефекты**
+1. `AccessViolationException` — курсор создавался **вне** GIL (после выхода из `RunScript`); добавлен
+   `CreateCursorUnderGil`, создание курсора выполняется под `Py.GIL()`.
+2. `DataTable.Load` падал (`ArgumentNullException: column`) — `GetSchemaTable` отдавал урезанную схему;
+   теперь схема строится через `DataTableReader`, т.е. содержит `IsKey`/`IsUnique`/`ColumnSize` и т.д.
+3. `P0_9_DuplicatedColumnNamesThrow` — при дубликатах меток `df[label]` возвращает DataFrame и `dtype` падал
+   неинформативным `PythonError`; дубликаты теперь проверяются **до** чтения колонок.
+4. На .NET 8 `PythonEngine.Shutdown()` бросал `PlatformNotSupportedException` (`BinaryFormatter` удалён) — обработано.
+5. В async-хосте закрытие соединения происходило в другом потоке, и `EndAllowThreads` вешал процесс —
+   финализация теперь выполняется только на потоке-владельце, иначе движок живёт до выхода из процесса.
+
+### 11.4 Свои конвертеры + документация — ✅ (2026-10-29)
+
+- Реестр конвертеров был реализован на этапе 2 (`SupportedTypes.Register/Reset/TryGetConverter/NormalizeDtype`);
+  в README добавлен полный пример `IColumnConverter` и описание регистрации.
+- Обновлены README (мультитаргет, async, streaming, custom converters, sample, матрица версий 60/60),
+  CHANGELOG (**2.1.0**), версия в `Directory.Build.props` → 2.1.0, CI (шаг sample).
+
+**Итоговый прогон**
+```
+dotnet build PythonClient.sln -c Debug                  # 0 предупреждений, 0 ошибок (net48 + net8.0-windows)
+Invoke-Tests.ps1 -Category All                          # 145 / 145 (Unit 85 + Python 60)
+Invoke-VersionMatrix.ps1 -Configuration Release         # 4 комбинации × 60 тестов — passed
+Test-ProviderSmoke.ps1                                  # 41 / 41
+dotnet run --project samples\...                        # net8-хост: async + streaming, 3 строки
+```
 

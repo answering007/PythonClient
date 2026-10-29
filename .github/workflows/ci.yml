@@ -47,6 +47,12 @@ jobs:
         shell: pwsh
         run: ./scripts/smoke/Test-ProviderSmoke.ps1 -Configuration Release
 
+      - name: Sample (net8.0-windows host, async + streaming)
+        shell: pwsh
+        env:
+          PYTHONNET_SAMPLE_DLL: ${{ env.pythonLocation }}\python311.dll
+        run: dotnet run --project samples/Pike.PythonClient64.Sample -c Release --no-build
+
       - name: Pack (nuget + deploy folder)
         shell: pwsh
         run: ./scripts/pack.ps1
@@ -62,10 +68,10 @@ jobs:
         with:
           name: Pike.PythonClient64
           path: |
-            Pike.PythonClient64/bin/Release/Pike.PythonClient64.dll
-            Pike.PythonClient64/bin/Release/Pike.PythonClient64.xml
-            Pike.PythonClient64/bin/Release/Pike.PythonClient64.pdb
-            Pike.PythonClient64/bin/Release/Python.Runtime.dll
+            Pike.PythonClient64/bin/Release/net48/Pike.PythonClient64.dll
+            Pike.PythonClient64/bin/Release/net48/Pike.PythonClient64.xml
+            Pike.PythonClient64/bin/Release/net48/Pike.PythonClient64.pdb
+            Pike.PythonClient64/bin/Release/net48/Python.Runtime.dll
 
   # Python / pandas compatibility matrix: one virtual environment per combination (uv)
   version-matrix:
