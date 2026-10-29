@@ -60,7 +60,9 @@ if (-not $SkipMachineConfig) {
 
 foreach ($file in $files) {
     $filePath = Join-Path $InstallPath $file
-    if (-not (Test-Path $filePath)) continue
+    if (-not (Test-Path $filePath)) {
+        continue
+    }
 
     Remove-Item -LiteralPath $filePath -Force
     Write-Host "Removed $file"
