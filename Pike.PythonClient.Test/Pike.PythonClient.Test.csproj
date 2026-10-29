@@ -57,6 +57,8 @@
   <ItemGroup>
     <Compile Include="SettingsMain.cs" />
     <Compile Include="TestEnvironment.cs" />
+    <Compile Include="Tests\Python\ColumnTypesTests.cs" />
+    <Compile Include="Tests\Python\CommandTests.cs" />
     <Compile Include="Tests\Python\EngineLifecycleTests.cs" />
     <Compile Include="SettingsMain.Designer.cs">
       <AutoGen>True</AutoGen>
@@ -70,6 +72,7 @@
     <Compile Include="Tests\DataProvider.cs" />
     <Compile Include="Tests\DataQuery.cs" />
     <Compile Include="Tests\Unit\ColumnConverterUnit.cs" />
+    <Compile Include="Tests\Unit\CommandUnit.cs" />
     <Compile Include="Tests\Unit\ConnectionStringBuilderUnit.cs" />
     <Compile Include="Tests\Unit\DataProviderInstallationUnit.cs" />
     <Compile Include="Tests\Unit\KeyIndexCollectionUnit.cs" />

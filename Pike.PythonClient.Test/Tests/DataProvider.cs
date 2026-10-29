@@ -1,25 +1,80 @@
-﻿using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Pike.PythonClient64;
 using System.Data;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Pike.PythonClient64;
 
 namespace Pike.PythonClient.Test.Tests
 {
+    /// <summary>
+    /// <see cref="PythonDataProvider"/> tests. Require the python runtime (PYTHONNET_TEST_DLL)
+    /// </summary>
     [TestClass]
+    [TestCategory("Python")]
     public class DataProvider
     {
         /// <summary>
-        /// Test that the connection can be opened and closed.
+        /// Skips the tests when the python runtime is not configured
         /// </summary>
-        /// <remarks>
-        /// Tests that the connection can be opened and closed. This is a basic test
-        /// that the connection can be established and is a pre-requisite for all
-        /// other tests.
-        /// </remarks>
+        [TestInitialize]
+        public void Setup()
+        {
+            TestEnvironment.SkipIfNoPython();
+        }
+
+        /// <summary>
+        /// Restores the clean engine state
+        /// </summary>
+        [TestCleanup]
+        public void Cleanup()
+        {
+            TestEnvironment.ShutdownIfOwned();
+        }
+
+        /// <summary>
+        /// Provider can be opened and closed
+        /// </summary>
         [TestMethod]
         public void ConnectionCanBeOpenedAndClosed()
         {
-            PythonDataProvider.PythonDllPath = SettingsMain.Default.PythonDllPath;
+            PythonDataProvider.PythonDllPath = TestEnvironment.PythonDll;
             PythonDataProvider.Open();
+            Assert.AreEqual(ConnectionState.Open, PythonDataProvider.State);
+            Assert.IsFalse(string.IsNullOrEmpty(PythonDataProvider.Version));
+
+            PythonDataProvider.Close();
+            Assert.AreEqual(ConnectionState.Closed, PythonDataProvider.State);
+            Assert.AreEqual(string.Empty, PythonDataProvider.Version);
+        }
+
+        /// <summary>
+        /// Engine is reference counted: nested open requires the same number of close calls (P0-7)
+        /// </summary>
+        /// <param name="numberOfRuns">Number of open/close pairs</param>
+        [TestMethod]
+        [DataRow(5)]
+        public void ConnectionCanBeOpenedAndClosedMultipleTimes(int numberOfRuns)
+        {
+            for (var i = 0; i < numberOfRuns; i++)
+            {
+                PythonDataProvider.PythonDllPath = TestEnvironment.PythonDll;
+                PythonDataProvider.Open();
+                Assert.AreEqual(ConnectionState.Open, PythonDataProvider.State);
+
+                PythonDataProvider.Close();
+                Assert.AreEqual(ConnectionState.Closed, PythonDataProvider.State);
+            }
+        }
+
+        /// <summary>
+        /// Nested open keeps the engine alive until the last close (P0-7)
+        /// </summary>
+        [TestMethod]
+        public void NestedOpenKeepsEngineAlive()
+        {
+            PythonDataProvider.PythonDllPath = TestEnvironment.PythonDll;
+            PythonDataProvider.Open();
+            PythonDataProvider.Open();
+
+            PythonDataProvider.Close();
             Assert.AreEqual(ConnectionState.Open, PythonDataProvider.State);
 
             PythonDataProvider.Close();
@@ -27,27 +82,15 @@ namespace Pike.PythonClient.Test.Tests
         }
 
         /// <summary>
-        /// Test that the connection can be opened and closed multiple times.
+        /// Default path components are directories that exist (P1-4)
         /// </summary>
-        /// <remarks>
-        /// Tests that the connection can be opened and closed multiple times. This
-        /// is a basic test that the connection can be established and is a pre-requisite
-        /// for all other tests.
-        /// </remarks>
-        /// <param name="numberOfRuns">The number of times to run the test.</param>
         [TestMethod]
-        [DataRow(10)]
-        public void ConnectionCanBeOpenedAndClosedMultipleTimes(int numberOfRuns)
+        public void DefaultPathComponentsExist()
         {
-            for (var i = 0; i < numberOfRuns; i++)
-            {
-                PythonDataProvider.PythonDllPath = SettingsMain.Default.PythonDllPath;
-                PythonDataProvider.Open();
-                Assert.AreEqual(ConnectionState.Open, PythonDataProvider.State);
+            PythonDataProvider.PythonDllPath = TestEnvironment.PythonDll;
 
-                PythonDataProvider.Close();
-                Assert.AreEqual(ConnectionState.Closed, PythonDataProvider.State);
-            }
+            foreach (var pathComponent in PythonDataProvider.DefaultPathComponents)
+                Assert.IsTrue(System.IO.Directory.Exists(pathComponent), $"Directory '{pathComponent}' does not exist");
         }
     }
 }

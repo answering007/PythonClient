@@ -56,7 +56,7 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 | 2 | P0-8, P0-9: конвертеры, реестр dtype, конвертация DataFrame | ⬜ |
 | 3 | P0-6, P0-7: GIL на операцию, refcount движка, жизненный цикл соединения | ✅ |
 | 4 | P0-5: безопасная регистрация в `machine.config` | ✅ |
-| 5 | P1-1…P1-5: контракты `DbCommand`/`DbParameter`/`DbConnection`, контекст выполнения | ⬜ |
+| 5 | P1-1…P1-5: контракты `DbCommand`/`DbParameter`/`DbConnection`, контекст выполнения | ✅ |
 | 6 | P2-1…P2-6: SDK-style, вынос install, тестовая инфраструктура, документация, CI | ⬜ |
 
 ---
@@ -508,4 +508,43 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
   исполнение без соединения/на закрытом соединении, `KeyNotFoundException` на неизвестный ключ строки,
   пустая строка соединения, `Open()` без `PYTHONDLL`, транзакции/`ChangeDatabase`, `ServerVersion`, идемпотентность
   `Close/Dispose` — **85/85 Unit-тестов пройдено**.
+
+
+### 5.4 P1-6: тестовая инфраструктура и покрытие — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Pike.PythonClient.Test\TestEnvironment.cs` (из этапа 3),
+`Tests\Basic.cs`, `Tests\DataQuery.cs`, `Tests\Connection.cs`, `Tests\DataProvider.cs`,
+`Tests\DbProviderFactory.cs` (переписаны), `Tests\Unit\CommandUnit.cs` (новый),
+`Tests\Python\CommandTests.cs` (новый), `Tests\Python\ColumnTypesTests.cs` (новый),
+`app.config`, `SettingsMain.settings`, `Pike.PythonClient.Test.csproj`
+
+**Сделано**
+- Убраны «личные» пути (`C:\Users\Pike\anaconda3\...`) из `app.config` и `SettingsMain.settings`; значение
+  в настройках пустое, путь берётся из `PYTHONNET_TEST_DLL`, иначе тест становится `Inconclusive`, а не падает.
+- Все интеграционные тесты помечены `[TestCategory("Python")]`, добавлены `[TestInitialize]` (skip) и
+  `[TestCleanup]` (`PythonDataProvider.Shutdown`) — движок больше не остаётся в непредсказуемом состоянии.
+- Дублирующаяся подготовка (4 копии сборки connection string) заменена на `TestEnvironment.CreateBuilder()` /
+  `CreateConnection()`, которые используют публичный `PythonDataProvider.DefaultPathComponents`.
+- Ложно-положительный тест `TestInvalidSyntaxInPythonCode` заменён на
+  `Assert.ThrowsException<PythonException>(...)`.
+- Все легаси-тесты переведены на новый API (`PythonScriptContext`, `ExecuteScript`), поэтому сборка
+  больше не содержит предупреждений `CS0618` от устаревших `PythonDataQuery.Query/Parameters/Reset`.
+- Новые тесты:
+  - `CommandTests` (Python): `SchemaOnly`, `SingleRow`, `CloseConnection`, `ExecuteNonQuery` без `result` и с
+    результатом, `CommandTimeout` → `NotSupportedException`, чтение скрипта из файла в UTF-8 (юникод),
+    срез `@`/`:` префиксов параметров, передача `decimal`/`Guid`/`TimeSpan`/`DateTime(Utc)`;
+  - `ColumnTypesTests` (Python): `int8`, `uint32`, `float32`, `Int64`/`pd.NA`, `boolean`, `string[python]`,
+    `timedelta64`, `NaT`, даты до 1970, tz-aware, нормализация «плохих» имён, дубликаты → `NotSupportedException`,
+    `complex128` → `NotSupportedException`, отключаемый strict-режим;
+  - `CommandUnit` (Unit): контракты команды/соединения без Python.
+- `DbProviderFactory`-тесты помечаются `Inconclusive`, если провайдер не зарегистрирован в `machine.config`.
+
+**Проверка**
+```
+& $msbuild 'PythonClient.sln' /p:Configuration=Debug '/p:Platform=Any CPU' /m   # успешно, предупреждений нет
+& $vstest '...Pike.PythonClient.Test.dll' '/TestCaseFilter:TestCategory=Unit'    # 85/85 пройдено
+& $vstest '...Pike.PythonClient.Test.dll' '/TestCaseFilter:TestCategory=Python'  # 45 тестов пропущено (Inconclusive)
+```
+Интеграционные тесты (45) требуют Python 3.11 x64 + numpy/pandas и `PYTHONNET_TEST_DLL`; в текущем окружении
+они корректно пропускаются, их прогон остаётся для CI/машины с Python.
 
