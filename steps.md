@@ -70,6 +70,8 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 | `vstest --TestCaseFilter:TestCategory=Unit` | **85 / 85 пройдено** |
 | `vstest --TestCaseFilter:TestCategory=Python` | **46 / 46 пройдено** (Python 3.11.16, numpy 2.4.6, pandas 3.1.0, локальное окружение через `uv`) |
 | `scripts\smoke\Test-ProviderSmoke.ps1` | **40 / 40 проверок** |
+| `.\scripts\pack.ps1` | `Pike.PythonClient64.2.0.0.nupkg` + `.snupkg` + папка деплоя |
+| `.\scripts\test\Invoke-VersionMatrix.ps1` | Python 3.9/3.11/3.13 × pandas 1.5/2.2/3.1 — **46/46 в каждой** |
 
 Остаточные риски и что ещё проверить:
 
