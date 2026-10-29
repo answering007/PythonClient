@@ -33,6 +33,35 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   script files are read as UTF-8 and cached, parameters support `null`/`decimal`/`Guid`/`TimeSpan`/`DateTimeOffset`,
   `@`/`:` prefixes are trimmed, execution context is per call (`PythonScriptContext`).
 
+### Fixed (found by integration testing with Python 3.11.16 / numpy 2.4.6 / pandas 3.1.0)
+
+- **GIL and worker threads (P0-6).** `PythonEngine.Initialize()` keeps the GIL in the initializing thread, so any
+  Python call from another thread blocked forever. The provider releases it with `BeginAllowThreads()` and restores
+  the saved thread state before the finalization: scripts, parallel connections and `RunScript` from a worker thread
+  now work.
+- **datetime64/timedelta64 resolution (P0-8).** pandas 3 stores datetimes with microsecond resolution
+  (`datetime64[us]`), the converter assumed nanoseconds, so values were shifted (e.g. `1960-01-01` came back as
+  `1969-12-28`). The unit is now read from the dtype (`[ns]`, `[us]`, `[ms]`, `[s]`, `[m]`, `[h]`, `[D]`) and scaled.
+- **Non-string column labels (P0-9).** Columns were selected by a string name, so DataFrames with default integer
+  labels (`0`, `1`, …) failed with `KeyError`. The series are selected by the original label, the string name is used
+  for the `DataColumn` only.
+- **pandas NA/NaT in object and string columns (P0-9).** `pd.NA` was transferred as the literal `"<NA>"` string;
+  `pd.NA`/`pd.NaT` are now treated as missing values and become `DBNull`.
+- **Engine shutdown from another thread (P0-7).** `PythonEngine.Shutdown()` is no longer called while the provider
+  lock is held, and a `Close()` of an already closed connection does not release someone else's reference.
+
+### Added (validation tooling)
+
+- `scripts/test/Initialize-PythonEnvironment.ps1` — local Python environment via `uv` (numpy, pandas) and the
+  `PYTHONNET_TEST_DLL`/`PYTHONPATH` variables used by the tests.
+- `scripts/test/Invoke-Tests.ps1` — build/test runner with a timeout (a hung interpreter no longer blocks the build),
+  failures are reported from the trx file.
+- `scripts/smoke/Test-ProviderSmoke.ps1` — 40 checks on the built assembly without Python.
+- `scripts/install.ps1` / `scripts/uninstall.ps1` were moved from the repository root to `scripts\`.
+- `PythonDataProvider.ReferenceCount` for diagnostics.
+- `Pike.PythonClient.Test\app.config` registers the provider, so `DbProviderFactories` tests need no
+  `machine.config` change.
+
 ### Added
 
 - `PythonScriptContext` and `PythonDataQuery.RunScript(scriptText, context)` for isolated script execution.

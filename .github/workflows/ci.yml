@@ -34,18 +34,18 @@ jobs:
         run: dotnet build PythonClient.sln -c Release --no-restore
 
       - name: Unit tests (no Python required)
-        run: >
-          vstest.console.exe Pike.PythonClient.Test\bin\Release\Pike.PythonClient.Test.dll
-          /TestCaseFilter:"TestCategory=Unit"
-          /logger:"console;verbosity=normal"
+        shell: pwsh
+        run: ./scripts/test/Invoke-Tests.ps1 -Category Unit -Configuration Release -NoBuild
 
       - name: Integration tests (Python + pandas)
+        shell: pwsh
         env:
           PYTHONNET_TEST_DLL: ${{ env.pythonLocation }}\python311.dll
-        run: >
-          vstest.console.exe Pike.PythonClient.Test\bin\Release\Pike.PythonClient.Test.dll
-          /TestCaseFilter:"TestCategory=Python"
-          /logger:"console;verbosity=normal"
+        run: ./scripts/test/Invoke-Tests.ps1 -Category Python -Configuration Release -NoBuild -TimeoutSeconds 900
+
+      - name: Smoke checks (no Python required)
+        shell: pwsh
+        run: ./scripts/smoke/Test-ProviderSmoke.ps1 -Configuration Release
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4

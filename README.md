@@ -38,12 +38,12 @@ Recommended (PowerShell, elevated):
 
 ```powershell
 dotnet build PythonClient.sln -c Release
-.\install.ps1                 # copies files to %ProgramFiles%\Pike\PythonClient64 and registers machine.config
-.\uninstall.ps1               # removes the registration and the files
+.\scripts\install.ps1          # copies files to %ProgramFiles%\Pike\PythonClient64 and registers machine.config
+.\scripts\uninstall.ps1        # removes the registration and the files
 ```
 
-`install.ps1` writes the registration into the 64-bit `machine.config` of .NET Framework 4.x and creates a backup
-`machine.config.bak-<utc>`. The registration uses a version-independent type name
+`scripts\install.ps1` writes the registration into the 64-bit `machine.config` of .NET Framework 4.x and creates a
+backup `machine.config.bak-<utc>`. The registration uses a version-independent type name
 (`Pike.PythonClient64.Data.PythonProviderFactory, Pike.PythonClient64`), so a provider upgrade does not break it.
 
 Manual registration (x64 `machine.config`):
@@ -243,20 +243,41 @@ see `docs/power-query.md` and the examples in `Pike.PythonClient.Test\Excel`.
 
 ## Build and test
 
+Both projects are SDK-style (`net48` + `x64`), so `dotnet build` works without a solution restore step:
+
 ```powershell
-# build (both projects are SDK-style, net48 + x64)
 dotnet build PythonClient.sln -c Release
+```
 
-# unit tests only: do not need Python
-vstest.console.exe Pike.PythonClient.Test\bin\Release\Pike.PythonClient.Test.dll /TestCaseFilter:"TestCategory=Unit"
+The helper scripts live in `scripts\`:
 
-# integration tests: need Python 3.11 x64 with numpy and pandas
-$env:PYTHONNET_TEST_DLL = 'C:\Python311\python311.dll'
-vstest.console.exe Pike.PythonClient.Test\bin\Release\Pike.PythonClient.Test.dll /TestCaseFilter:"TestCategory=Python"
+| Script | Purpose |
+|---|---|
+| `scripts\test\Initialize-PythonEnvironment.ps1` | creates a local Python environment with [uv](https://docs.astral.sh/uv/) (`.venv`, numpy, pandas) and sets `PYTHONNET_TEST_DLL`/`PYTHONPATH` |
+| `scripts\test\Invoke-Tests.ps1` | builds (optional) and runs the tests with a timeout, prints failed tests from the trx report |
+| `scripts\smoke\Test-ProviderSmoke.ps1` | 40 smoke checks on the built assembly (no Python required) |
+
+```powershell
+# unit tests: do not need Python (85 tests)
+.\scripts\test\Invoke-Tests.ps1 -Category Unit
+
+# integration tests: create the environment once, then run (43 tests)
+. .\scripts\test\Initialize-PythonEnvironment.ps1
+.\scripts\test\Invoke-Tests.ps1 -Category Python
+
+# everything
+.\scripts\test\Invoke-Tests.ps1 -Category All
+
+# quick sanity check without Python
+.\scripts\smoke\Test-ProviderSmoke.ps1 -Configuration Release
 ```
 
 `PYTHONNET_TEST_DLL` is the only configuration the tests need: without it, the `Python` tests are reported as
-inconclusive instead of failing.
+inconclusive instead of failing. The provider registration for the tests is taken from
+`Pike.PythonClient.Test\app.config`, so no `machine.config` change or administrator rights are required.
+
+The integration suite is validated with Python 3.11.16, numpy 2.4.6 and pandas 3.1.0 (pandas 3 changed the default
+datetime resolution to microseconds — the provider handles `[ns]`, `[us]`, `[ms]`, `[s]`, `[m]`, `[h]`, `[D]`).
 
 ## Examples
 

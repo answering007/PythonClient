@@ -68,20 +68,24 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 | `dotnet build PythonClient.sln -c Debug` / `-c Release` | успешно, 0 предупреждений, 0 ошибок |
 | `msbuild PythonClient.sln /restore` (legacy-путь) | успешно |
 | `vstest --TestCaseFilter:TestCategory=Unit` | **85 / 85 пройдено** |
-| `vstest --TestCaseFilter:TestCategory=Python` | 45 тестов, **все пропущены** (`Inconclusive`: Python не установлен) |
-| `dotnet test`/интеграционный прогон | не выполнялся: нет Python 3.x + numpy/pandas; требуется `PYTHONNET_TEST_DLL` |
+| `vstest --TestCaseFilter:TestCategory=Python` | **46 / 46 пройдено** (Python 3.11.16, numpy 2.4.6, pandas 3.1.0, локальное окружение через `uv`) |
+| `scripts\smoke\Test-ProviderSmoke.ps1` | **40 / 40 проверок** |
 
-Остаточные риски и что проверить на машине с Python/Excel:
+Остаточные риски и что ещё проверить:
 
-1. Прогнать набор `TestCategory=Python` (45 тестов) с `PYTHONNET_TEST_DLL` — проверяются GIL/refcount, параметры,
-   `CommandBehavior`, типы колонок и `NaT`/`NaN`.
+1. ~~Прогон набора `TestCategory=Python`~~ — выполнено, см. **Этап 7** (46/46 тестов, Python 3.11.16 / pandas 3.1.0).
+   Матрицу версий стоит расширить: pandas 1.5/2.x и Python 3.9/3.13 (`-PythonVersion` в
+   `scripts\test\Initialize-PythonEnvironment.ps1`).
 2. Проверить сценарии Power Query на примерах `Pike.PythonClient.Test\Excel\PowerQuery - 01..04.xlsx`
-   после `install.ps1` (регистрация в `machine.config`).
+   после `scripts\install.ps1` (требуется 64-битный Excel и права администратора).
 3. `PyObject`-обёртки отдельных элементов `tolist()` освобождаются только GC (зафиксировано в 2.4) — при больших
    DataFrame стоит оценить потребление памяти и при необходимости перейти на типизированный доступ по numpy-буферам.
 4. `key.snk` остаётся в репозитории (решение зафиксировано в `SECURITY.md`); при ротации ключа изменится
    `PublicKeyToken`, потребуется повторная регистрация провайдера.
-5. `PythonClient64Setup.vdproj` не удалён, но считается устаревшим: поставка — `install.ps1`/`uninstall.ps1`.
+5. `PythonClient64Setup.vdproj` не удалён, но считается устаревшим: поставка — `scripts\install.ps1`/`uninstall.ps1`.
+6. `PythonEngine.Shutdown()` с импортированными numpy/pandas не всегда финализирует интерпретатор
+   (`PythonEngine.IsInitialized` может остаться `true`); провайдер трактует финализацию как best-effort и
+   полагается на счётчик ссылок. Для Excel/PQ рекомендуется `PythonDataProvider.ShutdownOnLastClose = false`.
 
 
 ---
@@ -660,4 +664,50 @@ vstest --TestCaseFilter:TestCategory=Unit  # 85/85
 **Проверка**
 - Локально повторены шаги сборки и обоих фильтров тестов (Unit 85/85, Python — 45 пропущено без Python).
   Прогон workflow возможен только в GitHub после push.
+
+
+---
+
+## Этап 7. Валидация на реальном Python (после P0/P1/P2)
+
+### 7.1 Локальное окружение Python через `uv` — ✅ (2026-10-29)
+
+**Сделано**
+- `uv venv .venv --python 3.11` → CPython **3.11.16 x64** (uv-managed), `uv pip install numpy pandas` →
+  **numpy 2.4.6**, **pandas 3.1.0**. Каталог `.venv` добавлен в `.gitignore`.
+- `PYTHONNET_TEST_DLL = <uv>\cpython-3.11-windows-x86_64-none\python311.dll`,
+  `PYTHONPATH = <repo>\.venv\Lib\site-packages` (провайдер добавляет `PYTHONPATH` из окружения в `sys.path`).
+- Скрипты окружения/прогона перенесены в репозиторий: `scripts\test\Initialize-PythonEnvironment.ps1`,
+  `scripts\test\Invoke-Tests.ps1` (таймаут + разбор trx), `scripts\smoke\Test-ProviderSmoke.ps1`;
+  `install.ps1`/`uninstall.ps1` перенесены в `scripts\`.
+
+### 7.2 Дефекты, найденные интеграционным прогоном (и исправленные) — ✅ (2026-10-29)
+
+| # | Симптом | Причина | Исправление |
+|---|---|---|---|
+| 1 | Вызов Python из другого потока зависал навсегда (`Py.GIL()` не возвращался), `Parallel.For` — deadlock | `PythonEngine.Initialize()` оставляет GIL за потоком инициализации | После `Initialize()` вызывается `PythonEngine.BeginAllowThreads()`, состояние потока сохраняется и восстанавливается (`EndAllowThreads`) перед `Shutdown`; добавлен регрессионный тест `P0_6_GilIsAvailableFromAnotherThread` |
+| 2 | `1960-01-01` возвращался как `1969-12-28 08:19:40`, `timedelta 1h` как `3.6 s` | pandas 3 использует `datetime64[us]`/`timedelta64[us]`, конвертеры жёстко считали наносекунды | Разрешение берётся из dtype (`GetDtypeUnit`/`GetNanosecondsPerUnit`) и значения масштабируются к нс до конвертации (`ScaleToNanoseconds`, с проверкой переполнения и сохранением `NaT`) |
+| 3 | `PythonException: KeyError '0'` для DataFrame с колонками по умолчанию | после перевода имён в строки серия выбиралась по строке, а метки были числами | серия выбирается по исходной метке (`PyObject`), строка используется только для имени `DataColumn` |
+| 4 | `pd.NA` в `string`/`object`-колонках попадал в `DataTable` строкой `"<NA>"` | `pd.NA` не является `None` | `PythonValue.IsNone` распознаёт `pd.NA`/`pd.NaT` (стабильный repr) → `DBNull` |
+| 5 | `PythonEngine.Shutdown()` вызывался под `lock` провайдера | риск взаимной блокировки с потоком, держащим GIL | `Shutdown` вынесен за пределы `lock`, `Close()` идемпотентен, добавлен `PythonDataProvider.ReferenceCount` |
+| 6 | Тесты зависали/падали при повторной инициализации интерпретатора с numpy/pandas | перезапуск движка между тестами + несбалансированные ссылки | `TestEnvironment` держит движок живым (`ShutdownOnLastClose = false`), `[AssemblyCleanup]` → `Shutdown()`; `[ClassCleanup]` в этом окружении не вызывается, поэтому используется идемпотентный `EnsureProviderOpen()`; тесты проверяют переходы `ReferenceCount`, а не глобальный `State` |
+
+Также в тестовом `app.config` добавлена регистрация провайдера (`system.data/DbProviderFactories`), поэтому
+`DbProviderFactories`-тесты проходят без изменения `machine.config` и без прав администратора.
+
+### 7.3 Итоговый прогон — ✅ (2026-10-29)
+
+```
+dotnet build PythonClient.sln -c Debug                     # 0 предупреждений, 0 ошибок
+.\scripts\test\Invoke-Tests.ps1 -Category All \
+    -PythonDll <uv>\python311.dll -SitePackages <repo>\.venv\Lib\site-packages
+# Total: 131, Passed: 131, Failed: 0, Skipped/Inconclusive: 0
+.\scripts\smoke\Test-ProviderSmoke.ps1                     # All 40 smoke checks passed
+```
+
+Интеграционный набор покрывает: GIL/refcount (включая вызов из другого потока и `Parallel.For`), параметры
+(`null`, `decimal`, `Guid`, `TimeSpan`, `DateTime(Utc)`, префиксы `@`/`:`), `CommandBehavior`
+(`SchemaOnly`, `SingleRow`, `CloseConnection`), `CommandTimeout`, скрипт из файла в UTF-8, все поддерживаемые dtype
+(`int8`/`uint32`/`float32`/`Int64`/`boolean`/`string`/`category`/`datetime64`/`timedelta64`), `NaT`/`NaN`/`pd.NA`,
+даты до 1970 и tz-aware колонки, «плохие» и дублирующиеся имена колонок, `complex128` и strict-режим.
 
