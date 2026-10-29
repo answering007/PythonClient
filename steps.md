@@ -131,3 +131,21 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 **Breaking change:** строки, где `PYTHONPATH` содержит `;` без кавычек, теперь отклоняются парсером (по
 спецификации ADO.NET). Требуется запись в README/CHANGELOG (этап 6).
 
+
+### 1.2 P0-4 (часть): `KeyIndexCollection` — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Pike.PythonClient64\KeyIndexCollection.cs`
+
+**Сделано**
+- Добавлены `Set(key, value)` (замена значения без смены позиции либо добавление в конец), `Insert(index, key, value)`
+  (вставка по индексу; существующий ключ перемещается на указанную позицию), `TryGetValue(key, out value)`, `Keys`.
+- `Values` и `GetEnumerator()` теперь отдают элементы **в порядке добавления** (ранее — порядок `Dictionary`,
+  который не гарантирован после удалений).
+- `Remove` для отсутствующего ключа — no-op (задокументировано), `RemoveAt` по-прежнему валидирует индекс.
+
+**Проверка**
+- Сборка `Debug` — успешно.
+- Smoke-скрипт: `Add a,b` → `Set c` → `Set a` (значение заменено, позиция сохранена) → `Insert(0,z)` → `Insert(1,b)`
+  даёт `Keys = z,b,a,c`, `Values = 0,22,11,3`, `IndexOfKey('b') = 1`, `TryGetValue('missing') = false`,
+  `Remove('missing')` не меняет `Count`, перечисление совпадает с `Keys`/`Values`.
+
