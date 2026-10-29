@@ -351,20 +351,23 @@ The helper scripts live in `scripts\`:
 
 | Script | Purpose |
 |---|---|
-| `scripts\test\Initialize-PythonEnvironment.ps1` | creates a local Python environment with [uv](https://docs.astral.sh/uv/) (`.venv`, numpy, pandas) and sets `PYTHONNET_TEST_DLL`/`PYTHONPATH` |
-| `scripts\test\Invoke-Tests.ps1` | builds (optional) and runs the tests with a timeout, prints failed tests from the trx report |
+| `scripts\test\Initialize-PythonEnvironment.ps1` | creates a local Python environment with [uv](https://docs.astral.sh/uv/) (`.venv`, numpy, pandas) — the tests find it automatically |
+| `scripts\test\Invoke-Tests.ps1` | builds (optional) and runs the tests with a timeout, prints failed tests from the trx report; uses `<repo>\.venv` when no runtime is configured |
 | `scripts\test\Invoke-VersionMatrix.ps1` | runs the integration tests against Python 3.9/3.11/3.13 and pandas 1.5/2.2/3.1 (`.venv-matrix\*`) |
 | `scripts\test\PythonEnvironment.ps1` | shared helpers (create environment, resolve `python3xx.dll` and `site-packages`) |
-| `scripts\smoke\Test-ProviderSmoke.ps1` | 40 smoke checks on the built assembly (no Python required) |
+| `scripts\smoke\Test-ProviderSmoke.ps1` | 41 smoke checks on the built assembly (no Python required) |
 | `scripts\pack.ps1` | Release build + `dotnet pack` into `artifacts\` (nupkg/snupkg and a flat deploy folder) |
 
 ```powershell
 # unit tests: do not need Python (85 tests)
 .\scripts\test\Invoke-Tests.ps1 -Category Unit
 
-# integration tests: create the environment once, then run (46 tests)
-. .\scripts\test\Initialize-PythonEnvironment.ps1
+# integration tests (60 tests): create the environment once, it is picked up automatically
+.\scripts\test\Initialize-PythonEnvironment.ps1
 .\scripts\test\Invoke-Tests.ps1 -Category Python
+
+# or point the run at any other virtual environment
+.\scripts\test\Invoke-Tests.ps1 -Category Python -EnvironmentPath .\.venv-matrix\py311-pandas22
 
 # everything
 .\scripts\test\Invoke-Tests.ps1 -Category All
@@ -376,9 +379,22 @@ The helper scripts live in `scripts\`:
 .\scripts\smoke\Test-ProviderSmoke.ps1 -Configuration Release
 ```
 
-`PYTHONNET_TEST_DLL` is the only configuration the tests need: without it, the `Python` tests are reported as
-inconclusive instead of failing. The provider registration for the tests is taken from
-`Pike.PythonClient.Test\app.config`, so no `machine.config` change or administrator rights are required.
+The python runtime is resolved in this order, so no manual configuration is required when the local `.venv`
+exists:
+
+1. `PYTHONNET_TEST_DLL` (and `PYTHONPATH`) — set by CI, the scripts and `-PythonDll`/`-SitePackages`;
+2. `PYTHONNET_TEST_VENV` — path to a virtual environment (`pyvenv.cfg` + `python3xx.dll` + numpy/pandas are read
+   from it), useful for debugging in Visual Studio Test Explorer;
+3. `<repository root>\.venv` — the default local environment created by `Initialize-PythonEnvironment.ps1`.
+
+The same discovery is implemented twice: in `PythonRuntimeLocator`/`TestEnvironment` for the test assembly (works
+in Test Explorer and `vstest.console` without any environment variable) and in `PythonEnvironment.ps1` for the
+scripts. Without a runtime the `Python` tests are reported as inconclusive instead of failing. Python 3.7–3.10
+environments must be selected through the scripts (`-PythonDll`/`-SitePackages`): pythonnet starts the interpreter
+from a non-Python host, and CPython before 3.11 cannot locate its `Lib` folder in that process.
+
+The provider registration for the tests is taken from `Pike.PythonClient.Test\app.config`, so no
+`machine.config` change or administrator rights are required.
 
 ### Tested versions
 

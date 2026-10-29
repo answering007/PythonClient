@@ -6,9 +6,12 @@
     Uses vstest.console.exe from the latest Visual Studio installation (vswhere).
     Test categories:
         Unit   - parser/collection/converter tests, Python is not required;
-        Python - integration tests, PYTHONNET_TEST_DLL must be set
-                 (see scripts\test\Initialize-PythonEnvironment.ps1);
+        Python - integration tests, the python runtime is required;
         All    - both categories.
+
+    The python runtime is taken from the -PythonDll/-SitePackages parameters, the
+    PYTHONNET_TEST_DLL/PYTHONPATH variables or the local virtual environment
+    (<repository root>\.venv by default), see scripts\test\Initialize-PythonEnvironment.ps1.
 
     When the test host does not finish within -TimeoutSeconds, it is killed and the script fails,
     so a hung Python interpreter does not block the build.
@@ -28,12 +31,17 @@
 .PARAMETER NoBuild
     Skip the build step
 
+.PARAMETER EnvironmentPath
+    Local virtual environment used when -PythonDll is not set. Default is <repository root>\.venv
+
 .EXAMPLE
     .\scripts\test\Invoke-Tests.ps1
 
 .EXAMPLE
-    . .\scripts\test\Initialize-PythonEnvironment.ps1
     .\scripts\test\Invoke-Tests.ps1 -Category Python -TimeoutSeconds 300
+
+.EXAMPLE
+    .\scripts\test\Invoke-Tests.ps1 -Category Python -EnvironmentPath .\.venv-matrix\py311-pandas22
 
 .EXAMPLE
     .\scripts\test\Invoke-Tests.ps1 -Filter 'FullyQualifiedName~ColumnTypesTests' -NoBuild
@@ -47,7 +55,8 @@ param(
     [int]$TimeoutSeconds = 900,
     [switch]$NoBuild,
     [string]$PythonDll = $env:PYTHONNET_TEST_DLL,
-    [string]$SitePackages = $env:PYTHONPATH
+    [string]$SitePackages = $env:PYTHONPATH,
+    [string]$EnvironmentPath
 )
 
 $ErrorActionPreference = 'Stop'
@@ -61,6 +70,21 @@ if (-not [string]::IsNullOrWhiteSpace($PythonDll)) {
 
 if (-not [string]::IsNullOrWhiteSpace($SitePackages)) {
     $env:PYTHONPATH = $SitePackages
+}
+
+# The local virtual environment is used when the runtime is not configured explicitly.
+# vstest passes the environment to the test host, so the tests see the same values
+if ([string]::IsNullOrWhiteSpace($env:PYTHONNET_TEST_DLL)) {
+    . (Join-Path $PSScriptRoot 'PythonEnvironment.ps1')
+
+    if ([string]::IsNullOrWhiteSpace($EnvironmentPath)) {
+        $EnvironmentPath = Join-Path $root '.venv'
+    }
+
+    if (Test-Path (Join-Path $EnvironmentPath 'pyvenv.cfg')) {
+        $info = Set-PythonTestEnvironment -EnvironmentPath $EnvironmentPath
+        Write-Host "Using local environment '$EnvironmentPath' (python $($info.PythonVersion))"
+    }
 }
 
 # vstest.console.exe from the latest Visual Studio
@@ -103,7 +127,8 @@ if ([string]::IsNullOrWhiteSpace($Filter)) {
 
 if ($Category -eq 'Python' -or $Category -eq 'All') {
     if ([string]::IsNullOrWhiteSpace($env:PYTHONNET_TEST_DLL)) {
-        Write-Warning 'PYTHONNET_TEST_DLL is not set, the Python tests will be reported as inconclusive'
+        Write-Warning ('PYTHONNET_TEST_DLL is not set and no local environment is found ' +
+            '(see scripts\test\Initialize-PythonEnvironment.ps1), the Python tests will be reported as inconclusive')
     }
 }
 

@@ -18,9 +18,10 @@
 
 ## Ограничения и особенности
 
-1. **Интеграционные тесты (`TestCategory=Python`) в этом окружении не выполняются** — нет Python.
-   Для их прогона нужен `PYTHONNET_TEST_DLL=<путь к python3xx.dll>` и установленные `numpy`/`pandas`.
-   Такие тесты пишутся, но помечаются как «не прогонялись».
+1. **Интеграционные тесты (`TestCategory=Python`)** требуют Python + `numpy`/`pandas`. Локальное окружение
+   создаётся `scripts\test\Initialize-PythonEnvironment.ps1` (`.venv`, CPython 3.11) и обнаруживается тестами
+   автоматически (§11.7); `PYTHONNET_TEST_DLL`/`PYTHONNET_TEST_VENV` переопределяют выбор. Без окружения тесты
+   помечаются как `Inconclusive`, а не падают.
 2. **`msbuild /t:restore` не восстанавливает `packages.config`** (проекты legacy-формата, в MSBuild отсутствует
    поддержка packages.config-restore; при явном `/p:RestorePackagesConfig=true` — ошибка «Решение не найдено»).
    Используется `nuget.exe restore <packages.config> -PackagesDirectory packages`.
@@ -42,9 +43,8 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 # быстрый набор тестов (не требует Python)
 & $vstest 'Pike.PythonClient.Test\bin\Debug\Pike.PythonClient.Test.dll' '/TestCaseFilter:TestCategory=Unit'
 
-# интеграционные тесты (требуют установленный Python)
-# $env:PYTHONNET_TEST_DLL = 'C:\Python311\python311.dll'
-# & $vstest 'Pike.PythonClient.Test\bin\Debug\Pike.PythonClient.Test.dll' '/TestCaseFilter:TestCategory=Python'
+# интеграционные тесты (окружение .venv находится автоматически, §11.7)
+& $vstest 'Pike.PythonClient.Test\bin\Debug\Pike.PythonClient.Test.dll' '/TestCaseFilter:TestCategory=Python'
 ```
 
 ## План этапов
@@ -78,9 +78,9 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 
 Остаточные риски и что ещё проверить:
 
-1. ~~Прогон набора `TestCategory=Python`~~ — выполнено, см. **Этап 7** (46/46 тестов, Python 3.11.16 / pandas 3.1.0).
-   Матрицу версий стоит расширить: pandas 1.5/2.x и Python 3.9/3.13 (`-PythonVersion` в
-   `scripts\test\Initialize-PythonEnvironment.ps1`).
+1. ~~Прогон набора `TestCategory=Python`~~ и ~~матрица версий~~ — выполнено: см. **Этап 7**, **Этап 8** и §11.7
+   (Python 3.9/3.11/3.13 × pandas 1.5/2.2/3.1, все комбинации проходят). Окружение тесты находят сами
+   (`<repo>\.venv`), отдельная настройка не нужна.
 2. Проверить сценарии Power Query на примерах `Pike.PythonClient.Test\Excel\PowerQuery - 01..04.xlsx`
    после `scripts\install.ps1` (требуется 64-битный Excel и права администратора).
 3. `PyObject`-обёртки отдельных элементов `tolist()` освобождаются только GC (зафиксировано в 2.4) — при больших
@@ -989,6 +989,54 @@ dotnet build PythonClient.sln -c Release / -c Debug   # 0 предупрежде
 Invoke-Tests.ps1 -Category All                        # 145 / 145
 Test-ProviderSmoke.ps1 -Configuration Release         # 41 / 41
 pack.ps1                                              # nupkg/snupkg 2.1.0 пересобраны в artifacts\
+```
+
+### 11.7 Автообнаружение локального окружения в интеграционных тестах — ✅ (2026-10-30)
+
+**Изменённые файлы:** `Pike.PythonClient.Test\PythonRuntimeLocator.cs` (новый),
+`Pike.PythonClient.Test\TestEnvironment.cs`, `Pike.PythonClient.Test\Tests\AssemblyHooks.cs`,
+`scripts\test\Invoke-Tests.ps1`, `scripts\test\PythonEnvironment.ps1`, `README.md`, `steps.md`
+
+**Задача**
+Локальное окружение `.venv` (CPython 3.11.16, numpy 2.4.6, pandas 3.1.0) существует, но тесты о нём не знали:
+`PYTHONNET_TEST_DLL` не задан ни в User, ни в Machine, в `app.config`/`.settings` значение пустое → все 60
+интеграционных тестов (`TestCategory=Python`) в Test Explorer и в новом терминале уходили в `Inconclusive`,
+хотя окружение готово. Рабочий прогон требовал вручную выставлять `PYTHONNET_TEST_DLL` + `PYTHONPATH`
+(или dot-source `Initialize-PythonEnvironment.ps1`).
+
+**Сделано**
+- `PythonRuntimeLocator` (internal static, без зависимостей): приоритет источников
+  `PYTHONNET_TEST_DLL` → `PYTHONNET_TEST_VENV` → `<repo>\.venv`. Для venv читается `pyvenv.cfg`
+  (`home` → `python{major}{minor}.dll`, `version_info`), `site-packages` проверяется на наличие `numpy`/`pandas`;
+  корень репозитория ищется вверх от `AppDomain.CurrentDomain.BaseDirectory` по `PythonClient.sln`. Любая ошибка
+  обнаружения подавляется — поведение деградирует до прежнего `Inconclusive`.
+- `TestEnvironment`: в статическом конструкторе `ApplyLocalEnvironment()` выставляет `PYTHONNET_TEST_DLL` и
+  дописывает `site-packages` в `PYTHONPATH` (не затирая существующее значение) до первого `Open()` — pythonnet
+  читает `PYTHONPATH` при инициализации. Добавлено диагностическое `RuntimeSource`; сообщение
+  `SkipIfNoPython()` подсказывает три способа задать рантайм.
+- `AssemblyHooks.AssemblyInitialize` пишет в лог рантайм, версию Python, `home`, версии numpy/pandas и источник.
+  Интерпретатор там **не запускается** (версии читаются из `pyvenv.cfg` и `*.dist-info`): хук может выполняться в
+  процессе `vstest.console`, где pythonnet поднимает CPython из не-python хоста.
+- `Invoke-Tests.ps1`: параметр `-EnvironmentPath`; при пустом `PYTHONNET_TEST_DLL` скрипт сам берёт `<repo>\.venv`
+  через `PythonEnvironment.ps1` и печатает `Using local environment …`. `Invoke-VersionMatrix.ps1` не менялся
+  (явные `-PythonDll`/`-SitePackages` сохраняют приоритет).
+
+**Ограничение:** `PYTHONNET_TEST_VENV` и автообнаружение работают для Python 3.11–3.13. Для 3.7–3.10 окружение
+нужно выбирать через скрипты (`-PythonDll`/`-SitePackages`): при хостинге из не-python процесса CPython < 3.11
+не находит свой `Lib` (в `sys.path` попадает каталог `vstest.console.exe`), а `PYTHONHOME` для обхода этой
+проблемы ломает конверсию nullable-типов на pandas 1.5.3 (2 теста `P0_9`/`P1_3`).
+
+**Проверка**
+```
+dotnet build PythonClient.sln -c Debug / -c Release       # 0 предупреждений, 0 ошибок
+Invoke-Tests.ps1 -Category Python                          # без env: "Using local environment …\.venv", 60 / 60
+Invoke-Tests.ps1 -Category All                             # без env: 145 / 145
+vstest.console Pike.PythonClient.Test.dll /TestCaseFilter:TestCategory=Python   # без env: 60 / 60, source=.venv
+vstest.console … (PYTHONNET_TEST_VENV=…\py311-pandas22)     # 60 / 60, source=<venv>
+vstest.console … (PYTHONNET_TEST_VENV=…\py313-pandas31)     # 60 / 60, source=<venv>
+Invoke-Tests.ps1 -Category Python -PythonDll <uv>\python311.dll -SitePackages …  # 60 / 60, source=PYTHONNET_TEST_DLL
+Invoke-VersionMatrix.ps1                                   # py39-pandas15, py311-pandas22, py311-pandas31, py313-pandas31 — passed
+Test-ProviderSmoke.ps1 -Configuration Release              # 41 / 41
 ```
 
 **Итоговый прогон**

@@ -10,18 +10,19 @@ namespace Pike.PythonClient.Test
 {
     /// <summary>
     /// Test environment helpers: python runtime location and connection string creation.
-    /// Python path is taken from the PYTHONNET_TEST_DLL environment variable,
-    /// the settings value is used as a fallback
+    /// The runtime is taken from the PYTHONNET_TEST_DLL environment variable, the local .venv
+    /// of the repository or the settings value (in that order), see <see cref="PythonRuntimeLocator"/>
     /// </summary>
     static class TestEnvironment
     {
-        const string PythonDllVariable = "PYTHONNET_TEST_DLL";
+        const string PythonDllVariable = PythonRuntimeLocator.PythonDllVariable;
 
         static TestEnvironment()
         {
             // The interpreter is initialized once per test run: re-initialization of pythonnet with
             // numpy/pandas imported is slow and not reliable, so the engine lives until the assembly cleanup
             PythonDataProvider.ShutdownOnLastClose = false;
+            ApplyLocalEnvironment();
         }
 
         /// <summary>
@@ -31,9 +32,38 @@ namespace Pike.PythonClient.Test
             Environment.GetEnvironmentVariable(PythonDllVariable) ?? SettingsMain.Default.PythonDllPath;
 
         /// <summary>
+        /// Where the python runtime comes from: the PYTHONNET_TEST_DLL variable, the local virtual
+        /// environment folder or null when nothing is found (diagnostics)
+        /// </summary>
+        public static string RuntimeSource => PythonRuntimeLocator.Source;
+
+        /// <summary>
         /// True if the python runtime is available
         /// </summary>
         public static bool IsPythonAvailable => !string.IsNullOrWhiteSpace(PythonDll) && File.Exists(PythonDll);
+
+        /// <summary>
+        /// Uses the local virtual environment when the python runtime is not configured explicitly.
+        /// pythonnet reads PYTHONPATH during initialization, so the variable is set before the first
+        /// <see cref="PythonDataProvider.Open(System.Collections.Generic.IEnumerable{string})"/> call
+        /// </summary>
+        static void ApplyLocalEnvironment()
+        {
+            var source = PythonRuntimeLocator.Source;
+            if (source == null || string.Equals(source, PythonRuntimeLocator.PythonDllVariable, StringComparison.Ordinal))
+                return;
+
+            Environment.SetEnvironmentVariable(PythonRuntimeLocator.PythonDllVariable, PythonRuntimeLocator.PythonDll);
+
+            var packages = PythonRuntimeLocator.SitePackages;
+            if (string.IsNullOrWhiteSpace(packages)) return;
+
+            var existing = Environment.GetEnvironmentVariable("PYTHONPATH");
+            if (existing != null && existing.IndexOf(packages, StringComparison.OrdinalIgnoreCase) >= 0) return;
+
+            Environment.SetEnvironmentVariable("PYTHONPATH",
+                string.IsNullOrWhiteSpace(existing) ? packages : existing.TrimEnd(';') + ";" + packages);
+        }
 
         /// <summary>
         /// Marks the test as inconclusive when the python runtime is not configured
@@ -42,7 +72,8 @@ namespace Pike.PythonClient.Test
         {
             if (!IsPythonAvailable)
                 Assert.Inconclusive(
-                    $"Python runtime is not configured (set {PythonDllVariable} or SettingsMain.PythonDllPath)");
+                    $"Python runtime is not configured (set {PythonDllVariable} or {PythonRuntimeLocator.EnvironmentVariable}, " +
+                    "or create the local environment with scripts\\test\\Initialize-PythonEnvironment.ps1)");
         }
 
         /// <summary>
