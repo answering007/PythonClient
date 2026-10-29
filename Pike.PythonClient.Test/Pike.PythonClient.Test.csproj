@@ -6,7 +6,6 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>Pike.PythonClient.Test</AssemblyName>
     <RootNamespace>Pike.PythonClient.Test</RootNamespace>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <IsPackable>false</IsPackable>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
   </PropertyGroup>

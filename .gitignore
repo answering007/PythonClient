@@ -267,3 +267,6 @@ planClaude.md
 # Python virtual environment (uv)
 .venv/
 .venv-matrix/
+
+# Build artifacts (scripts\pack.ps1)
+artifacts/

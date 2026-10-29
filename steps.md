@@ -752,3 +752,47 @@ dotnet build PythonClient.sln -c Debug                     # 0 предупре�
 .\scripts\test\Invoke-Tests.ps1 -Category All               # 131 / 131 (Unit 85 + Python 46)
 ```
 
+
+---
+
+## Этап 9. Релизная инженерия: версия 2.0.0 и NuGet-пакет
+
+### 9.1 Общие свойства сборки — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Directory.Build.props` (новый), `Pike.PythonClient64\Properties\AssemblyInfo.cs`,
+`Pike.PythonClient64\Pike.PythonClient64.csproj`, `Pike.PythonClient.Test\Pike.PythonClient.Test.csproj`,
+`Pike.PythonClient.Test\Properties\AssemblyInfo.cs` (удалён)
+
+**Сделано**
+- Единая точка версии/метаданных: `Directory.Build.props` (`Version`/`AssemblyVersion`/`FileVersion` = **2.0.0**,
+  `Company`, `Product`, `Authors`, `Copyright`, `Description`, `LangVersion`, `NeutralLanguage`,
+  `PackageLicenseExpression=MIT`, `RepositoryType`, `PackageTags`, `PackageReadmeFile`).
+- Атрибуты сборки генерируются SDK (удалён `GenerateAssemblyInfo=false`); в `AssemblyInfo.cs` остались только
+  `ComVisible(false)` и `Guid` (нужны для COM/typelib), в тестовом проекте файл удалён.
+- Версия подтверждена у собранной сборки: `FileVersion = 2.0.0.0`, `ProductVersion = 2.0.0+<sha>`.
+
+### 9.2 NuGet-пакет и артефакты — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Pike.PythonClient64\Pike.PythonClient64.csproj`, `scripts\pack.ps1` (новый), `.gitignore`
+
+**Сделано**
+- `PackageId = Pike.PythonClient64`, `Title`, `IncludeSymbols`/`SymbolPackageFormat = snupkg`, README включается
+  в пакет (`PackagePath="\"`), `artifacts/` добавлен в `.gitignore`.
+- `scripts\pack.ps1`: Release-сборка → `dotnet pack` в `artifacts\` + «плоская» папка
+  `artifacts\Pike.PythonClient64` (`dll/xml/pdb` + `Python.Runtime.dll`) для `scripts\install.ps1`
+  и ручной поставки в Excel/Power Query.
+
+**Проверка**
+```
+.\scripts\pack.ps1
+# artifacts\Pike.PythonClient64.2.0.0.nupkg      (43 023 bytes)
+# artifacts\Pike.PythonClient64.2.0.0.snupkg     (13 374 bytes)
+# artifacts\Pike.PythonClient64\{dll,xml,pdb,Python.Runtime.dll}
+```
+Содержимое пакета: `lib\net48\Pike.PythonClient64.dll`, `lib\net48\Pike.PythonClient64.xml`, `README.md`,
+`nuspec` с зависимостью `pythonnet 3.0.5`, framework-сборками (`System.Data`, `System.Xml`,
+`System.Configuration.Install`, `Microsoft.CSharp`) и лицензией MIT.
+
+**Регрессии:** `Invoke-Tests.ps1 -Category All -Configuration Release` → **131 / 131 пройдено**
+после переноса метаданных и удаления `AssemblyInfo.cs`.
+

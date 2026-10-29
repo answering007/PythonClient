@@ -62,7 +62,23 @@ Manual registration (x64 `machine.config`):
 ```
 
 The legacy Visual Studio Installer project (`PythonClient64Setup\PythonClient64Setup.vdproj`) requires a separate
-VS extension and is deprecated, use `install.ps1` instead.
+VS extension and is deprecated, use `scripts\install.ps1` instead.
+
+### Build artifacts and NuGet package
+
+```powershell
+.\scripts\pack.ps1            # Release build → artifacts\
+```
+
+`artifacts\` contains:
+
+- `Pike.PythonClient64.<version>.nupkg` + `.snupkg` — package with `lib\net48` assemblies, XML documentation,
+  README and the `pythonnet 3.0.5` dependency (for in-process scenarios, no `machine.config` change);
+- `Pike.PythonClient64\` — flat folder (`Pike.PythonClient64.dll/.xml/.pdb`, `Python.Runtime.dll`) used by
+  `scripts\install.ps1` and for manual deployment to Power Query / Excel.
+
+The version is defined once in `Directory.Build.props` (semver) and reflected in the assembly attributes,
+the NuGet package and `CHANGELOG.md`.
 
 ## Quick start
 
@@ -258,6 +274,7 @@ The helper scripts live in `scripts\`:
 | `scripts\test\Invoke-VersionMatrix.ps1` | runs the integration tests against Python 3.9/3.11/3.13 and pandas 1.5/2.2/3.1 (`.venv-matrix\*`) |
 | `scripts\test\PythonEnvironment.ps1` | shared helpers (create environment, resolve `python3xx.dll` and `site-packages`) |
 | `scripts\smoke\Test-ProviderSmoke.ps1` | 40 smoke checks on the built assembly (no Python required) |
+| `scripts\pack.ps1` | Release build + `dotnet pack` into `artifacts\` (nupkg/snupkg and a flat deploy folder) |
 
 ```powershell
 # unit tests: do not need Python (85 tests)

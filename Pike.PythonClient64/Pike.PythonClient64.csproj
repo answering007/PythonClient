@@ -7,13 +7,17 @@
     <LangVersion>latest</LangVersion>
     <AssemblyName>Pike.PythonClient64</AssemblyName>
     <RootNamespace>Pike.PythonClient64</RootNamespace>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);1591</NoWarn>
     <Deterministic>true</Deterministic>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <SignAssembly>true</SignAssembly>
     <AssemblyOriginatorKeyFile>key.snk</AssemblyOriginatorKeyFile>
+    <!-- NuGet package metadata (optional distribution, see README) -->
+    <PackageId>Pike.PythonClient64</PackageId>
+    <Title>Python x64 ADO.NET Data Provider</Title>
+    <IncludeSymbols>true</IncludeSymbols>
+    <SymbolPackageFormat>snupkg</SymbolPackageFormat>
     <!-- Portable PDB is kept in Release as well: removing symbols makes production diagnostics impossible -->
     <DebugType Condition="'$(Configuration)' == 'Release'">portable</DebugType>
     <DebugSymbols Condition="'$(Configuration)' == 'Release'">true</DebugSymbols>
@@ -21,6 +25,10 @@
 
   <ItemGroup>
     <PackageReference Include="pythonnet" Version="3.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
   <ItemGroup>

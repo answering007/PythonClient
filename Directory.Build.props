@@ -1,0 +1,24 @@
+<Project>
+
+  <!-- Shared build metadata for all projects in the repository -->
+  <PropertyGroup>
+    <Version>2.0.0</Version>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.0.0.0</FileVersion>
+
+    <Company>Pike</Company>
+    <Product>Pike.PythonClient64</Product>
+    <Authors>PythonClient contributors</Authors>
+    <Copyright>Copyright (c) 2025 PythonClient contributors</Copyright>
+    <Description>ADO.NET x64 data provider that uses a Python script (pythonnet 3.0.5 + pandas) as a data source and converts a pandas.DataFrame into a DataTable/DbDataReader. Intended for Power Query / Excel, DataAdapter-based code and desktop tools.</Description>
+
+    <LangVersion>latest</LangVersion>
+    <NeutralLanguage>en-US</NeutralLanguage>
+
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>ado.net;dataprovider;python;pythonnet;pandas;powerquery;excel;net48</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+</Project>
