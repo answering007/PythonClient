@@ -333,3 +333,29 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 - Сборка `Debug` — успешно, новых предупреждений нет.
 - Интеграционная проверка (нужен Python) — см. тесты категории `Python`; в текущем окружении не выполнялась.
 
+
+### 2.5 Unit-тесты конвертеров и реестра dtype — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Pike.PythonClient.Test\Tests\Unit\ColumnConverterUnit.cs`,
+`Tests\Unit\SupportedTypesUnit.cs`, `Pike.PythonClient.Test\Pike.PythonClient.Test.csproj`
+
+**Сделано**
+- `ColumnConverterUnit` (13 тестов): `datetime64`-наносекунды → `DateTime` (1970, 2020, 1960), `NaT`/`null`/`DBNull`
+  → `DBNull`, готовый `DateTime` проходит как есть; `timedelta64` → `TimeSpan` (±1 час), `NaT`; целочисленные
+  конвертеры с `null` и переполнением; `double` с `NaN`; `bool` с `null`/строкой; `string` с `null`;
+  проверка `TargetType` всех конвертеров.
+- `SupportedTypesUnit` (5 тестов): нормализация dtype, поддержка numpy и nullable-extension dtype,
+  соответствие dtype → тип конвертера, `NotSupportedException` для `complex128`, `Register`/`Reset`,
+  read-only природа `Values` и общий экземпляр конвертера для `bool`/`boolean`.
+- `[TestCleanup]` возвращает реестр в исходное состояние, чтобы тесты не влияли друг на друга.
+
+**Проверка**
+```
+& $msbuild 'PythonClient.sln' /p:Configuration=Debug '/p:Platform=Any CPU' /m   # успешно
+& $vstest 'Pike.PythonClient.Test\bin\Debug\Pike.PythonClient.Test.dll' '/TestCaseFilter:TestCategory=Unit'
+# Всего тестов: 65, Пройдено: 65, Не пройдено: 0
+```
+
+**Этап 2 завершён.** Все дефекты P0-8/P0-9 исправлены; интеграционные проверки с реальным pandas
+(категория `Python`) остаются непройденными в этом окружении из-за отсутствия Python.
+
