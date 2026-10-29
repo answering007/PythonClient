@@ -47,11 +47,11 @@ jobs:
         shell: pwsh
         run: ./scripts/smoke/Test-ProviderSmoke.ps1 -Configuration Release
 
-      - name: Sample (net8.0-windows host, async + streaming)
+      - name: Sample (.NET Framework 4.8 host, async + streaming)
         shell: pwsh
         env:
           PYTHONNET_SAMPLE_DLL: ${{ env.pythonLocation }}\python311.dll
-        run: dotnet run --project samples/Pike.PythonClient64.Sample -c Release --no-build
+        run: ./samples/Pike.PythonClient64.Sample/bin/Release/net48/Pike.PythonClient64.Sample.exe
 
       - name: Pack (nuget + deploy folder)
         shell: pwsh

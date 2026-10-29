@@ -7,7 +7,8 @@ using Pike.PythonClient64.Data;
 namespace Pike.PythonClient64.Sample
 {
     /// <summary>
-    /// Minimal .NET 8 host sample: runs a Python script through the provider (asynchronously) and prints the result table.
+    /// Minimal .NET Framework 4.8 host sample: runs a Python script through the provider (asynchronously) and prints
+    /// the result table, then reads the same result in streaming mode.
     /// Environment variables:
     ///   PYTHONNET_SAMPLE_DLL  - full path to python3xx.dll (PYTHONNET_TEST_DLL is used as a fallback)
     ///   PYTHONNET_SAMPLE_PATH - extra sys.path entries separated by ';' (PYTHONPATH is used as a fallback)

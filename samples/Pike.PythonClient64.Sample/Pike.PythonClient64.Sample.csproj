@@ -2,8 +2,9 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <TargetFramework>net48</TargetFramework>
     <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
     <AssemblyName>Pike.PythonClient64.Sample</AssemblyName>
     <RootNamespace>Pike.PythonClient64.Sample</RootNamespace>
     <IsPackable>false</IsPackable>
@@ -13,6 +14,10 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\Pike.PythonClient64\Pike.PythonClient64.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.Data" />
   </ItemGroup>
 
 </Project>
