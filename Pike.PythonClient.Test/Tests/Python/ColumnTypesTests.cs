@@ -15,15 +15,13 @@ namespace Pike.PythonClient.Test.Tests.Python
     public class ColumnTypesTests
     {
         /// <summary>
-        /// Opens the provider when the python runtime is configured
+        /// Opens the provider once per process (the engine is a process-wide singleton)
         /// </summary>
         [TestInitialize]
         public void Setup()
         {
             TestEnvironment.SkipIfNoPython();
-
-            var builder = TestEnvironment.CreateBuilder();
-            PythonDataProvider.Open(builder.PythonPathComponents);
+            TestEnvironment.EnsureProviderOpen();
         }
 
         /// <summary>

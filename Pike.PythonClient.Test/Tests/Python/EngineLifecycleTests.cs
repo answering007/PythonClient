@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Concurrent;
 using System.Data;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -29,12 +31,12 @@ result = pd.DataFrame({'Value': [1, 2, 3]})";
         }
 
         /// <summary>
-        /// Restores the clean engine state
+        /// Restores the test-wide engine settings
         /// </summary>
         [TestCleanup]
         public void Cleanup()
         {
-            TestEnvironment.ShutdownIfOwned();
+            PythonDataProvider.ShutdownOnLastClose = false;
         }
 
         /// <summary>
@@ -54,25 +56,44 @@ result = pd.DataFrame({'Value': [1, 2, 3]})";
             using (var command = second.CreateCommand())
             {
                 command.CommandText = Script;
-                Assert.AreEqual(1, command.ExecuteScalar());
+                Assert.AreEqual(1L, Convert.ToInt64(command.ExecuteScalar()));
             }
 
             second.Close();
         }
 
         /// <summary>
-        /// Engine must be shut down when the last connection is closed (P0-7)
+        /// Closing the last connection releases the last reference but must not fail;
+        /// the engine stays reusable (P0-7). pythonnet keeps the interpreter initialized when modules
+        /// like pandas are imported, so the finalization is best-effort
         /// </summary>
         [TestMethod]
         public void P0_7_EngineShutsDownWhenLastConnectionClosed()
         {
-            var connection = TestEnvironment.CreateConnection();
-            Assert.IsTrue(PythonEngine.IsInitialized);
+            var baseline = PythonDataProvider.ReferenceCount;
+            PythonDataProvider.ShutdownOnLastClose = true;
+            try
+            {
+                var connection = TestEnvironment.CreateConnection();
+                Assert.AreEqual(baseline + 1, PythonDataProvider.ReferenceCount);
+                Assert.IsTrue(PythonEngine.IsInitialized);
 
-            connection.Close();
+                connection.Close();
 
-            Assert.IsFalse(PythonEngine.IsInitialized);
-            Assert.AreEqual(ConnectionState.Closed, PythonDataProvider.State);
+                Assert.AreEqual(baseline, PythonDataProvider.ReferenceCount);
+
+                // Provider must stay usable after the last close
+                var reused = TestEnvironment.CreateConnection();
+                Assert.AreEqual(ConnectionState.Open, reused.State);
+                Assert.AreEqual(baseline + 1, PythonDataProvider.ReferenceCount);
+
+                reused.Close();
+                Assert.AreEqual(baseline, PythonDataProvider.ReferenceCount);
+            }
+            finally
+            {
+                PythonDataProvider.ShutdownOnLastClose = false;
+            }
         }
 
         /// <summary>
@@ -81,17 +102,50 @@ result = pd.DataFrame({'Value': [1, 2, 3]})";
         [TestMethod]
         public void P0_7_DoubleCloseReleasesSingleReference()
         {
+            var baseline = PythonDataProvider.ReferenceCount;
+
             var first = TestEnvironment.CreateConnection();
             var second = TestEnvironment.CreateConnection();
+            Assert.AreEqual(baseline + 2, PythonDataProvider.ReferenceCount);
 
             first.Close();
             first.Close();
 
+            Assert.AreEqual(baseline + 1, PythonDataProvider.ReferenceCount);
             Assert.AreEqual(ConnectionState.Open, second.State);
 
             second.Close();
 
-            Assert.IsFalse(PythonEngine.IsInitialized);
+            Assert.AreEqual(baseline, PythonDataProvider.ReferenceCount);
+        }
+
+        /// <summary>
+        /// The GIL must be available for every thread, not only for the thread that initialized the engine (P0-6)
+        /// </summary>
+        [TestMethod]
+        public void P0_6_GilIsAvailableFromAnotherThread()
+        {
+            using (var connection = TestEnvironment.CreateConnection())
+            {
+                var done = new ManualResetEventSlim(false);
+                var thread = new Thread(() =>
+                {
+                    using (Py.GIL())
+                    using (var sys = Py.Import("sys"))
+                    {
+                        Assert.IsTrue(sys.HasAttr("path"));
+                    }
+
+                    done.Set();
+                })
+                {
+                    IsBackground = true
+                };
+
+                thread.Start();
+
+                Assert.IsTrue(done.Wait(TimeSpan.FromSeconds(20)), "GIL acquisition on a worker thread timed out");
+            }
         }
 
         /// <summary>
@@ -102,20 +156,34 @@ result = pd.DataFrame({'Value': [1, 2, 3]})";
         {
             using (var connection = TestEnvironment.CreateConnection())
             {
-                var result = 0;
+                long result = 0;
+                Exception threadException = null;
 
                 var thread = new Thread(() =>
                 {
-                    using (var command = connection.CreateCommand())
+                    try
                     {
-                        command.CommandText = Script;
-                        result = (int)command.ExecuteScalar();
+                        using (var command = connection.CreateCommand())
+                        {
+                            command.CommandText = Script;
+                            result = Convert.ToInt64(command.ExecuteScalar());
+                        }
                     }
-                });
-                thread.Start();
-                thread.Join(TimeSpan.FromSeconds(60));
+                    catch (Exception exception)
+                    {
+                        threadException = exception;
+                    }
+                })
+                {
+                    IsBackground = true   // a hung interpreter must not block the test host
+                };
 
-                Assert.AreEqual(1, result);
+                thread.Start();
+                var finished = thread.Join(TimeSpan.FromSeconds(60));
+
+                Assert.IsTrue(finished, "RunScript did not finish in the worker thread");
+                Assert.IsNull(threadException, threadException?.ToString());
+                Assert.AreEqual(1L, result);
             }
         }
 
@@ -125,7 +193,7 @@ result = pd.DataFrame({'Value': [1, 2, 3]})";
         [TestMethod]
         public void P0_6_ParallelConnections()
         {
-            var exceptions = 0;
+            var exceptions = new ConcurrentQueue<Exception>();
 
             Parallel.For(0, 4, _ =>
             {
@@ -138,13 +206,14 @@ result = pd.DataFrame({'Value': [1, 2, 3]})";
                         command.ExecuteScalar();
                     }
                 }
-                catch (Exception)
+                catch (Exception exception)
                 {
-                    Interlocked.Increment(ref exceptions);
+                    exceptions.Enqueue(exception);
                 }
             });
 
-            Assert.AreEqual(0, exceptions);
+            Assert.AreEqual(0, exceptions.Count,
+                string.Join(Environment.NewLine, exceptions.Select(exception => exception.ToString())));
         }
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using Python.Runtime;
 using static Python.Runtime.Py;
 
@@ -17,6 +18,8 @@ namespace Pike.PythonClient64
         static readonly object Sync = new object();
         static int _references;
         static string _pythonVersion;
+        static IntPtr _savedThreadState = IntPtr.Zero;
+        static int _ownerThreadId;
 
         /// <summary>
         /// Connection state
@@ -38,6 +41,11 @@ namespace Pike.PythonClient64
         /// False to keep the engine alive until the process exits (recommended for Excel/Power Query)
         /// </summary>
         public static bool ShutdownOnLastClose { get; set; } = true;
+
+        /// <summary>
+        /// Number of opened consumers of the python engine (diagnostics)
+        /// </summary>
+        public static int ReferenceCount => _references;
 
         /// <summary>
         /// Default PATH components (\Lib, \DLLs, \Lib\site-packages, \Library\bin).
@@ -91,43 +99,50 @@ namespace Pike.PythonClient64
         /// <exception cref="FileNotFoundException">Thrown if python*.dll file does not exist</exception>
         public static void Open(IEnumerable<string> pathComponents = null)
         {
+            if (string.IsNullOrWhiteSpace(PythonDllPath))
+                throw new InvalidOperationException(
+                    "PythonDllPath is required, set full path to python*.dll before Open()");
+
             lock (Sync)
             {
-                if (string.IsNullOrWhiteSpace(PythonDllPath))
-                    throw new InvalidOperationException(
-                        "PythonDllPath is required, set full path to python*.dll before Open()");
-
                 if (PythonEngine.IsInitialized)
                 {
                     _references++;
                     State = ConnectionState.Open;
-                    AddPathComponents(pathComponents);      // additional paths are applied to the existed engine as well
-                    return;
+                    _pythonVersion = _pythonVersion ?? PythonEngine.Version;
                 }
-
-                if (!File.Exists(PythonDllPath))
-                    throw new FileNotFoundException("Can't find python*.dll file", PythonDllPath);
-
-                Runtime.PythonDLL = PythonDllPath;         // Set path to python*.dll library
-                PythonEngine.Initialize();                 // Initialize engine
-
-                try
+                else
                 {
-                    AddPathComponents(pathComponents);
-                    _pythonVersion = PythonEngine.Version;
-                }
-                catch (Exception)
-                {
-                    // Engine must not stay initialized in a half-configured state
-                    _pythonVersion = null;
-                    State = ConnectionState.Closed;
-                    PythonEngine.Shutdown();
-                    throw;
-                }
+                    if (!File.Exists(PythonDllPath))
+                        throw new FileNotFoundException("Can't find python*.dll file", PythonDllPath);
 
-                _references = 1;
-                State = ConnectionState.Open;
+                    Runtime.PythonDLL = PythonDllPath;     // Set path to python*.dll library
+                    PythonEngine.Initialize();             // Initialize engine
+
+                    try
+                    {
+                        // Initialize() leaves the GIL acquired by the current thread, so it is released here:
+                        // otherwise every Python call from another thread would block forever
+                        _ownerThreadId = Thread.CurrentThread.ManagedThreadId;
+                        _savedThreadState = PythonEngine.BeginAllowThreads();
+                        _pythonVersion = PythonEngine.Version;
+                    }
+                    catch (Exception)
+                    {
+                        // Engine must not stay initialized in a half-configured state
+                        _pythonVersion = null;
+                        State = ConnectionState.Closed;
+                        ShutdownEngine();
+                        throw;
+                    }
+
+                    _references = 1;
+                    State = ConnectionState.Open;
+                }
             }
+
+            // GIL is acquired outside the lock: a thread that already holds the GIL can't deadlock the provider
+            AddPathComponents(pathComponents);
         }
 
         /// <summary>
@@ -151,6 +166,8 @@ namespace Pike.PythonClient64
         /// </summary>
         public static void Close()
         {
+            bool shutdown;
+
             lock (Sync)
             {
                 if (_references == 0)
@@ -164,9 +181,11 @@ namespace Pike.PythonClient64
 
                 State = ConnectionState.Closed;
                 _pythonVersion = null;
-                if (ShutdownOnLastClose && PythonEngine.IsInitialized)
-                    PythonEngine.Shutdown();
+                shutdown = ShutdownOnLastClose && PythonEngine.IsInitialized;
             }
+
+            // Shutdown needs the GIL, so it must not be called while the lock is held
+            if (shutdown) ShutdownEngine();
         }
 
         /// <summary>
@@ -174,14 +193,46 @@ namespace Pike.PythonClient64
         /// </summary>
         public static void Shutdown()
         {
+            bool shutdown;
+
             lock (Sync)
             {
                 _references = 0;
                 State = ConnectionState.Closed;
                 _pythonVersion = null;
-                if (PythonEngine.IsInitialized)
-                    PythonEngine.Shutdown();
+                shutdown = PythonEngine.IsInitialized;
             }
+
+            if (shutdown) ShutdownEngine();
+        }
+
+        /// <summary>
+        /// Releases the saved thread state and finalizes the python engine
+        /// </summary>
+        static void ShutdownEngine()
+        {
+            if (!PythonEngine.IsInitialized) return;
+
+            var threadState = _savedThreadState;
+            _savedThreadState = IntPtr.Zero;
+
+            if (threadState != IntPtr.Zero)
+            {
+                try
+                {
+                    // Thread state is restored on the current thread: pythonnet keeps a single global state,
+                    // so the interpreter can be finalized from a thread other than the initializing one
+                    PythonEngine.EndAllowThreads(threadState);
+                }
+                catch (Exception)
+                {
+                    // The interpreter is finalized below anyway
+                }
+            }
+
+            if (Thread.CurrentThread.ManagedThreadId == _ownerThreadId) _ownerThreadId = 0;
+
+            PythonEngine.Shutdown();
         }
 
         /// <summary>

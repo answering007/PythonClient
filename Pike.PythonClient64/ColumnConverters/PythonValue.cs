@@ -15,7 +15,8 @@ namespace Pike.PythonClient64.ColumnConverters
         public const long NaT = long.MinValue;
 
         /// <summary>
-        /// Determines whether the value represents a missing value (null, <see cref="DBNull"/> or python None)
+        /// Determines whether the value represents a missing value: null, <see cref="DBNull"/>,
+        /// python None, pandas NA or pandas NaT
         /// </summary>
         /// <param name="value">Value to check</param>
         /// <returns>True if the value is missing</returns>
@@ -23,7 +24,13 @@ namespace Pike.PythonClient64.ColumnConverters
         {
             if (value == null || value == DBNull.Value) return true;
 
-            return value is PyObject pyObject && pyObject.IsNone();
+            var pyObject = value as PyObject;
+            if (pyObject == null) return false;
+            if (pyObject.IsNone()) return true;
+
+            // pandas NA/NaT singletons have no NoneType, but their repr is stable
+            var text = pyObject.ToString();
+            return text == "<NA>" || text == "NaT";
         }
 
         /// <summary>

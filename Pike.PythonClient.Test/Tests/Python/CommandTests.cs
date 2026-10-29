@@ -69,7 +69,7 @@ result = pd.DataFrame({'Value': [1, 2, 3]})";
                 using (var reader = command.ExecuteReader(CommandBehavior.SingleRow)) table.Load(reader);
 
                 Assert.AreEqual(1, table.Rows.Count);
-                Assert.AreEqual(1, table.Rows[0][0]);
+                Assert.AreEqual(1L, Convert.ToInt64(table.Rows[0][0]));
             }
         }
 

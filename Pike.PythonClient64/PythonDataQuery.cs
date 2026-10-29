@@ -237,10 +237,13 @@ namespace Pike.PythonClient64
                 // Define columns and convert data to managed values
                 for (var i = 0; i < columnsCount; i++)
                 {
-                    using (PyObject series = dataFrame.GetItem(columnNameList[i]))
+                    // Column is selected by the original label: labels are not always strings (0, 1, tuples...)
+                    using (PyObject columnLabel = columnNames.GetItem(i))
+                    using (PyObject series = dataFrame.GetItem(columnLabel))
                     using (PyObject dtype = series.GetAttr("dtype"))
                     {
-                        var managedConverter = GetColumnConverter(columnNameList[i], dtype.ToString());
+                        var dtypeName = dtype.ToString();
+                        var managedConverter = GetColumnConverter(columnNameList[i], dtypeName);
 
                         // Add columns
                         dataTable.Columns.Add(new DataColumn(MakeColumnName(columnNameList[i], i, usedNames))
@@ -250,7 +253,7 @@ namespace Pike.PythonClient64
                         });
 
                         // Fill values
-                        tableValues[i] = ReadColumnValues(series, managedConverter);
+                        tableValues[i] = ReadColumnValues(series, managedConverter, dtypeName);
                     }
                 }
 
@@ -333,17 +336,21 @@ namespace Pike.PythonClient64
         /// </summary>
         /// <param name="series">Python series (DataFrame column)</param>
         /// <param name="converter">Column converter</param>
+        /// <param name="dtype">Column dtype name</param>
         /// <returns>Array of managed values</returns>
-        static object[] ReadColumnValues(PyObject series, IColumnConverter converter)
+        static object[] ReadColumnValues(PyObject series, IColumnConverter converter, string dtype)
         {
-            // datetime64/timedelta64 must be read as exact nanoseconds, otherwise precision and NaT are lost
+            // datetime64/timedelta64 are read as exact integers, so NaT and the resolution do not depend on tolist()
             if (converter is DateTimeConverter || converter is TimeSpanConverter)
             {
+                var nanosecondsPerUnit = GetNanosecondsPerUnit(dtype);
+
                 try
                 {
                     using (PyObject int64Name = new PyString("int64"))
-                    using (PyObject nanoseconds = series.InvokeMethod("astype", new[] { int64Name }))
-                        return ConvertSeriesValues(nanoseconds, converter);
+                    using (PyObject int64Series = series.InvokeMethod("astype", new[] { int64Name }))
+                        return converter.ConvertValues(
+                            ScaleToNanoseconds(ConvertSeriesValues(int64Series), nanosecondsPerUnit));
                 }
                 catch (PythonException)
                 {
@@ -351,20 +358,94 @@ namespace Pike.PythonClient64
                 }
             }
 
-            return ConvertSeriesValues(series, converter);
+            return converter.ConvertValues(ConvertSeriesValues(series));
         }
 
         /// <summary>
-        /// Converts series values with the specified converter
+        /// Converts series values to the array of python objects
         /// </summary>
         /// <param name="series">Python series (DataFrame column)</param>
-        /// <param name="converter">Column converter</param>
-        /// <returns>Array of managed values</returns>
-        static object[] ConvertSeriesValues(PyObject series, IColumnConverter converter)
+        /// <returns>Array of python values</returns>
+        static object[] ConvertSeriesValues(PyObject series)
         {
             using (PyObject values = series.GetAttr("values"))
             using (PyObject valuesList = values.InvokeMethod("tolist"))
-                return converter.ConvertValues((object[])(dynamic)valuesList);
+                return (object[])(dynamic)valuesList;
+        }
+
+        /// <summary>
+        /// Scales integer values to nanoseconds (converter contract), NaT and None are kept as is
+        /// </summary>
+        /// <param name="values">Values in the dtype resolution</param>
+        /// <param name="nanosecondsPerUnit">Nanoseconds per dtype unit</param>
+        /// <returns>Values in nanoseconds</returns>
+        static object[] ScaleToNanoseconds(object[] values, long nanosecondsPerUnit)
+        {
+            if (nanosecondsPerUnit == 1) return values;
+
+            var result = new object[values.Length];
+            for (var i = 0; i < values.Length; i++)
+            {
+                // Values come from tolist() as python objects, so they are converted before scaling
+                if (!PythonValue.TryToInt64(values[i], out var int64Value) ||
+                    int64Value == PythonValue.NaT ||
+                    int64Value > long.MaxValue / nanosecondsPerUnit ||
+                    int64Value < long.MinValue / nanosecondsPerUnit)
+                {
+                    result[i] = values[i];
+                    continue;
+                }
+
+                result[i] = int64Value * nanosecondsPerUnit;
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Gets the dtype unit: pandas uses datetime64[ns], datetime64[us] (pandas 3 default) and so on
+        /// </summary>
+        /// <param name="dtype">Column dtype name</param>
+        /// <returns>Unit name, empty string when the dtype has no unit</returns>
+        static string GetDtypeUnit(string dtype)
+        {
+            if (string.IsNullOrEmpty(dtype)) return string.Empty;
+
+            var start = dtype.IndexOf('[');
+            if (start < 0) return string.Empty;
+
+            var end = dtype.IndexOfAny(new[] { ',', ']' }, start + 1);
+            if (end < 0) return string.Empty;
+
+            return dtype.Substring(start + 1, end - start - 1).Trim();
+        }
+
+        /// <summary>
+        /// Gets the number of nanoseconds per dtype unit
+        /// </summary>
+        /// <param name="dtype">Column dtype name</param>
+        /// <returns>Nanoseconds per unit, 1 when the unit is unknown</returns>
+        static long GetNanosecondsPerUnit(string dtype)
+        {
+            switch (GetDtypeUnit(dtype))
+            {
+                case "ns":
+                    return 1;
+                case "us":
+                    return 1000;
+                case "ms":
+                    return 1000000;
+                case "s":
+                    return 1000000000;
+                case "m":
+                    return 60L * 1000000000;
+                case "h":
+                    return 3600L * 1000000000;
+                case "D":
+                    return 24L * 3600 * 1000000000;
+                default:
+                    return 1;
+            }
         }
 
         /// <summary>

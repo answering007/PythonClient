@@ -1,4 +1,5 @@
 using System;
+using System.Data;
 using System.IO;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -15,6 +16,13 @@ namespace Pike.PythonClient.Test
     static class TestEnvironment
     {
         const string PythonDllVariable = "PYTHONNET_TEST_DLL";
+
+        static TestEnvironment()
+        {
+            // The interpreter is initialized once per test run: re-initialization of pythonnet with
+            // numpy/pandas imported is slow and not reliable, so the engine lives until the assembly cleanup
+            PythonDataProvider.ShutdownOnLastClose = false;
+        }
 
         /// <summary>
         /// Full path to python*.dll
@@ -69,11 +77,25 @@ namespace Pike.PythonClient.Test
         }
 
         /// <summary>
-        /// Shuts the python engine down, so the next test gets a clean state
+        /// Opens the provider when it is not opened yet. Unlike <see cref="CreateConnection"/> the method is
+        /// idempotent, so repeated test initializations do not leak engine references
+        /// </summary>
+        public static void EnsureProviderOpen()
+        {
+            if (PythonDataProvider.State == ConnectionState.Open) return;
+
+            var builder = CreateBuilder();
+            PythonDataProvider.Open(builder.PythonPathComponents);
+        }
+
+        /// <summary>
+        /// Kept for the tests that requested a clean engine state.
+        /// The engine is shut down once in <see cref="Tests.AssemblyHooks"/>: re-initialization of
+        /// pythonnet with imported numpy/pandas is slow and not reliable
         /// </summary>
         public static void ShutdownIfOwned()
         {
-            PythonDataProvider.Shutdown();
+            // no-op by design, see AssemblyHooks.AssemblyCleanup
         }
     }
 }

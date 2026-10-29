@@ -1,3 +1,4 @@
+using System;
 using System.Data;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Pike.PythonClient64.Data;
@@ -79,7 +80,7 @@ namespace Pike.PythonClient.Test.Tests
                 var table = new DataTable();
                 using (var reader = command.ExecuteReader()) table.Load(reader);
 
-                Assert.AreEqual(7, table.Rows[0][0]);
+                Assert.AreEqual(7L, Convert.ToInt64(table.Rows[0][0]));
             }
 
             second.Close();

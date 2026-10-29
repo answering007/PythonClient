@@ -16,15 +16,13 @@ namespace Pike.PythonClient.Test.Tests
     public class DataQuery
     {
         /// <summary>
-        /// Opens the provider when the python runtime is configured
+        /// Opens the provider once per process (the engine is a process-wide singleton)
         /// </summary>
         [TestInitialize]
         public void Setup()
         {
             TestEnvironment.SkipIfNoPython();
-
-            var builder = TestEnvironment.CreateBuilder();
-            PythonDataProvider.Open(builder.PythonPathComponents);
+            TestEnvironment.EnsureProviderOpen();
         }
 
         /// <summary>
@@ -100,7 +98,7 @@ namespace Pike.PythonClient.Test.Tests
 
             var table = Run("import pandas as pd\ndata = pd.DataFrame({'Value': [42]})", context);
 
-            Assert.AreEqual(42, table.Rows[0][0]);
+            Assert.AreEqual(42L, Convert.ToInt64(table.Rows[0][0]));
         }
 
         /// <summary>
@@ -128,7 +126,7 @@ result = pd.DataFrame({'Value': [1, 2, 3]})";
                 var table = Run(code);
 
                 Assert.AreEqual(3, table.Rows.Count);
-                Assert.AreEqual(3, table.Rows[2][0]);
+                Assert.AreEqual(3L, Convert.ToInt64(table.Rows[2][0]));
             }
         }
 
