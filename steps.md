@@ -205,3 +205,38 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
   - переименование параметра после `Add` — `Contains('new') = true`, `IndexOf('new') = 0`, старое имя исчезло,
     коллизия имён не меняет `Count`, `Parameters['new'] = p` не увеличивает коллекцию.
 
+
+### 1.5 Unit-тесты для P0-1…P0-4 — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Pike.PythonClient.Test\Tests\Unit\ConnectionStringBuilderUnit.cs`,
+`Tests\Unit\KeyIndexCollectionUnit.cs`, `Tests\Unit\ParameterCollectionUnit.cs`, `Tests\Unit\ParameterUnit.cs`,
+`Pike.PythonClient.Test\Pike.PythonClient.Test.csproj`
+
+**Сделано**
+- Добавлен Unit-набор (48 тестов, `[TestCategory("Unit")]`, Python не требуется), имена по схеме `P0_x_...`/`P1_x_...`:
+  - **Connection string (P0-1)**: сохранение регистра значений, round-trip, case-insensitive ключи, разбор
+    `PYTHONPATH`, неизвестный ключ → `KeyNotFoundException`, строка без `=` и `;` без кавычек → `ArgumentException`,
+    `null` → `ArgumentNullException`, пустая строка → пустой builder, юникод в пути, `;` в конце, пустое значение,
+    состав `Keys`, `Validate()`.
+  - **KeyIndexCollection (P0-4/P1-2)**: `Set` (замена/добавление), `Insert` (новый ключ/перемещение), валидация
+    индекса, порядок `Values`/перечисления, `TryGetValue`, `Remove` отсутствующего ключа, дубликаты, `RenameKey`
+    (позиция/дубликат/отсутствующий ключ).
+  - **PythonParameter (P0-3/P1-2)**: `null`/`DBNull`, `Size` для строки, вывод `DbType` для 13 типов, `byte[]`,
+    неподдерживаемый тип → `NotSupportedException`, явный `DbType` и `ResetDbType`, `Direction`, `IsNullable`,
+    переименование.
+  - **PythonParameterCollection (P0-2/P0-4/P1-2)**: `Parameters[name] = value`, дубликаты в `Add`, `Insert` и его
+    границы, `CopyTo` (смещение/маленький массив/`null`), безопасные `Contains(object)`/`IndexOf(object)`,
+    `Remove` отсутствующего, перечислитель отдаёт параметры, `IsSynchronized = false`, переименование.
+- Новые файлы внесены в `Pike.PythonClient.Test.csproj` (legacy-формат, явный список `<Compile>`).
+
+**Проверка**
+```
+& $msbuild 'PythonClient.sln' /p:Configuration=Debug '/p:Platform=Any CPU' /m   # успешно, новых предупреждений нет
+& $vstest 'Pike.PythonClient.Test\bin\Debug\Pike.PythonClient.Test.dll' '/TestCaseFilter:TestCategory=Unit'
+# Всего тестов: 48, Пройдено: 48, Не пройдено: 0
+```
+
+**Наблюдение по поведению базового парсера:** `"PYTHONPATH="` (пустое значение) не создаёт ключ —
+`DbConnectionStringBuilder` трактует его как отсутствующий. Тест `P0_1_ConnectionString_EmptyValueIsTreatedAsMissing`
+фиксирует это как ожидаемое поведение («пустое значение = не задано»).
+
