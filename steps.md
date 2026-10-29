@@ -65,15 +65,15 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 
 | Проверка | Результат |
 |---|---|
-| `dotnet build PythonClient.sln -c Debug` / `-c Release` | успешно, 0 предупреждений, 0 ошибок (net48 + net8.0-windows) |
+| `dotnet build PythonClient.sln -c Debug` / `-c Release` | успешно, 0 предупреждений, 0 ошибок (net48) |
 | `msbuild PythonClient.sln /restore` (legacy-путь) | успешно |
 | `vstest --TestCaseFilter:TestCategory=Unit` | **85 / 85 пройдено** |
 | `vstest --TestCaseFilter:TestCategory=Python` | **60 / 60 пройдено** (Python 3.11.16, numpy 2.4.6, pandas 3.1.0, локальное окружение через `uv`) |
 | `scripts\smoke\Test-ProviderSmoke.ps1` | **41 / 41 проверка** |
-| `.\scripts\pack.ps1` | `Pike.PythonClient64.2.1.0.nupkg` + `.snupkg` (lib/net48 + lib/net8.0-windows) + папка деплоя |
+| `.\scripts\pack.ps1` | `Pike.PythonClient64.2.1.0.nupkg` + `.snupkg` (lib/net48) + папка деплоя |
 | `.\scripts\test\Invoke-VersionMatrix.ps1` | Python 3.9/3.11/3.13 × pandas 1.5/2.2/3.1 — **60/60 в каждой** |
-| `samples\Pike.PythonClient64.Sample` | net8-хост: async + streaming, запуск успешен |
-| проекты решения | `Pike.PythonClient64` (рантайм, мультитаргет), `Pike.PythonClient64.Install` (регистрация), `Pike.PythonClient.Test`, `samples\Pike.PythonClient64.Sample` |
+| `samples\Pike.PythonClient64.Sample` | net48-хост: async + streaming, запуск успешен |
+| проекты решения | `Pike.PythonClient64` (рантайм, net48), `Pike.PythonClient64.Install` (регистрация), `Pike.PythonClient.Test`, `samples\Pike.PythonClient64.Sample` (net48) |
 
 Остаточные риски и что ещё проверить:
 
@@ -870,26 +870,28 @@ XML-декларация сохранена, бэкап создан, `Unregiste
 
 ## Этап 11. Опциональные фичи (§9, этап 4)
 
-### 11.1 Мультитаргет `net48` + `net8.0-windows` — ✅ (2026-10-29)
+### 11.1 Целевой фреймворк — `net48` — ✅ (2026-10-29)
 
 **Изменённые файлы:** `Pike.PythonClient64\Pike.PythonClient64.csproj`, `scripts\install.ps1`, `scripts\pack.ps1`,
 `scripts\smoke\Test-ProviderSmoke.ps1`, `.github\workflows\ci.yml`, `samples\Pike.PythonClient64.Sample\*` (новый проект),
 `PythonClient.sln`
 
 **Сделано**
-- Рантайм-проект: `<TargetFrameworks>net48;net8.0-windows</TargetFrameworks>`; ссылки `System.Data`/`System.Xml`/
-  `Microsoft.CSharp` — только для `net48` (в .NET 8 они в общей библиотеке).
-  Убран `AppendTargetFrameworkToOutputPath=false` — выходы теперь `bin\<Configuration>\net48` и `bin\<Configuration>\net8.0-windows`.
-- Скрипты/CI: `install.ps1` и `pack.ps1` берут **net48**-сборку (её грузят Excel/Power Query), artifact-пути в CI обновлены.
-- Добавлен sample для modern-хостов: `samples\Pike.PythonClient64.Sample` (`net8.0-windows`, console, async + streaming),
-  добавлен в решение; в CI — отдельный шаг запуска.
+- Рантайм-проект: `<TargetFramework>net48</TargetFramework>` (single-target). Пробный мультитаргет
+  `net48;net8.0-windows` был откачен по требованию — провайдер распространяется одной сборкой `lib\net48`
+  для x64-хостов Power Query / Excel и десктопа.
+- `AppendTargetFrameworkToOutputPath` не переопределяется: вывод — `bin\<Configuration>\net48`, поэтому пути в
+  `install.ps1`, `pack.ps1`, smoke-тестах и artifact-шагах CI совпадают и менять их не пришлось.
+- Скрипты/CI: `install.ps1` и `pack.ps1` берут **net48**-сборку (её грузят Excel/Power Query).
+- Добавлен sample для демонстрации нового API: `samples\Pike.PythonClient64.Sample`
+  (`net48`, console x64, async + streaming), добавлен в решение; в CI — шаг запуска exe.
 
 **Проверка**
 ```
-dotnet build Pike.PythonClient64.csproj -c Debug   # оба таргета, 0 предупреждений
+dotnet build Pike.PythonClient64.csproj -c Debug   # один таргет, 0 предупреждений
 # bin\Debug\net48\Pike.PythonClient64.dll
-# bin\Debug\net8.0-windows\Pike.PythonClient64.dll
-dotnet run --project samples\Pike.PythonClient64.Sample   # .NET 10 runtime через roll-forward: таблица + streaming 3 строки
+samples\Pike.PythonClient64.Sample\bin\Debug\net48\Pike.PythonClient64.Sample.exe
+# .NET Framework 4.8.10008.0: таблица + streaming 3 строки, exit 0
 ```
 
 ### 11.2 Async API — ✅ (2026-10-29)
@@ -935,15 +937,15 @@ dotnet run --project samples\Pike.PythonClient64.Sample   # .NET 10 runtime че
 
 - Реестр конвертеров был реализован на этапе 2 (`SupportedTypes.Register/Reset/TryGetConverter/NormalizeDtype`);
   в README добавлен полный пример `IColumnConverter` и описание регистрации.
-- Обновлены README (мультитаргет, async, streaming, custom converters, sample, матрица версий 60/60),
+- Обновлены README (single-target net48, async, streaming, custom converters, sample, матрица версий 60/60),
   CHANGELOG (**2.1.0**), версия в `Directory.Build.props` → 2.1.0, CI (шаг sample).
 
 **Итоговый прогон**
 ```
-dotnet build PythonClient.sln -c Debug                  # 0 предупреждений, 0 ошибок (net48 + net8.0-windows)
+dotnet build PythonClient.sln -c Debug                  # 0 предупреждений, 0 ошибок (net48)
 Invoke-Tests.ps1 -Category All                          # 145 / 145 (Unit 85 + Python 60)
 Invoke-VersionMatrix.ps1 -Configuration Release         # 4 комбинации × 60 тестов — passed
 Test-ProviderSmoke.ps1                                  # 41 / 41
-dotnet run --project samples\...                        # net8-хост: async + streaming, 3 строки
+samples\...\bin\Release\net48\Pike.PythonClient64.Sample.exe   # async + streaming, 3 строки
 ```
 

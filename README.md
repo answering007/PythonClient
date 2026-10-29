@@ -24,7 +24,7 @@ and designed for in-process consumers such as Power Query / Excel, DataAdapter-b
 
 | Component | Requirement |
 |---|---|
-| .NET | **.NET Framework 4.8** (Power Query / Excel, `net48`) or **.NET 8** (`net8.0-windows`) — the package ships both targets; process must be **x64** |
+| .NET | **.NET Framework 4.8** (Power Query / Excel host), process must be **x64** |
 | pythonnet | **3.0.5** (`Python.Runtime.dll` is deployed with the provider) |
 | Python | Python **3.9 – 3.13 x64**, e.g. CPython or Anaconda (3.7/3.8 are not tested); `python3xx.dll` must match the process bitness |
 | Python packages | `numpy`, `pandas` (pandas **1.5 – 3.1**, numpy **1.26 – 2.x**) in the same environment |
@@ -78,9 +78,8 @@ VS extension and is deprecated, use `scripts\install.ps1` instead.
 
 `artifacts\` contains:
 
-- `Pike.PythonClient64.<version>.nupkg` + `.snupkg` — **runtime only** (no installer dependency) with `lib\net48`
-  (Power Query / Excel) and `lib\net8.0-windows` (modern hosts) assemblies, XML documentation, README and the
-  `pythonnet 3.0.5` dependency;
+- `Pike.PythonClient64.<version>.nupkg` + `.snupkg` — **runtime only** (no installer dependency): `lib\net48` assembly,
+  XML documentation, README and the `pythonnet 3.0.5` dependency;
 - `Pike.PythonClient64\` — flat folder with the **net48** build (`Pike.PythonClient64.dll/.xml/.pdb`,
   `Python.Runtime.dll`) **and** `Pike.PythonClient64.Install.dll/.xml`; used by `scripts\install.ps1` and for manual
   deployment to Power Query / Excel.
@@ -397,18 +396,18 @@ pandas 3 changed the default datetime resolution to microseconds (`datetime64[us
 the dtype and supports `[ns]`, `[us]`, `[ms]`, `[s]`, `[m]`, `[h]` and `[D]`. Missing values are mapped to `DBNull`
 regardless of the representation (`None`, `pd.NA`, `pd.NaT`, `np.nan`, `nan` of the inferred string dtype).
 
-### Sample (net8.0-windows)
+### Sample (.NET Framework 4.8)
 
-`samples\Pike.PythonClient64.Sample` is a minimal .NET 8 host that uses the async API and the streaming reader:
+`samples\Pike.PythonClient64.Sample` is a minimal x64 console host that uses the async API and the streaming reader:
 
 ```powershell
 . .\scripts\test\Initialize-PythonEnvironment.ps1
 $env:PYTHONNET_SAMPLE_DLL = $env:PYTHONNET_TEST_DLL
 $env:PYTHONNET_SAMPLE_PATH = $env:PYTHONPATH
-dotnet run --project samples\Pike.PythonClient64.Sample -c Release
+samples\Pike.PythonClient64.Sample\bin\Release\net48\Pike.PythonClient64.Sample.exe
 ```
 
-The sample is also executed by CI, so the `net8.0-windows` build is covered at runtime, not only at compile time.
+The sample is also executed by CI, so the async and streaming paths are covered at runtime on every build.
 
 ### Continuous integration
 

@@ -6,11 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [2.1.0] - 2026-10-29
 
-### Added (optional roadmap stage 4 — modern hosts)
+### Added (optional roadmap stage 4)
 
-- **Multi-targeting.** The runtime project targets `net48` (Power Query / Excel) **and** `net8.0-windows`
-  (modern hosts); the NuGet package contains `lib\net48` and `lib\net8.0-windows`. The `net48` build is deployed
-  to Excel / Power Query (`bin\<Configuration>\net48`).
 - **Async API.** `PythonConnection.OpenAsync`, `PythonCommand.ExecuteReaderAsync`/`ExecuteScalarAsync`/
   `ExecuteNonQueryAsync` and `PythonDataQuery.RunScriptAsync` execute the Python work on a thread pool thread, so the
   caller is never blocked. A cancellation token prevents the execution from starting (Python scripts are not
@@ -21,18 +18,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   The materialization path also uses the cursor now, so a table is filled chunk by chunk with a reused row buffer.
 - **Custom converters** are documented with a complete `IColumnConverter` example
   (`SupportedTypes.Register`/`Reset`, `TryGetConverter`, `NormalizeDtype`).
-- `samples\Pike.PythonClient64.Sample` — minimal .NET 8 host (async + streaming), executed by CI.
+- `samples\Pike.PythonClient64.Sample` — minimal .NET Framework 4.8 x64 host (async + streaming), executed by CI.
 - Test suite grown to **145 tests** (85 unit + 60 integration); version matrix re-validated:
   Python 3.9/3.11/3.13 × pandas 1.5/2.2/3.1 — 60/60 in every combination.
 
+### Changed
+
+- **Target framework: `net48` only.** The `net8.0-windows` target (an experiment in this release cycle) was dropped:
+  the provider is distributed as a single `lib\net48` assembly for the x64 Power Query / Excel and desktop hosts.
+  `dotnet build` outputs stay in `bin\<Configuration>\net48`, so the deployment scripts are unchanged.
+
 ### Fixed
 
-- **`.NET 8` shutdown.** `PythonEngine.Shutdown()` of pythonnet 3.0.5 uses `BinaryFormatter`, which is removed on
-  .NET 8+, so closing the last connection crashed with `PlatformNotSupportedException`. The exception is handled:
-  the interpreter stays alive until the process exits (safe fallback), finalization still works on .NET Framework.
 - **Shutdown from a non-owner thread.** `EndAllowThreads` can be called only in the thread that saved the state;
   with an async host the close happened on another thread and deadlocked. The finalization is now skipped in that
-  case instead of hanging.
+  case instead of hanging, and `PlatformNotSupportedException` from `PythonEngine.Shutdown()` (pythonnet 3.0.5 uses
+  `BinaryFormatter`, which is unavailable in .NET 8+ hosts) is handled as a safe fallback.
 - **`NaN` in the inferred string dtype (pandas 3).** Missing values of the default string dtype (`nan`) were
   transferred as the literal `"nan"`/`"не число"` string; `NaN` is now treated as a missing value and becomes
   `DBNull` (also covers `np.nan` in object columns).
