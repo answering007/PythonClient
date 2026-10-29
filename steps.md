@@ -54,8 +54,8 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 | 0 | Подготовка: restore, baseline-сборка, журнал | ✅ |
 | 1 | P0-1…P0-4: connection string, коллекции параметров, `PythonParameter` + Unit-тесты | ✅ |
 | 2 | P0-8, P0-9: конвертеры, реестр dtype, конвертация DataFrame | ⬜ |
-| 3 | P0-6, P0-7: GIL на операцию, refcount движка, жизненный цикл соединения | ⬜ |
-| 4 | P0-5: безопасная регистрация в `machine.config` | ⬜ |
+| 3 | P0-6, P0-7: GIL на операцию, refcount движка, жизненный цикл соединения | ✅ |
+| 4 | P0-5: безопасная регистрация в `machine.config` | ✅ |
 | 5 | P1-1…P1-5: контракты `DbCommand`/`DbParameter`/`DbConnection`, контекст выполнения | ⬜ |
 | 6 | P2-1…P2-6: SDK-style, вынос install, тестовая инфраструктура, документация, CI | ⬜ |
 
@@ -415,4 +415,58 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 ```
 Тесты корректно помечаются как пропущенные, т.к. `PYTHONNET_TEST_DLL` не задан и Python не установлен.
 Прогон с реальным Python остаётся за CI/машиной с Python 3.11 + numpy/pandas.
+
+
+---
+
+## Этап 4. P0-5 — безопасная регистрация провайдера
+
+### 4.1 P0-5 (+P2-2): `DataProviderInstallationBase` — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Pike.PythonClient64\Install\DataProviderInstallationBase.cs`,
+`Pike.PythonClient64\Pike.PythonClient64.csproj`
+
+**Сделано**
+- `DbProviderFactories` создаётся внутри `system.data` (`GetOrCreate(data, xml, DbProviderFactories, data)`),
+  а не в корне `configuration` — ранее это делало `machine.config` невалидным для .NET.
+- Существующая запись провайдера **обновляется**: атрибуты `name`, `invariant`, `description`, `type`
+  выставляются всегда (раньше обновлялся только при отсутствии узла).
+- `type` стал версионно-независимым: `"{FullName}, {AssemblyName}"` вместо `AssemblyQualifiedName`
+  (`Version=1.2.0.0, PublicKeyToken=…`), поэтому обновление сборки больше не ломает
+  `DbProviderFactories.GetFactory`.
+- Безопасная запись: `XmlDocument.Load` (сохраняется XML-декларация вместо `InnerXml = File.ReadAllText`),
+  запись в `*.tmp` → повторная загрузка для валидации → бэкап `machine.config.bak-<utc>` →
+  атомарная замена `File.Replace`; кодировка UTF-8 **без BOM** (`new UTF8Encoding(false)`).
+- Пути к `machine.config` строятся из `RuntimeEnvironment.GetRuntimeDirectory()` (сегмент
+  `Framework`/`Framework64` заменяется по требованию), зависимость от `Microsoft.Build.Utilities.v4.0`
+  удалена — ссылка убрана из `Pike.PythonClient64.csproj` (часть P2-2).
+- Публичные API получили XML-документацию с исключениями; `UnregisterProvider` идемпотентен.
+
+**Проверка**
+- Сборка `Debug` — успешно, предупреждений нет.
+- Smoke-проверка путей: `Machine64Config = C:\Windows\Microsoft.NET\Framework64\v4.0.30319\Config\machine.config`,
+  `Machine32Config = C:\Windows\Microsoft.NET\Framework\v4.0.30319\Config\machine.config` (файлы существуют).
+
+### 4.2 Unit-тесты регистрации на копии `machine.config` — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Pike.PythonClient.Test\Tests\Unit\DataProviderInstallationUnit.cs` (новый),
+`Pike.PythonClient.Test\Pike.PythonClient.Test.csproj`
+
+**Сделано**
+- 9 тестов (без прав администратора, на временной копии конфигурации): создание узлов при отсутствии
+  `system.data`; создание `DbProviderFactories` внутри `system.data`; обновление существующей записи со
+  старой версией сборки (проверяется отсутствие `Version=` и точное значение `type`); идемпотентность;
+  сохранение XML-декларации, бэкапа и отсутствие BOM; сохранение прочих секций (`startup`, `system.web`);
+  удаление записи; no-op при отсутствии записи; корректность путей `Machine64Config`/`Machine32Config`.
+- В тестовый проект добавлена ссылка `System.Xml`.
+
+**Проверка**
+```
+& $msbuild 'PythonClient.sln' /p:Configuration=Debug '/p:Platform=Any CPU' /m   # успешно
+& $vstest '...Pike.PythonClient.Test.dll' '/TestCaseFilter:TestCategory=Unit'
+# Всего тестов: 74, Пройдено: 74, Не пройдено: 0
+```
+
+**Найденный по ходу дефект:** первая версия `GetMachineConfigFile` формировала путь
+`Framework64\Framework64\v4.0.30319` (сегмент добавлялся вместо замены) — исправлено и покрыто тестом.
 

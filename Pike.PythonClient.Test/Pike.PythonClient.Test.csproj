@@ -52,6 +52,7 @@
     <Reference Include="System" />
     <Reference Include="System.Core" />
     <Reference Include="System.Data" />
+    <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="SettingsMain.cs" />
@@ -70,6 +71,7 @@
     <Compile Include="Tests\DataQuery.cs" />
     <Compile Include="Tests\Unit\ColumnConverterUnit.cs" />
     <Compile Include="Tests\Unit\ConnectionStringBuilderUnit.cs" />
+    <Compile Include="Tests\Unit\DataProviderInstallationUnit.cs" />
     <Compile Include="Tests\Unit\KeyIndexCollectionUnit.cs" />
     <Compile Include="Tests\Unit\ParameterCollectionUnit.cs" />
     <Compile Include="Tests\Unit\ParameterUnit.cs" />
