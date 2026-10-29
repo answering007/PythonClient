@@ -47,6 +47,16 @@ jobs:
         shell: pwsh
         run: ./scripts/smoke/Test-ProviderSmoke.ps1 -Configuration Release
 
+      - name: Pack (nuget + deploy folder)
+        shell: pwsh
+        run: ./scripts/pack.ps1
+
+      - name: Upload NuGet package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pike.PythonClient64-package
+          path: artifacts/*.nupkg
+
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -56,3 +66,28 @@ jobs:
             Pike.PythonClient64/bin/Release/Pike.PythonClient64.xml
             Pike.PythonClient64/bin/Release/Pike.PythonClient64.pdb
             Pike.PythonClient64/bin/Release/Python.Runtime.dll
+
+  # Python / pandas compatibility matrix: one virtual environment per combination (uv)
+  version-matrix:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Restore and build
+        run: |
+          dotnet restore PythonClient.sln
+          dotnet build PythonClient.sln -c Release --no-restore
+
+      - name: Version matrix
+        shell: pwsh
+        run: ./scripts/test/Invoke-VersionMatrix.ps1 -Configuration Release -SkipBuild -TimeoutSeconds 900
+

@@ -312,6 +312,15 @@ Every combination below passes the whole integration suite (46 tests) on Windows
 pandas 3 changed the default datetime resolution to microseconds (`datetime64[us]`), the provider reads the unit from
 the dtype and supports `[ns]`, `[us]`, `[ms]`, `[s]`, `[m]`, `[h]` and `[D]`.
 
+### Continuous integration
+
+`.github/workflows/ci.yml` runs on `windows-latest`:
+
+- **build-and-test** — build (Release), Unit tests, integration tests (Python 3.11 + numpy/pandas), smoke checks,
+  `scripts/pack.ps1`, upload of the nupkg and the deployable binaries;
+- **version-matrix** — the same integration suite for the Python/pandas combinations from
+  `scripts/test/Invoke-VersionMatrix.ps1` (uv installs the interpreters).
+
 ## Examples
 
 - C# tests: `Pike.PythonClient.Test\Tests`
