@@ -470,3 +470,42 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 **Найденный по ходу дефект:** первая версия `GetMachineConfigFile` формировала путь
 `Framework64\Framework64\v4.0.30319` (сегмент добавлялся вместо замены) — исправлено и покрыто тестом.
 
+
+---
+
+## Этап 5. P1 — контракты ADO.NET
+
+### 5.1–5.3 P1-1…P1-5: команда, контекст выполнения, параметры, соединение — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Pike.PythonClient64\PythonScriptContext.cs` (новый),
+`Pike.PythonClient64\PythonDataQuery.cs`, `Pike.PythonClient64\Data\PythonCommand.cs`,
+`Pike.PythonClient64\Data\PythonConnection.cs`, `Pike.PythonClient64.csproj`
+
+**Сделано**
+- **P1-5 (контекст)**: добавлен `PythonScriptContext` (`Query`, `Parameters`, `ResultName`, `ResultRequired`) и
+  `PythonDataQuery.RunScript(scriptText, context)`; состояние выполнения больше не статическое.
+  Старые `Query`/`Parameters`/`Reset()` сохранены как обёртки над `AsyncLocal`-контекстом и помечены `[Obsolete]`.
+- **P1-5 (параметры)**: `null`/`DBNull` → `None` (раньше `ArgumentNullException`); срезаются префиксы `@`/`:`;
+  обрабатываются `decimal` (→ `float`, в Python нет decimal), `Guid` (→ строка), `TimeSpan` (→ `timedelta64[ns]`),
+  `DateTimeOffset` (→ UTC `datetime64[ns]`), `DateTime` с `Kind=Local` приводится к UTC; `PyDict` освобождается при
+  ошибке конвертации.
+- **P1-3 (команда)**: `DesignTimeVisible = false`; `DbConnection` можно сбросить в `null`; поддержаны
+  `CommandBehavior.SchemaOnly` (схема без строк), `SingleRow`, `CloseConnection`; `CommandTimeout > 0` и
+  `DbTransaction` → `NotSupportedException` (явное поведение вместо зависания); `ExecuteNonQuery` допускает скрипт
+  без `result` (возвращает `0`), `ExecuteScalar` берёт первую строку результата; скрипт из файла читается как UTF-8
+  (BOM определяется) и кэшируется по `(путь, LastWriteTimeUtc)`; `Cancel()` документирован как no-op.
+- **P1-4 (соединение)**: `Open()` вызывает `Validate()` (`PYTHONDLL` обязателен) и запрещает работу с другим
+  `python*.dll`, если движок уже инициализирован; `ConnectionString = null/""` → «нет настроек» (без исключения);
+  `BeginDbTransaction`/`ChangeDatabase` → `NotSupportedException` вместо `NotImplementedException`; `ServerVersion`
+  пуст на закрытом соединении.
+- **P1-3/P1-5 (результат)**: `ConvertDataFrameToDataTable(dataFrame, resultName)` — имя таблицы из контекста;
+  дублирующиеся метки колонок теперь дают понятный `NotSupportedException` (раньше `df[label]` возвращал DataFrame и
+  падал внутри pyconverter), нормализация/уникализация имён сохранена.
+
+**Проверка**
+- Сборка `Debug` — успешно, предупреждений нет.
+- Unit-набор дополнен `CommandUnit` (проверки контрактов без Python): `Connection = null`, `DesignTimeVisible`,
+  исполнение без соединения/на закрытом соединении, `KeyNotFoundException` на неизвестный ключ строки,
+  пустая строка соединения, `Open()` без `PYTHONDLL`, транзакции/`ChangeDatabase`, `ServerVersion`, идемпотентность
+  `Close/Dispose` — **85/85 Unit-тестов пройдено**.
+

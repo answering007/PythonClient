@@ -20,7 +20,10 @@ namespace Pike.PythonClient64.Data
         public override string ConnectionString
         {
             get => _builder.ConnectionString;
-            set => _builder = PythonConnectionStringBuilder.Parse(string.IsNullOrWhiteSpace(value) ? string.Empty : value);
+            // Null or empty string means "no settings"
+            set => _builder = string.IsNullOrWhiteSpace(value)
+                ? new PythonConnectionStringBuilder()
+                : PythonConnectionStringBuilder.Parse(value);
         }
 
         /// <inheritdoc />
@@ -60,9 +63,19 @@ namespace Pike.PythonClient64.Data
         /// <summary>
         /// Opens a database connection with the settings specified by the <see cref="P:Pike.PythonClient64.Data.PythonConnection.ConnectionString" />
         /// </summary>
+        /// <exception cref="InvalidOperationException">Thrown when PYTHONDLL is not set or the engine is initialized with another python*.dll</exception>
         public override void Open()
         {
             if (_isOpen) return;
+
+            _builder.Validate();
+
+            // Engine is a singleton for the process, so it can't be reloaded with another python*.dll
+            if (PythonDataProvider.State == ConnectionState.Open &&
+                !string.Equals(PythonDataProvider.PythonDllPath, _builder.PythonDll, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidOperationException(
+                    $"Python engine is already initialized with '{PythonDataProvider.PythonDllPath}', " +
+                    $"'{_builder.PythonDll}' can't be used until all connections are closed");
 
             // Set python*.dll path
             PythonDataProvider.PythonDllPath = _builder.PythonDll;
@@ -111,23 +124,25 @@ namespace Pike.PythonClient64.Data
 
         /// <inheritdoc />
         /// <summary>
-        /// Starts a database transaction. Currently, throw <see cref="T:System.NotImplementedException" />
+        /// Starts a database transaction. Transactions are not supported
         /// </summary>
         /// <param name="isolationLevel">A <see cref="T:System.Data.IsolationLevel" /> object</param>
-        /// <returns></returns>
+        /// <returns>Never returns</returns>
+        /// <exception cref="NotSupportedException">Always thrown, transactions are not supported</exception>
         protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException("Transactions are not supported by the python provider");
         }
 
         /// <inheritdoc />
         /// <summary>
-        /// Changes the current database for an open connection. Currently, throw <see cref="T:System.NotImplementedException" />
+        /// Changes the current database for an open connection. Databases are not supported
         /// </summary>
         /// <param name="databaseName">Specifies the name of the database for the connection to use</param>
+        /// <exception cref="NotSupportedException">Always thrown, the python provider has no databases</exception>
         public override void ChangeDatabase(string databaseName)
         {
-            throw new NotImplementedException();
+            throw new NotSupportedException("Database can't be changed, the python provider has no databases");
         }
 
         #endregion

@@ -87,6 +87,7 @@
     <Compile Include="Data\PythonConnectionStringBuilder.cs" />
     <Compile Include="PythonDataProvider.cs" />
     <Compile Include="PythonDataQuery.cs" />
+    <Compile Include="PythonScriptContext.cs" />
     <Compile Include="SupportedTypes.cs" />
   </ItemGroup>
   <ItemGroup>
