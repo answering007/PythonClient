@@ -53,7 +53,7 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 |---|---|---|
 | 0 | Подготовка: restore, baseline-сборка, журнал | ✅ |
 | 1 | P0-1…P0-4: connection string, коллекции параметров, `PythonParameter` + Unit-тесты | ✅ |
-| 2 | P0-8, P0-9: конвертеры, реестр dtype, конвертация DataFrame | ⬜ |
+| 2 | P0-8, P0-9: конвертеры, реестр dtype, конвертация DataFrame | ✅ |
 | 3 | P0-6, P0-7: GIL на операцию, refcount движка, жизненный цикл соединения | ✅ |
 | 4 | P0-5: безопасная регистрация в `machine.config` | ✅ |
 | 5 | P1-1…P1-5: контракты `DbCommand`/`DbParameter`/`DbConnection`, контекст выполнения | ✅ |
