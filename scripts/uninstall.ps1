@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Uninstalls the Pike.PythonClient64 ADO.NET provider (x64): removes the machine.config registration
     and the installed files.

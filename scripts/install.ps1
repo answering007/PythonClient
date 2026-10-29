@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Installs the Pike.PythonClient64 ADO.NET provider (x64) and registers it in machine.config.
 

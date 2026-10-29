@@ -263,3 +263,6 @@ __pycache__/
 # Custom files
 plan.md
 planClaude.md
+
+# Python virtual environment (uv)
+.venv/
