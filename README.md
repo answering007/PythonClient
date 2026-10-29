@@ -26,8 +26,8 @@ and designed for in-process consumers such as Power Query / Excel, DataAdapter-b
 |---|---|
 | .NET | .NET Framework **4.8**, process must be **x64** |
 | pythonnet | **3.0.5** (`Python.Runtime.dll` is deployed with the provider) |
-| Python | Python **3.7 – 3.13 x64**, e.g. CPython or Anaconda; `python3xx.dll` must match the process bitness |
-| Python packages | `numpy`, `pandas` in the same environment |
+| Python | Python **3.9 – 3.13 x64**, e.g. CPython or Anaconda (3.7/3.8 are not tested); `python3xx.dll` must match the process bitness |
+| Python packages | `numpy`, `pandas` (pandas **1.5 – 3.1**, numpy **1.26 – 2.x**) in the same environment |
 | Excel | 64-bit Excel is required for Power Query scenarios (the provider is x64-only) |
 
 The provider does not install Python: `PYTHONDLL` must point to an existing `python3xx.dll`.
@@ -255,18 +255,23 @@ The helper scripts live in `scripts\`:
 |---|---|
 | `scripts\test\Initialize-PythonEnvironment.ps1` | creates a local Python environment with [uv](https://docs.astral.sh/uv/) (`.venv`, numpy, pandas) and sets `PYTHONNET_TEST_DLL`/`PYTHONPATH` |
 | `scripts\test\Invoke-Tests.ps1` | builds (optional) and runs the tests with a timeout, prints failed tests from the trx report |
+| `scripts\test\Invoke-VersionMatrix.ps1` | runs the integration tests against Python 3.9/3.11/3.13 and pandas 1.5/2.2/3.1 (`.venv-matrix\*`) |
+| `scripts\test\PythonEnvironment.ps1` | shared helpers (create environment, resolve `python3xx.dll` and `site-packages`) |
 | `scripts\smoke\Test-ProviderSmoke.ps1` | 40 smoke checks on the built assembly (no Python required) |
 
 ```powershell
 # unit tests: do not need Python (85 tests)
 .\scripts\test\Invoke-Tests.ps1 -Category Unit
 
-# integration tests: create the environment once, then run (43 tests)
+# integration tests: create the environment once, then run (46 tests)
 . .\scripts\test\Initialize-PythonEnvironment.ps1
 .\scripts\test\Invoke-Tests.ps1 -Category Python
 
 # everything
 .\scripts\test\Invoke-Tests.ps1 -Category All
+
+# version matrix (creates one environment per combination)
+.\scripts\test\Invoke-VersionMatrix.ps1
 
 # quick sanity check without Python
 .\scripts\smoke\Test-ProviderSmoke.ps1 -Configuration Release
@@ -276,8 +281,19 @@ The helper scripts live in `scripts\`:
 inconclusive instead of failing. The provider registration for the tests is taken from
 `Pike.PythonClient.Test\app.config`, so no `machine.config` change or administrator rights are required.
 
-The integration suite is validated with Python 3.11.16, numpy 2.4.6 and pandas 3.1.0 (pandas 3 changed the default
-datetime resolution to microseconds — the provider handles `[ns]`, `[us]`, `[ms]`, `[s]`, `[m]`, `[h]`, `[D]`).
+### Tested versions
+
+Every combination below passes the whole integration suite (46 tests) on Windows x64, .NET Framework 4.8:
+
+| Python | pandas | numpy | Result |
+|---|---|---|---|
+| 3.9.25 | 1.5.3 | 1.26.4 | 46 / 46 |
+| 3.11.16 | 2.2.3 | 1.26.4 | 46 / 46 |
+| 3.11.16 | 3.1.0 | 2.4.6 | 46 / 46 |
+| 3.13.15 | 3.1.0 | 2.5.4 | 46 / 46 |
+
+pandas 3 changed the default datetime resolution to microseconds (`datetime64[us]`), the provider reads the unit from
+the dtype and supports `[ns]`, `[us]`, `[ms]`, `[s]`, `[m]`, `[h]` and `[D]`.
 
 ## Examples
 

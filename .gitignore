@@ -266,3 +266,4 @@ planClaude.md
 
 # Python virtual environment (uv)
 .venv/
+.venv-matrix/

@@ -711,3 +711,44 @@ dotnet build PythonClient.sln -c Debug                     # 0 предупре�
 (`int8`/`uint32`/`float32`/`Int64`/`boolean`/`string`/`category`/`datetime64`/`timedelta64`), `NaT`/`NaN`/`pd.NA`,
 даты до 1970 и tz-aware колонки, «плохие» и дублирующиеся имена колонок, `complex128` и strict-режим.
 
+
+---
+
+## Этап 8. Матрица версий Python / pandas
+
+### 8.1 Инфраструктура матрицы — ✅ (2026-10-29)
+
+**Изменённые файлы:** `scripts\test\PythonEnvironment.ps1` (новый), `scripts\test\Initialize-PythonEnvironment.ps1`
+(переведён на общие функции), `scripts\test\Invoke-VersionMatrix.ps1` (новый), `.gitignore` (`.venv-matrix/`)
+
+**Сделано**
+- Общий модуль `PythonEnvironment.ps1`: `New-PythonEnvironment` (создание venv через `uv` + установка пакетов),
+  `Get-PythonRuntimeInfo` (версия, путь к `python3xx.dll`, `site-packages`), `Set-PythonTestEnvironment`
+  (выставляет `PYTHONNET_TEST_DLL`/`PYTHONPATH`).
+- `Invoke-VersionMatrix.ps1`: каждая комбинация получает отдельное окружение в `.venv-matrix\<name>`,
+  сборка выполняется один раз, затем для каждой комбинации прогоняется набор `TestCategory=Python` с таймаутом;
+  в конце печатается сводная таблица и скрипт падает только при провале *поддерживаемой* комбинации.
+
+### 8.2 Результаты матрицы — ✅ (2026-10-29)
+
+| Python | pandas | numpy | Результат |
+|---|---|---|---|
+| 3.9.25 | 1.5.3 | 1.26.4 | **46 / 46** |
+| 3.11.16 | 2.2.3 | 1.26.4 | **46 / 46** |
+| 3.11.16 | 3.1.0 | 2.4.6 | **46 / 46** |
+| 3.13.15 | 3.1.0 | 2.5.4 | **46 / 46** |
+
+Выводы:
+- регрессий между pandas 1.5 / 2.2 / 3.1 нет — обработка разрешения `datetime64`/`timedelta64` (ns/us) и `pd.NA`/`NaT`
+  корректна на всех версиях;
+- Python 3.13 работает с pythonnet 3.0.5 (проверено на всём наборе), поэтому комбинация переведена в
+  «поддерживаемые»; 3.7/3.8 не проверялись;
+- базовый замер производительности: `TestLargeDataFrame` (90 000 строк × 6 колонок) — **~0.3 с** на прогон
+  (Debug, «тёплый» движок), то есть текущая реализация конвертации не является узким местом.
+
+**Проверка**
+```
+.\scripts\test\Invoke-VersionMatrix.ps1                     # 4 комбинации, сводная таблица
+.\scripts\test\Invoke-Tests.ps1 -Category All               # 131 / 131 (Unit 85 + Python 46)
+```
+

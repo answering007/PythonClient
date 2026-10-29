@@ -56,11 +56,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `PYTHONNET_TEST_DLL`/`PYTHONPATH` variables used by the tests.
 - `scripts/test/Invoke-Tests.ps1` — build/test runner with a timeout (a hung interpreter no longer blocks the build),
   failures are reported from the trx file.
+- `scripts/test/Invoke-VersionMatrix.ps1` and `scripts/test/PythonEnvironment.ps1` — version matrix runner
+  (Python 3.9/3.11/3.13 × pandas 1.5/2.2/3.1) and shared environment helpers.
 - `scripts/smoke/Test-ProviderSmoke.ps1` — 40 checks on the built assembly without Python.
 - `scripts/install.ps1` / `scripts/uninstall.ps1` were moved from the repository root to `scripts\`.
 - `PythonDataProvider.ReferenceCount` for diagnostics.
 - `Pike.PythonClient.Test\app.config` registers the provider, so `DbProviderFactories` tests need no
   `machine.config` change.
+
+### Validated (version matrix)
+
+Every combination below passes the whole integration suite (46 tests) on Windows x64, .NET Framework 4.8:
+
+| Python | pandas | numpy | Result |
+|---|---|---|---|
+| 3.9.25 | 1.5.3 | 1.26.4 | 46 / 46 |
+| 3.11.16 | 2.2.3 | 1.26.4 | 46 / 46 |
+| 3.11.16 | 3.1.0 | 2.4.6 | 46 / 46 |
+| 3.13.15 | 3.1.0 | 2.5.4 | 46 / 46 |
+
+Performance baseline: `TestLargeDataFrame` (90 000 rows × 6 columns) takes ~0.3 s per run (Debug build, warm engine).
 
 ### Added
 
