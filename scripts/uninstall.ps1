@@ -14,7 +14,7 @@
     Installed files are removed, machine.config is not changed
 
 .EXAMPLE
-    .\uninstall.ps1
+    .\scripts\uninstall.ps1
 #>
 [CmdletBinding()]
 param(
@@ -32,15 +32,24 @@ if (-not $SkipMachineConfig -and -not $isAdministrator) {
     throw 'Administrator rights are required to update machine.config. Run the script as administrator or use -SkipMachineConfig'
 }
 
-$files = @('Pike.PythonClient64.dll', 'Pike.PythonClient64.xml', 'Python.Runtime.dll', 'Python.Runtime.xml')
+$files = @(
+    'Pike.PythonClient64.dll',
+    'Pike.PythonClient64.xml',
+    'Python.Runtime.dll',
+    'Python.Runtime.xml',
+    'Pike.PythonClient64.Install.dll',
+    'Pike.PythonClient64.Install.xml'
+)
 
 if (-not $SkipMachineConfig) {
-    $assemblyPath = Join-Path $InstallPath 'Pike.PythonClient64.dll'
-    if (-not (Test-Path $assemblyPath)) {
-        throw "'$assemblyPath' is not found, use -SkipMachineConfig to remove the files only"
+    $runtimeAssemblyPath = Join-Path $InstallPath 'Pike.PythonClient64.dll'
+    $installAssemblyPath = Join-Path $InstallPath 'Pike.PythonClient64.Install.dll'
+    if (-not (Test-Path $runtimeAssemblyPath) -or -not (Test-Path $installAssemblyPath)) {
+        throw "Provider assemblies are not found in '$InstallPath', use -SkipMachineConfig to remove the files only"
     }
 
-    Add-Type -Path $assemblyPath
+    Add-Type -Path $runtimeAssemblyPath
+    Add-Type -Path $installAssemblyPath
 
     $installation = New-Object Pike.PythonClient64.Install.DbProviderInstallation
     $machineConfig = [Pike.PythonClient64.Install.DbProviderInstallation]::Machine64Config

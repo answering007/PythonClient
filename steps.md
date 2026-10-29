@@ -798,3 +798,68 @@ dotnet build PythonClient.sln -c Debug                     # 0 предупре�
 **Регрессии:** `Invoke-Tests.ps1 -Category All -Configuration Release` → **131 / 131 пройдено**
 после переноса метаданных и удаления `AssemblyInfo.cs`.
 
+
+---
+
+## Этап 10. P2-2 — вынос install-кода из рантайм-сборки
+
+### 10.1 Отдельный проект `Pike.PythonClient64.Install` — ✅ (2026-10-29)
+
+**Изменённые файлы:** каталог `Pike.PythonClient64\Install` → `Pike.PythonClient64.Install` (git mv),
+`Pike.PythonClient64.Install\Pike.PythonClient64.Install.csproj` (новый), `Pike.PythonClient64\Pike.PythonClient64.csproj`,
+`Pike.PythonClient.Test\Pike.PythonClient.Test.csproj`, `PythonClient.sln`
+
+**Сделано**
+- `DataProviderInstallationBase`, `DbProviderInstallation`, `InstallerMain` (+ designer) вынесены в отдельную
+  сборку `Pike.PythonClient64.Install` (`net48`, x64, документация, `System.Configuration.Install`,
+  `ProjectReference` на рантайм-провайдер).
+- Из рантайм-сборки удалены ссылки `System.Configuration.Install` и `System.Xml` — Excel/Power Query больше не
+  тянут install-код и его зависимости.
+- Проект добавлен в `PythonClient.sln` (`dotnet sln add`), тестовый проект получил ссылку на новую сборку
+  (тесты регистрации `DataProviderInstallationUnit` продолжают работать).
+
+**Проверка**
+```
+dotnet build PythonClient.sln -c Debug                 # 0 предупреждений, 0 ошибок
+```
+Ссылки сборок (проверено отражением):
+
+| Сборка | Ссылки |
+|---|---|
+| `Pike.PythonClient64` | mscorlib, System, System.Core, System.Data, Microsoft.CSharp, Python.Runtime |
+| `Pike.PythonClient64.Install` | mscorlib, System, System.Core, System.Xml, System.Configuration.Install, Pike.PythonClient64 |
+
+### 10.2 Скрипты установки и упаковка — ✅ (2026-10-29)
+
+**Изменённые файлы:** `scripts\install.ps1`, `scripts\uninstall.ps1`, `scripts\pack.ps1`,
+`scripts\smoke\Test-ProviderSmoke.ps1`
+
+**Сделано**
+- `install.ps1`/`uninstall.ps1` копируют и загружают обе сборки (рантайм + installer), список файлов описан таблицей
+  источников; installer загружается только на время установки/удаления.
+- `pack.ps1` сначала собирает решение (чтобы installer-сборка была доступна), затем пакует рантайм-проект
+  (`--no-build`) и складывает в `artifacts\Pike.PythonClient64` рантайм **и** installer-сборку.
+  NuGet-пакет содержит только рантайм (39 634 байта вместо 43 023).
+- Smoke-набор: путь к `machine.config` берётся из installer-сборки (секция пропускается, если проект не собран),
+  добавлена проверка «runtime assembly has no installer dependency» — стало **41 проверка**.
+
+**Найденный по ходу дефект:** в `install.ps1` локальная переменная `$installPath` перекрывала параметр
+`$InstallPath` (PowerShell нечувствителен к регистру), из-за чего копирование падало с
+«не может перезаписать сам себя»; переменная переименована в `$installBinPath`.
+
+**Проверка**
+```
+.\scripts\pack.ps1
+# artifacts\Pike.PythonClient64.2.0.0.nupkg / .snupkg
+# artifacts\Pike.PythonClient64: Pike.PythonClient64.dll/.xml/.pdb, Python.Runtime.dll,
+#                                Pike.PythonClient64.Install.dll/.xml
+.\scripts\install.ps1 -InstallPath <temp> -Configuration Release -SkipMachineConfig   # 5 файлов скопированы
+```
+Сквозная проверка «установленной» раскладки без прав администратора: из установленной папки загружены обе сборки,
+`DbProviderInstallation.RegisterProvider` применён к копии `machine.config` → узел создан в
+`system.data/DbProviderFactories`, `type` без версии (`Pike.PythonClient64.Data.PythonProviderFactory, Pike.PythonClient64`),
+XML-декларация сохранена, бэкап создан, `UnregisterProvider` узел удалил,
+`PythonProviderFactory.Instance` резолвится.
+
+**Регрессии:** `Invoke-Tests.ps1 -Category All` → **131 / 131**, `Test-ProviderSmoke.ps1` → **41 / 41**.
+

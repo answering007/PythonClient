@@ -46,6 +46,12 @@ dotnet build PythonClient.sln -c Release
 backup `machine.config.bak-<utc>`. The registration uses a version-independent type name
 (`Pike.PythonClient64.Data.PythonProviderFactory, Pike.PythonClient64`), so a provider upgrade does not break it.
 
+The registration code lives in the separate `Pike.PythonClient64.Install.dll` (project `Pike.PythonClient64.Install`):
+the runtime provider loaded by Excel/Power Query references only `mscorlib`, `System`, `System.Core`, `System.Data`,
+`Microsoft.CSharp` and `pythonnet` — no installer or `System.Configuration.Install` dependency is pulled into the
+consumer process. `scripts\install.ps1` copies both assemblies and loads the installer assembly only during
+install/uninstall.
+
 Manual registration (x64 `machine.config`):
 
 ```xml
@@ -72,10 +78,12 @@ VS extension and is deprecated, use `scripts\install.ps1` instead.
 
 `artifacts\` contains:
 
-- `Pike.PythonClient64.<version>.nupkg` + `.snupkg` — package with `lib\net48` assemblies, XML documentation,
-  README and the `pythonnet 3.0.5` dependency (for in-process scenarios, no `machine.config` change);
-- `Pike.PythonClient64\` — flat folder (`Pike.PythonClient64.dll/.xml/.pdb`, `Python.Runtime.dll`) used by
-  `scripts\install.ps1` and for manual deployment to Power Query / Excel.
+- `Pike.PythonClient64.<version>.nupkg` + `.snupkg` — **runtime only** (no installer dependency): `lib\net48`
+  assemblies, XML documentation, README and the `pythonnet 3.0.5` dependency (for in-process scenarios,
+  no `machine.config` change);
+- `Pike.PythonClient64\` — flat folder with `Pike.PythonClient64.dll/.xml/.pdb`, `Python.Runtime.dll` **and**
+  `Pike.PythonClient64.Install.dll/.xml`; used by `scripts\install.ps1` and for manual deployment to Power Query /
+  Excel.
 
 The version is defined once in `Directory.Build.props` (semver) and reflected in the assembly attributes,
 the NuGet package and `CHANGELOG.md`.

@@ -204,12 +204,25 @@ Assert-That 'unknown dtype is reported' {
 
 Write-Host ''
 Write-Host 'machine.config paths' -ForegroundColor Cyan
-$machine64 = [Pike.PythonClient64.Install.DbProviderInstallation]::Machine64Config
-$machine32 = [Pike.PythonClient64.Install.DbProviderInstallation]::Machine32Config
+$installAssemblyPath = Join-Path $root "Pike.PythonClient64.Install\bin\$Configuration\Pike.PythonClient64.Install.dll"
 
-Assert-That 'x64 path points to Framework64' { $machine64.Replace('\', '/').Contains('/Framework64/') }
-Assert-That 'x32 path points to Framework' { $machine32.Replace('\', '/').Contains('/Framework/') }
-Assert-That 'x64 machine.config exists' { Test-Path $machine64 }
+if (-not (Test-Path $installAssemblyPath)) {
+    Write-Host "  skip  '$installAssemblyPath' is not built, build the solution first" -ForegroundColor Yellow
+}
+else {
+    Add-Type -Path $installAssemblyPath
+
+    $machine64 = [Pike.PythonClient64.Install.DbProviderInstallation]::Machine64Config
+    $machine32 = [Pike.PythonClient64.Install.DbProviderInstallation]::Machine32Config
+
+    Assert-That 'x64 path points to Framework64' { $machine64.Replace('\', '/').Contains('/Framework64/') }
+    Assert-That 'x32 path points to Framework' { $machine32.Replace('\', '/').Contains('/Framework/') }
+    Assert-That 'x64 machine.config exists' { Test-Path $machine64 }
+    Assert-That 'runtime assembly has no installer dependency' {
+        $references = ([System.Reflection.Assembly]::LoadFrom($assemblyPath)).GetReferencedAssemblies() | ForEach-Object { $_.Name }
+        -not ($references -contains 'System.Configuration.Install')
+    }
+}
 
 Write-Host ''
 if ($script:failures.Count -gt 0) {

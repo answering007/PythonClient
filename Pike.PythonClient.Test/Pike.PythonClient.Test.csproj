@@ -18,6 +18,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Pike.PythonClient64\Pike.PythonClient64.csproj" />
+    <ProjectReference Include="..\Pike.PythonClient64.Install\Pike.PythonClient64.Install.csproj" />
   </ItemGroup>
 
   <ItemGroup>
