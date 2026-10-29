@@ -149,3 +149,29 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
   даёт `Keys = z,b,a,c`, `Values = 0,22,11,3`, `IndexOfKey('b') = 1`, `TryGetValue('missing') = false`,
   `Remove('missing')` не меняет `Count`, перечисление совпадает с `Keys`/`Values`.
 
+
+### 1.3 P0-2 + P0-4: `PythonParameterCollection` — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Pike.PythonClient64\Data\PythonParameterCollection.cs`
+
+**Сделано**
+- `CopyTo(Array, int)` переписан: проверки `null`/`index < 0`/нехватки места, копирование всех элементов
+  в порядке коллекции с `index + i` (ранее при `index > 0` копировались не те элементы и менялся `index` в теле цикла).
+- `SetParameter(string, DbParameter)` использует `KeyIndexCollection.Set` — `Parameters[name] = value` теперь
+  **заменяет** существующий параметр, а не падает с `ArgumentException("The given key is already exist")`.
+- `Insert(int, object)` вставляет параметр по индексу (через `KeyIndexCollection.Insert`) с валидацией индекса,
+  типа и `ParameterName` (ранее `index` игнорировался, вызывался `Add`).
+- `Contains(object)`/`IndexOf(object)`/`Add(object)`/`SetParameter` используют `as PythonParameter` и дают
+  `ArgumentException` с понятным сообщением вместо `InvalidCastException`; `Contains(object)`/`IndexOf(object)`
+  для `null`/чужого типа возвращают `false`/`-1`.
+- `Remove(object)` для отсутствующего параметра — no-op (ранее падал); `Add` по-прежнему требует уникальный ключ.
+- `IsSynchronized => false` (блокировок в коллекции нет); `GetEnumerator()` возвращает параметры (а не пары
+  «ключ-значение»), что соответствует контракту `DbParameterCollection` и ожиданиям `DbDataAdapter`.
+
+**Проверка**
+- Сборка `Debug` — успешно, новых предупреждений нет.
+- Smoke-скрипт: `Parameters['b'] = newParam` → `Count` не изменился, значение заменено; `Insert(1, …)` даёт порядок
+  `a,z,b,c`; `CopyTo(array, 1)` даёт `keep,a,z,b,c` (элемент до `index` не изменён); маленький целевой массив →
+  `ArgumentException`; `Contains("not a parameter") = false`, `IndexOf(...) = -1`, `IndexOf(null) = -1`;
+  `Remove(missing)` — no-op; перечисление коллекции даёт только `PythonParameter`.
+
