@@ -24,30 +24,36 @@ namespace Pike.PythonClient64.Data
         /// </summary>
         public override ICollection Keys => KeyConstants.ToArray();
 
+        /// <summary>
+        /// Resolves supported keyword in a case-insensitive manner
+        /// </summary>
+        /// <param name="keyword">Keyword to resolve</param>
+        /// <returns>Supported keyword spelling</returns>
+        /// <exception cref="ArgumentException">Thrown when <paramref name="keyword"/> is null or whitespace</exception>
+        /// <exception cref="KeyNotFoundException">Thrown when <paramref name="keyword"/> is not supported</exception>
+        static string ResolveKey(string keyword)
+        {
+            if (string.IsNullOrWhiteSpace(keyword)) throw new ArgumentException("keyword can't be null or empty", nameof(keyword));
+
+            // Framework passes keywords in lower case, so the lookup must be case-insensitive
+            var key = KeyConstants.FirstOrDefault(k => string.Equals(k, keyword, StringComparison.OrdinalIgnoreCase));
+            if (key == null)
+                throw new KeyNotFoundException(
+                    $"Given keyword is not supported. Supported keyword are: {string.Join(",", KeyConstants)}");
+
+            return key;
+        }
+
         /// <inheritdoc />
         /// <summary>
-        /// Get the value for the specific key
+        /// Get the value for the specific key. Keyword lookup is case-insensitive
         /// </summary>
         /// <param name="keyword">Name of the parameter</param>
         /// <returns>Value of the parameter</returns>
         public override object this[string keyword]
         {
-            get
-            {
-                if (string.IsNullOrWhiteSpace(keyword)) throw new ArgumentException("keyword can't be null or empty");
-                if (!KeyConstants.Contains(keyword))
-                    throw new KeyNotFoundException(
-                        $"Given keyword is not supported. Supported keyword are: {string.Join(",", KeyConstants)}");
-                return base[keyword];
-            }
-            set
-            {
-                if (string.IsNullOrWhiteSpace(keyword)) throw new ArgumentException("keyword can't be null or empty");
-                if (!KeyConstants.Contains(keyword))
-                    throw new KeyNotFoundException(
-                        $"Given keyword is not supported. Supported keyword are: {string.Join(",", KeyConstants)}");
-                base[keyword] = value;
-            }
+            get => base[ResolveKey(keyword)];
+            set => base[ResolveKey(keyword)] = value;
         }
 
         /// <summary>
@@ -85,40 +91,31 @@ namespace Pike.PythonClient64.Data
         }
 
         /// <summary>
+        /// Validates the required connection string keys
+        /// </summary>
+        /// <exception cref="InvalidOperationException">Thrown when <see cref="PythonDll"/> is not set</exception>
+        public void Validate()
+        {
+            if (string.IsNullOrWhiteSpace(PythonDll))
+                throw new InvalidOperationException($"{PythonDllKey} is required in connection string");
+        }
+
+        /// <summary>
         /// Parse <see cref="PythonConnection"/> connection string
         /// </summary>
-        /// <param name="connectionString">String to parse</param>
+        /// <param name="connectionString">String to parse. Value is parsed by <see cref="DbConnectionStringBuilder"/>,
+        /// so values containing ';' must be quoted and value case is preserved</param>
         /// <returns>New instance of <see cref="PythonConnectionStringBuilder"/></returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="connectionString"/> is null</exception>
+        /// <exception cref="KeyNotFoundException">Thrown when connection string contains unsupported keyword</exception>
+        /// <exception cref="ArgumentException">Thrown when connection string has an invalid format</exception>
         public static PythonConnectionStringBuilder Parse(string connectionString)
         {
-            if (string.IsNullOrWhiteSpace(connectionString)) throw new ArgumentException("Value can't be null or empty", nameof(connectionString));
+            if (connectionString == null) throw new ArgumentNullException(nameof(connectionString));
 
-            var comparableConnectionString = connectionString.ToUpperInvariant();
-
-            const string equalSymbol = "=";
-            var existedKeys = KeyConstants.Select(k => k + equalSymbol)
-                .Where(comparableConnectionString.Contains)
-                .Select(k =>
-                    new KeyValuePair<string, int>(k,
-                        comparableConnectionString.IndexOf(k, StringComparison.Ordinal)))
-                .OrderBy(p => p.Value)
-                .ToArray();
-
+            // Base class parses, validates and quotes the string itself, so values keep their original case
             var rst = new PythonConnectionStringBuilder();
-            for (var i = 0; i < existedKeys.Length; i++)
-            {
-                var startIndex = existedKeys[i].Value;
-                var endIndex = i == existedKeys.Length - 1 ? comparableConnectionString.Length : existedKeys[i + 1].Value;
-                var length = endIndex - startIndex;
-                var name = existedKeys[i].Key.Replace(equalSymbol, string.Empty);
-                var value = comparableConnectionString.Substring(startIndex, length)
-                    .Replace(existedKeys[i].Key, string.Empty)
-                    .TrimEnd(';')
-                    .Trim('"');
-
-                rst[name] = value;
-            }
-
+            rst.ConnectionString = connectionString;
             return rst;
         }
     }

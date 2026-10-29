@@ -61,6 +61,18 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 
 ---
 
+Формат записи (записи добавляются в конец файла):
+
+```
+### N.M <шаг> — ✅ (YYYY-MM-DD)
+
+**Изменённые файлы:** ...
+**Сделано:** ...
+**Проверка:** ...
+```
+
+---
+
 ## Этап 0. Подготовка
 
 ### 0.1 Восстановление пакетов и baseline-сборка — ✅ (2026-10-29)
@@ -91,13 +103,31 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 
 ---
 
-<!-- Новые записи добавляются ниже в формате:
+## Этап 1. P0-1…P0-4 — connection string, коллекции и параметры
 
-## Этап N. <название>
+### 1.1 P0-1: `PythonConnectionStringBuilder` — ✅ (2026-10-29)
 
-### N.M <шаг> — ✅ (YYYY-MM-DD)
+**Изменённые файлы:** `Pike.PythonClient64\Data\PythonConnectionStringBuilder.cs`
 
-**Изменённые файлы:** ...
-**Сделано:** ...
-**Проверка:** ...
--->
+**Сделано**
+- Удалён собственный парсер (`ToUpperInvariant()` + `Substring`/`Replace`), который приводил значения к верхнему
+  регистру и портил индексы для символов, меняющих длину при апперкейсе (`ß` → `SS`, `ı` → `I`).
+- `Parse(string)` теперь собирает builder через базовый `DbConnectionStringBuilder.ConnectionString`: регистр
+  значений сохраняется, работает квотирование (`PYTHONPATH="C:\Py\Lib;C:\Py\Lib\site-packages"`), формат
+  валидируется фреймворком. `null` → `ArgumentNullException`, пустая строка → «нет настроек» (пустой builder).
+- `ResolveKey(string)` — поиск ключа `OrdinalIgnoreCase`: фреймворк передаёт ключи в нижнем регистре, поэтому
+  `builder["file"]` и `builder["FILE"]` возвращают одно и то же; неизвестный ключ → `KeyNotFoundException`.
+- Добавлен `Validate()` — проверка обязательного `PYTHONDLL` (`InvalidOperationException`); подключается
+  в `PythonConnection.Open()` на шаге 5.3.
+
+**Проверка**
+- Сборка `Debug` — успешно, новых предупреждений нет.
+- Smoke-скрипт на собранной сборке (вне репозитория): разбор
+  `PYTHONDLL=C:\Py\python311.dll;PYTHONPATH="C:\Py\Lib;C:\Py\Lib\site-packages";FILE=C:\Scripts\TestScript.py`
+  → значения совпадают байт-в-байт; round-trip через `ConnectionString` стабилен; `builder['file'] == builder['FILE']`;
+  неизвестный ключ → `KeyNotFoundException`; `Parse("")` → 0 ключей; `Validate()` без `PYTHONDLL` →
+  `InvalidOperationException`.
+
+**Breaking change:** строки, где `PYTHONPATH` содержит `;` без кавычек, теперь отклоняются парсером (по
+спецификации ADO.NET). Требуется запись в README/CHANGELOG (этап 6).
+
