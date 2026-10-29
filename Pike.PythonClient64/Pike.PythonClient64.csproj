@@ -1,103 +1,33 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+<Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{B9C12A50-2E5D-413B-8CDD-AE4FEF3C021C}</ProjectGuid>
-    <OutputType>Library</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Pike.PythonClient64</RootNamespace>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <Prefer32Bit>false</Prefer32Bit>
+    <LangVersion>latest</LangVersion>
     <AssemblyName>Pike.PythonClient64</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
+    <RootNamespace>Pike.PythonClient64</RootNamespace>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);1591</NoWarn>
     <Deterministic>true</Deterministic>
-    <NuGetPackageImportStamp>
-    </NuGetPackageImportStamp>
-    <TargetFrameworkProfile />
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <OutputPath>bin\Debug\</OutputPath>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <PlatformTarget>x64</PlatformTarget>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <DocumentationFile>bin\Release\Pike.PythonClient64.xml</DocumentationFile>
-    <PlatformTarget>x64</PlatformTarget>
-    <Prefer32Bit>false</Prefer32Bit>
-  </PropertyGroup>
-  <PropertyGroup>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
     <SignAssembly>true</SignAssembly>
-  </PropertyGroup>
-  <PropertyGroup>
     <AssemblyOriginatorKeyFile>key.snk</AssemblyOriginatorKeyFile>
+    <!-- Portable PDB is kept in Release as well: removing symbols makes production diagnostics impossible -->
+    <DebugType Condition="'$(Configuration)' == 'Release'">portable</DebugType>
+    <DebugSymbols Condition="'$(Configuration)' == 'Release'">true</DebugSymbols>
   </PropertyGroup>
+
   <ItemGroup>
-    <Reference Include="Python.Runtime, Version=3.0.5.0, Culture=neutral, PublicKeyToken=5000fea6cba702dd, processorArchitecture=MSIL">
-      <HintPath>..\packages\pythonnet.3.0.5\lib\netstandard2.0\Python.Runtime.dll</HintPath>
-    </Reference>
-    <Reference Include="System" />
-    <Reference Include="System.Configuration.Install" />
-    <Reference Include="System.Core" />
+    <PackageReference Include="pythonnet" Version="3.0.5" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System.Configuration.Install" />
     <Reference Include="System.Data" />
     <Reference Include="System.Xml" />
   </ItemGroup>
-  <ItemGroup>
-    <Compile Include="ColumnConverters\IntegerConverter.cs" />
-    <Compile Include="ColumnConverters\LongConverter.cs" />
-    <Compile Include="ColumnConverters\DateTimeConverter.cs" />
-    <Compile Include="ColumnConverters\TimeSpanConverter.cs" />
-    <Compile Include="ColumnConverters\StringConverter.cs" />
-    <Compile Include="ColumnConverters\BooleanConverter.cs" />
-    <Compile Include="ColumnConverters\DoubleConverter.cs" />
-    <Compile Include="ColumnConverters\IColumnConverter.cs" />
-    <Compile Include="ColumnConverters\PythonValue.cs" />
-    <Compile Include="Data\PythonCommand.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Data\PythonParameter.cs" />
-    <Compile Include="Data\PythonParameterCollection.cs" />
-    <Compile Include="Data\PythonProviderFactory.cs" />
-    <Compile Include="Install\DataProviderInstallationBase.cs" />
-    <Compile Include="Install\DbProviderInstallation.cs" />
-    <Compile Include="Install\InstallerMain.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Install\InstallerMain.designer.cs">
-      <DependentUpon>InstallerMain.cs</DependentUpon>
-    </Compile>
-    <Compile Include="KeyIndexCollection.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Data\PythonConnection.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Data\PythonConnectionStringBuilder.cs" />
-    <Compile Include="PythonDataProvider.cs" />
-    <Compile Include="PythonDataQuery.cs" />
-    <Compile Include="PythonScriptContext.cs" />
-    <Compile Include="SupportedTypes.cs" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="key.snk" />
-    <None Include="packages.config" />
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <PropertyGroup>
-    <PostBuildEvent>if $(ConfigurationName) == Release (
-cd $(TargetDir)
-del Pike.PythonClient64.pdb)</PostBuildEvent>
-  </PropertyGroup>
+
 </Project>

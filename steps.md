@@ -548,3 +548,35 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 Интеграционные тесты (45) требуют Python 3.11 x64 + numpy/pandas и `PYTHONNET_TEST_DLL`; в текущем окружении
 они корректно пропускаются, их прогон остаётся для CI/машины с Python.
 
+
+---
+
+## Этап 6. P2 — сборка, упаковка, документация, CI
+
+### 6.1 P2-1/P2-3: SDK-style проекты — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Pike.PythonClient64\Pike.PythonClient64.csproj`, `Pike.PythonClient.Test\Pike.PythonClient.Test.csproj`
+(переписаны), `packages.config` удалены (оба проекта)
+
+**Сделано**
+- Оба проекта переведены на `Microsoft.NET.Sdk` (`TargetFramework=net48`, `PlatformTarget=x64`,
+  `LangVersion=latest`, `GenerateAssemblyInfo=false` — атрибуты остались в `Properties\AssemblyInfo.cs`),
+  `AppendTargetFrameworkToOutputPath=false` — пути `bin\Debug|Release` сохранены.
+- Зависимость `pythonnet 3.0.5` и `MSTest.TestAdapter`/`MSTest.TestFramework` + `Microsoft.NET.Test.Sdk` оформлены
+  через `PackageReference`; `packages.config`, `HintPath` и `EnsureNuGetPackageBuildImports` удалены.
+- Основной проект: сохранены сильное имя (`key.snk`), XML-документация (`GenerateDocumentationFile`, `NoWarn 1591`),
+  явные ссылки `System.Data`, `System.Xml`, `System.Configuration.Install`, `Microsoft.CSharp`.
+- P2-3: удалён `PostBuildEvent` (удаление `.pdb`), для Release оставлены portable PDB
+  (`DebugType=portable`) — символы нужны для диагностики в production.
+- Тестовый проект теперь тоже `x64`, поэтому предупреждение `MSB3270` (AnyCPU → AMD64) исчезло.
+
+**Проверка**
+```
+dotnet build PythonClient.sln -c Debug    # успешно, 0 предупреждений, 0 ошибок
+dotnet build PythonClient.sln -c Release  # успешно, 0 предупреждений
+msbuild PythonClient.sln /restore /p:Configuration=Release   # legacy-путь MSBuild тоже работает
+vstest --TestCaseFilter:TestCategory=Unit  # 85/85
+```
+Артефакты `bin\Release`: `Pike.PythonClient64.dll`, `Pike.PythonClient64.pdb` (больше не удаляется),
+`Pike.PythonClient64.xml`, `Python.Runtime.dll`. Предупреждений `NU1701` нет.
+
