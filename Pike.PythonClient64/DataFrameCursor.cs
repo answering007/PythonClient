@@ -1,7 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
-using Pike.PythonClient64.ColumnConverters;
 using Python.Runtime;
 
 namespace Pike.PythonClient64

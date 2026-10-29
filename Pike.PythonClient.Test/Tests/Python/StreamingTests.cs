@@ -1,6 +1,5 @@
 using System;
 using System.Data;
-using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Pike.PythonClient64.Data;
 
