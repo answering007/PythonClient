@@ -55,6 +55,9 @@ namespace Pike.PythonClient64
             if (string.IsNullOrWhiteSpace(scriptText)) throw new ArgumentException("Value cannot be null or whitespace.", nameof(scriptText));
             if (PythonDataProvider.State != ConnectionState.Open) throw new InvalidOperationException("Connection must be open");
 
+            // GIL must be acquired for every python call on the current thread:
+            // storing GILState for the whole application corrupts the interpreter in multi-threaded scenarios
+            using (Py.GIL())
             using (var module = Py.CreateScope())
             {
                 using (dynamic variables = module.Variables())

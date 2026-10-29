@@ -42,37 +42,46 @@ namespace Pike.PythonClient64.Data
 
         /// <inheritdoc />
         /// <summary>
-        /// Version of <see cref="PythonEngine"/>
+        /// Version of <see cref="PythonEngine"/>. Empty string when the connection is closed
         /// </summary>
-        public override string ServerVersion => PythonDataProvider.Version;
-        
+        public override string ServerVersion => _isOpen ? PythonDataProvider.Version : string.Empty;
+
+        bool _isOpen;
+
         /// <inheritdoc />
         /// <summary>
         /// Get the current connection state
         /// </summary>
-        public override ConnectionState State => PythonDataProvider.State;
-        
+        public override ConnectionState State => _isOpen && PythonDataProvider.State == ConnectionState.Open
+            ? ConnectionState.Open
+            : ConnectionState.Closed;
+
         /// <inheritdoc />
         /// <summary>
         /// Opens a database connection with the settings specified by the <see cref="P:Pike.PythonClient64.Data.PythonConnection.ConnectionString" />
         /// </summary>
         public override void Open()
         {
-            if (PythonDataProvider.State == ConnectionState.Open) return;
+            if (_isOpen) return;
 
             // Set python*.dll path
             PythonDataProvider.PythonDllPath = _builder.PythonDll;
 
             // Import path components
             PythonDataProvider.Open(_builder.PythonPathComponents);
+            _isOpen = true;
         }
 
         /// <inheritdoc />
         /// <summary>
-        /// Closes the connection to the python environment
+        /// Closes the connection to the python environment. The shared engine is released, not shut down,
+        /// when other connections are still opened
         /// </summary>
         public override void Close()
         {
+            if (!_isOpen) return;
+
+            _isOpen = false;
             PythonDataProvider.Close();
         }
 
@@ -83,7 +92,8 @@ namespace Pike.PythonClient64.Data
         /// <param name="disposing">True to release both manage and unmanaged resources; False to release only unmanaged resources</param>
         protected override void Dispose(bool disposing)
         {
-            Close();
+            if (disposing) Close();
+
             base.Dispose(disposing);
         }
 
