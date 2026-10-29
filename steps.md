@@ -175,3 +175,33 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
   `ArgumentException`; `Contains("not a parameter") = false`, `IndexOf(...) = -1`, `IndexOf(null) = -1`;
   `Remove(missing)` — no-op; перечисление коллекции даёт только `PythonParameter`.
 
+
+### 1.4 P0-3 + P1-2: `PythonParameter` и переиндексация при переименовании — ✅ (2026-10-29)
+
+**Изменённые файлы:** `Pike.PythonClient64\Data\PythonParameter.cs`,
+`Pike.PythonClient64\Data\PythonParameterCollection.cs`, `Pike.PythonClient64\KeyIndexCollection.cs`
+
+**Сделано**
+- P0-3: `Value = null` и `Value = DBNull.Value` больше не падают (`NullReferenceException` в `_value.GetType()` и
+  `(string)value` в `GetSize`); для них `DbType = String`, `Size = 0`. `GetSize` использует `as string`/`as byte[]`,
+  неизвестный тип возвращает `0`, а не `SystemException`.
+- P1-2: `DbType` теперь settable и используется как подсказка (явно заданный `DbType` не перетирается присвоением
+  `Value`; `ResetDbType()` возвращает автоматическое определение).
+- P1-2: `Direction` валидируется — `Output`/`InputOutput`/`ReturnValue` → `NotSupportedException`.
+- P1-2: `IsNullable` по умолчанию `true`; `ParameterName` стал обычным settable (без исключений), плюс
+  `PythonParameterCollection.EnsureIndex()`/`KeyIndexCollection.RenameKey()` переиндексируют параметр при
+  переименовании (позиция сохраняется, коллизия имён не роняет и не «схлопывает» коллекцию).
+- P1-2: `ParseDbType` расширен (`Byte`, `SByte`, `Int16`, `UInt16/32/64`, `Single`, `Decimal`, `Char`, `Guid`,
+  `TimeSpan` → `DbType.Time`, `DateTimeOffset`, `byte[]` → `DbType.Binary`); неизвестный тип →
+  `NotSupportedException` с указанием типа.
+
+**Проверка**
+- Сборка `Debug` — успешно, новых предупреждений нет.
+- Smoke-скрипты:
+  - `Value = null` → `DbType=String, Size=0`; `DBNull` → `String/0`; строка `"Pike"` → `Size=4`;
+  - 14 типов дают ожидаемые `DbType`; `Value = new Uri(...)` → `NotSupportedException`;
+  - `IsNullable = true` по умолчанию, `Direction = Output` → `NotSupportedException`, `ParameterName`
+    переименовывается дважды;
+  - переименование параметра после `Add` — `Contains('new') = true`, `IndexOf('new') = 0`, старое имя исчезло,
+    коллизия имён не меняет `Count`, `Parameters['new'] = p` не увеличивает коллекцию.
+

@@ -46,6 +46,23 @@ namespace Pike.PythonClient64.Data
         /// </summary>
         public override object SyncRoot { get; } = new object();
 
+        /// <summary>
+        /// Rebuilds the internal index when <see cref="PythonParameter.ParameterName"/> was changed
+        /// after the parameter has been added to the collection
+        /// </summary>
+        void EnsureIndex()
+        {
+            for (var i = 0; i < _collection.Count; i++)
+            {
+                var key = _collection.GetKeyByIndex(i);
+                var name = _collection.GetByIndex(i).ParameterName;
+                if (string.IsNullOrWhiteSpace(name) || string.Equals(key, name, StringComparison.Ordinal)) continue;
+                if (_collection.ContainsKey(name)) continue;   // name is already used by another parameter
+
+                _collection.RenameKey(key, name);
+            }
+        }
+
         /// <inheritdoc />
         /// <summary>
         /// Adds the specified <see cref="T:Pike.PythonClient64.Data.PythonParameter" /> object to the <see cref="T:Pike.PythonClient64.Data.PythonParameterCollection" />
@@ -118,6 +135,7 @@ namespace Pike.PythonClient64.Data
         {
             if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("value can't be null or empty");
 
+            EnsureIndex();
             return _collection.ContainsKey(value);
         }
 
@@ -141,7 +159,7 @@ namespace Pike.PythonClient64.Data
         {
             if (parameter == null || string.IsNullOrWhiteSpace(parameter.ParameterName)) return false;
 
-            return _collection.ContainsKey(parameter.ParameterName);
+            return Contains(parameter.ParameterName);
         }
 
         /// <inheritdoc />
@@ -182,6 +200,7 @@ namespace Pike.PythonClient64.Data
         {
             if (string.IsNullOrWhiteSpace(parameterName)) throw new ArgumentException("parameterName can't be null or empty");
 
+            EnsureIndex();
             return _collection.IndexOfKey(parameterName);
         }
 
@@ -235,6 +254,8 @@ namespace Pike.PythonClient64.Data
         {
             var parameter = value as PythonParameter;
             if (parameter == null || string.IsNullOrWhiteSpace(parameter.ParameterName)) return;
+
+            EnsureIndex();
             if (!_collection.ContainsKey(parameter.ParameterName)) return;
 
             _collection.Remove(parameter.ParameterName);
@@ -249,6 +270,7 @@ namespace Pike.PythonClient64.Data
         {
             if (string.IsNullOrWhiteSpace(parameterName)) throw new ArgumentException("parameterName can't be null or empty");
 
+            EnsureIndex();
             _collection.Remove(parameterName);
         }
 
@@ -272,6 +294,7 @@ namespace Pike.PythonClient64.Data
         {
             if (string.IsNullOrWhiteSpace(parameterName)) throw new ArgumentException("parameterName can't be null or empty");
 
+            EnsureIndex();
             return _collection[parameterName];
         }
 
@@ -302,6 +325,7 @@ namespace Pike.PythonClient64.Data
             if (string.IsNullOrWhiteSpace(parameter.ParameterName))
                 parameter.ParameterName = parameterName;
 
+            EnsureIndex();
             // Replace or add: DbParameterCollection contract requires Parameters[name] = parameter to be idempotent
             _collection.Set(parameterName, parameter);
         }

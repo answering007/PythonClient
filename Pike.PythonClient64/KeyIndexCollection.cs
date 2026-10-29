@@ -75,6 +75,30 @@ namespace Pike.PythonClient64
         }
 
         /// <summary>
+        /// Renames the key keeping its position and value.
+        /// </summary>
+        /// <param name="oldKey">The key to rename.</param>
+        /// <param name="newKey">The new key.</param>
+        /// <exception cref="ArgumentNullException">Thrown when a key is null.</exception>
+        /// <exception cref="KeyNotFoundException">Thrown when <paramref name="oldKey"/> is not found in the collection.</exception>
+        /// <exception cref="ArgumentException">An element with <paramref name="newKey"/> already exists in the collection.</exception>
+        public void RenameKey(TKey oldKey, TKey newKey)
+        {
+            if (oldKey == null) throw new ArgumentNullException(nameof(oldKey));
+            if (newKey == null) throw new ArgumentNullException(nameof(newKey));
+            if (Equals(oldKey, newKey)) return;
+
+            var index = _keys.IndexOf(oldKey);
+            if (index < 0) throw new KeyNotFoundException($"The given key '{oldKey}' was not present in the collection.");
+            if (_dictionary.ContainsKey(newKey)) throw new ArgumentException("An element with the same key already exists.");
+
+            var value = _dictionary[oldKey];
+            _dictionary.Remove(oldKey);
+            _dictionary[newKey] = value;
+            _keys[index] = newKey;
+        }
+
+        /// <summary>
         /// Gets the value associated with the specified key.
         /// </summary>
         /// <param name="key">The key of the value to get.</param>

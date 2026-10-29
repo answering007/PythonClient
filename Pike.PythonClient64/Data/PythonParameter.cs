@@ -15,35 +15,59 @@ namespace Pike.PythonClient64.Data
         /// </summary>
         /// <param name="type">Source type</param>
         /// <returns>Associated <see cref="DbType"/></returns>
+        /// <exception cref="ArgumentNullException">Thrown when <paramref name="type"/> is null</exception>
+        /// <exception cref="NotSupportedException">Thrown when <paramref name="type"/> has no associated <see cref="DbType"/></exception>
         static DbType ParseDbType(Type type)
         {
             if (type == null) throw new ArgumentNullException(nameof(type));
 
-            var typeCode = Type.GetTypeCode(type);
-            switch (typeCode)
+            switch (Type.GetTypeCode(type))
             {
                 case TypeCode.Boolean:
                     return DbType.Boolean;
+                case TypeCode.Byte:
+                    return DbType.Byte;
+                case TypeCode.Char:
+                    return DbType.String;
                 case TypeCode.DateTime:
                     return DbType.DateTime;
+                case TypeCode.Decimal:
+                    return DbType.Decimal;
                 case TypeCode.Double:
                     return DbType.Double;
+                case TypeCode.Int16:
+                    return DbType.Int16;
                 case TypeCode.Int32:
                     return DbType.Int32;
                 case TypeCode.Int64:
                     return DbType.Int64;
+                case TypeCode.SByte:
+                    return DbType.SByte;
+                case TypeCode.Single:
+                    return DbType.Single;
                 case TypeCode.String:
                     return DbType.String;
-                default:
-                    throw new SystemException("Value is of unknown data type");
+                case TypeCode.UInt16:
+                    return DbType.UInt16;
+                case TypeCode.UInt32:
+                    return DbType.UInt32;
+                case TypeCode.UInt64:
+                    return DbType.UInt64;
             }
+
+            if (type == typeof(Guid)) return DbType.Guid;
+            if (type == typeof(TimeSpan)) return DbType.Time;
+            if (type == typeof(DateTimeOffset)) return DbType.DateTimeOffset;
+            if (type == typeof(byte[])) return DbType.Binary;
+
+            throw new NotSupportedException($"Value of type {type} is not supported");
         }
 
         /// <summary>
         /// Get size of the primitive type
         /// </summary>
         /// <param name="type">Primitive type value</param>
-        /// <param name="value">Object for the <see cref="string"/> data type</param>
+        /// <param name="value">Object for the <see cref="T:System.String"/> and <see cref="T:System.Byte"/> array data types</param>
         /// <returns>Size of the type</returns>
         static int GetSize(DbType type, object value = null)
         {
@@ -51,62 +75,102 @@ namespace Pike.PythonClient64.Data
             {
                 case DbType.Boolean:
                     return sizeof(bool);
-                case DbType.DateTime:
-                    return 8;
-                case DbType.Double:
-                    return sizeof(double);
+                case DbType.Byte:
+                    return sizeof(byte);
+                case DbType.SByte:
+                    return sizeof(sbyte);
+                case DbType.Int16:
+                    return sizeof(short);
+                case DbType.UInt16:
+                    return sizeof(ushort);
                 case DbType.Int32:
                     return sizeof(int);
+                case DbType.UInt32:
+                    return sizeof(uint);
                 case DbType.Int64:
                     return sizeof(long);
+                case DbType.UInt64:
+                    return sizeof(ulong);
+                case DbType.Single:
+                    return sizeof(float);
+                case DbType.Double:
+                    return sizeof(double);
+                case DbType.Decimal:
+                case DbType.Currency:
+                    return sizeof(decimal);
+                case DbType.DateTime:
+                case DbType.DateTime2:
+                case DbType.DateTimeOffset:
+                    return 8;
+                case DbType.Time:
+                    return 8;
+                case DbType.Guid:
+                    return 16;
                 case DbType.String:
-                    return ((string)value)?.Length ?? 0;
+                    return (value as string)?.Length ?? 0;
+                case DbType.Binary:
+                    return (value as byte[])?.Length ?? 0;
                 default:
-                    throw new SystemException("Unknown data type");
+                    return 0;
             }
         }
 
         DbType _dbType = DbType.String;
+        bool _dbTypeIsSetExplicitly;
+
         /// <inheritdoc />
         /// <summary>
-        /// Gets the <see cref="P:Pike.PythonClient64.Data.PythonParameter.DbType" /> of the parameter.
-        /// This can't be set directly - just set the <see cref="Value"/> instead
+        /// Gets or sets the <see cref="P:Pike.PythonClient64.Data.PythonParameter.DbType" /> of the parameter.
+        /// The value is used as a hint only, <see cref="Value"/> remains the source of truth
         /// </summary>
         public override DbType DbType
         {
             get => _dbType;
-            set => throw new InvalidOperationException("Parameter type can't be set directly. Just set the Value");
+            set
+            {
+                _dbType = value;
+                _dbTypeIsSetExplicitly = true;
+            }
         }
+
+        ParameterDirection _direction = ParameterDirection.Input;
 
         /// <inheritdoc />
         /// <summary>
         /// Gets or sets a value that indicates whether the parameter is input-only, output-only, bidirectional, or a stored procedure return value parameter.
         /// Supported type is input-only
         /// </summary>
-        public override ParameterDirection Direction { get; set; } = ParameterDirection.Input;
+        /// <exception cref="NotSupportedException">Thrown when direction other than <see cref="ParameterDirection.Input"/> is set</exception>
+        public override ParameterDirection Direction
+        {
+            get => _direction;
+            set
+            {
+                if (value != ParameterDirection.Input)
+                    throw new NotSupportedException(
+                        $"Direction '{value}' is not supported, only '{ParameterDirection.Input}' is supported");
+
+                _direction = value;
+            }
+        }
 
         /// <inheritdoc />
         /// <summary>
         /// Gets or sets a value that indicates whether the parameter accepts null values.
-        /// Default value is false
+        /// Default value is true
         /// </summary>
-        public override bool IsNullable { get; set; } = false;
+        public override bool IsNullable { get; set; } = true;
 
         string _parameterName = string.Empty;
+
         /// <inheritdoc />
         /// <summary>
-        /// Gets or sets the name of the parameter. Can't be renamed after first set
+        /// Gets or sets the name of the parameter
         /// </summary>
         public override string ParameterName
         {
             get => _parameterName;
-            set
-            {
-                if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("value can't be null or empty");
-                if (!string.IsNullOrWhiteSpace(_parameterName)) throw new InvalidOperationException("ParameterName is already defined");
-
-                _parameterName = value;
-            }
+            set => _parameterName = value ?? string.Empty;
         }
 
         /// <inheritdoc />
@@ -136,16 +200,18 @@ namespace Pike.PythonClient64.Data
         object _value;
         /// <inheritdoc />
         /// <summary>
-        /// Gets or sets the value of the parameter
+        /// Gets or sets the value of the parameter. Null and <see cref="T:System.DBNull"/> values are allowed
         /// </summary>
+        /// <exception cref="NotSupportedException">Thrown when value has no associated <see cref="DbType"/></exception>
         public override object Value
         {
             get => _value;
             set
             {
                 _value = value;
-                _dbType = ParseDbType(_value.GetType());
-                Size = GetSize(DbType, _value);
+                if (!_dbTypeIsSetExplicitly)
+                    _dbType = value == null || value == DBNull.Value ? DbType.String : ParseDbType(value.GetType());
+                Size = GetSize(_dbType, _value);
             }
         }
         /// <inheritdoc />
@@ -155,6 +221,7 @@ namespace Pike.PythonClient64.Data
         public override void ResetDbType()
         {
             _dbType = DbType.String;
+            _dbTypeIsSetExplicitly = false;
         }
     }
 }
