@@ -28,6 +28,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   the provider is distributed as a single `lib\net48` assembly for the x64 Power Query / Excel and desktop hosts.
   `dotnet build` outputs stay in `bin\<Configuration>\net48`, so the deployment scripts are unchanged.
 
+### Removed
+
+- `PythonDataQuery.Query`, `PythonDataQuery.Parameters` and `PythonDataQuery.Reset()` (deprecated in 2.0.0) together
+  with the internal ambient context: the execution state is passed explicitly via `PythonScriptContext` /
+  `PythonCommand`, so there is no hidden static state and no `AsyncLocal` fallback anymore;
+  `RunScript(scriptText)` uses a new default context.
+
 ### Fixed
 
 - **Shutdown from a non-owner thread.** `EndAllowThreads` can be called only in the thread that saved the state;
@@ -145,7 +152,7 @@ Performance baseline: `TestLargeDataFrame` (90 000 rows × 6 columns) takes ~0.3
 ### Deprecated
 
 - `PythonDataQuery.Query`, `PythonDataQuery.Parameters`, `PythonDataQuery.Reset()`: use `PythonScriptContext` or
-  `PythonCommand` properties.
+  `PythonCommand` properties (removed in 2.1.0).
 
 ### Breaking changes
 

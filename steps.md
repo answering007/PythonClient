@@ -73,6 +73,7 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 | `.\scripts\pack.ps1` | `Pike.PythonClient64.2.1.0.nupkg` + `.snupkg` (lib/net48) + папка деплоя |
 | `.\scripts\test\Invoke-VersionMatrix.ps1` | Python 3.9/3.11/3.13 × pandas 1.5/2.2/3.1 — **60/60 в каждой** |
 | `samples\Pike.PythonClient64.Sample` | net48-хост: async + streaming, запуск успешен |
+| устаревший API | `PythonDataQuery.Query/Parameters/Reset` удалены — сборка без `CS0618`/`CS1574` |
 | проекты решения | `Pike.PythonClient64` (рантайм, net48), `Pike.PythonClient64.Install` (регистрация), `Pike.PythonClient.Test`, `samples\Pike.PythonClient64.Sample` (net48) |
 
 Остаточные риски и что ещё проверить:
@@ -517,7 +518,8 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 **Сделано**
 - **P1-5 (контекст)**: добавлен `PythonScriptContext` (`Query`, `Parameters`, `ResultName`, `ResultRequired`) и
   `PythonDataQuery.RunScript(scriptText, context)`; состояние выполнения больше не статическое.
-  Старые `Query`/`Parameters`/`Reset()` сохранены как обёртки над `AsyncLocal`-контекстом и помечены `[Obsolete]`.
+  Старые `Query`/`Parameters`/`Reset()` были сохранены как обёртки над `AsyncLocal`-контекстом и помечены `[Obsolete]`
+  (удалены в 2.1.0 вместе с ambient-контекстом, см. §11.5).
 - **P1-5 (параметры)**: `null`/`DBNull` → `None` (раньше `ArgumentNullException`); срезаются префиксы `@`/`:`;
   обрабатываются `decimal` (→ `float`, в Python нет decimal), `Guid` (→ строка), `TimeSpan` (→ `timedelta64[ns]`),
   `DateTimeOffset` (→ UTC `datetime64[ns]`), `DateTime` с `Kind=Local` приводится к UTC; `PyDict` освобождается при
@@ -561,7 +563,8 @@ $vstest  = 'C:\Program Files\Microsoft Visual Studio\18\Community\Common7\IDE\Ex
 - Ложно-положительный тест `TestInvalidSyntaxInPythonCode` заменён на
   `Assert.ThrowsException<PythonException>(...)`.
 - Все легаси-тесты переведены на новый API (`PythonScriptContext`, `ExecuteScript`), поэтому сборка
-  больше не содержит предупреждений `CS0618` от устаревших `PythonDataQuery.Query/Parameters/Reset`.
+  больше не содержала предупреждений `CS0618` от устаревших `PythonDataQuery.Query/Parameters/Reset`
+  (сами члены удалены в 2.1.0, см. §11.5).
 - Новые тесты:
   - `CommandTests` (Python): `SchemaOnly`, `SingleRow`, `CloseConnection`, `ExecuteNonQuery` без `result` и с
     результатом, `CommandTimeout` → `NotSupportedException`, чтение скрипта из файла в UTF-8 (юникод),
@@ -939,6 +942,29 @@ samples\Pike.PythonClient64.Sample\bin\Debug\net48\Pike.PythonClient64.Sample.ex
   в README добавлен полный пример `IColumnConverter` и описание регистрации.
 - Обновлены README (single-target net48, async, streaming, custom converters, sample, матрица версий 60/60),
   CHANGELOG (**2.1.0**), версия в `Directory.Build.props` → 2.1.0, CI (шаг sample).
+
+### 11.5 Удаление устаревшего API — ✅ (2026-10-30)
+
+**Изменённые файлы:** `Pike.PythonClient64\PythonDataQuery.cs`, `CHANGELOG.md`, `steps.md`
+
+**Сделано**
+- Удалены `PythonDataQuery.Query`, `PythonDataQuery.Parameters` и `PythonDataQuery.Reset()` (помечены `[Obsolete]`
+  в 2.0.0) вместе с внутренним ambient-контекстом: `AsyncLocal<PythonScriptContext> AmbientContext` и
+  `CurrentContext`. Публичных входов в ambient-состояние не оставалось, поэтому обёртки стали бы мёртвым кодом.
+- `ResolveContext` теперь `context ?? new PythonScriptContext()`: скрытого статического состояния нет,
+  `RunScript(scriptText)` и `RunScriptAsync(scriptText)` работают с новым контекстом по умолчанию
+  (поведение не изменилось — ambient-контекст никто не заполнял).
+- XML-доки очищены от «ambient»-формулировок и `cref` на удалённые члены (иначе `CS1574` при
+  `GenerateDocumentationFile=true`), в сгенерированном `Pike.PythonClient64.xml` этих членов больше нет.
+- Версия остаётся **2.1.0** (2.x наружу не публиковался: на nuget.org пакета нет, GitHub-релизы только до v1.2);
+  удаление зафиксировано разделом `### Removed` в 2.1.0, в 2.0.0 `### Deprecated` добавлена пометка «removed in 2.1.0».
+
+**Проверка**
+```
+dotnet build PythonClient.sln -c Debug / -c Release   # 0 предупреждений (нет CS0618/CS1574), 0 ошибок
+git grep -n 'AmbientContext|Obsolete' -- '*.cs'       # пусто
+Invoke-Tests.ps1 -Category All                        # 145 / 145
+```
 
 **Итоговый прогон**
 ```

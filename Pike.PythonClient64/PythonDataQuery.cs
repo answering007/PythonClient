@@ -29,38 +29,13 @@ namespace Pike.PythonClient64
         public const string PythonParametersKey = "params";
 
         /// <summary>
-        /// Python code text of the ambient context
-        /// </summary>
-        [Obsolete("Use PythonScriptContext.Query or PythonCommand.CommandText instead")]
-        public static string Query
-        {
-            get => CurrentContext.Query;
-            set => CurrentContext.Query = value;
-        }
-
-        /// <summary>
-        /// Parameters dictionary of the ambient context
-        /// </summary>
-        [Obsolete("Use PythonScriptContext.Parameters or PythonCommand.Parameters instead")]
-        public static IDictionary<string, object> Parameters => CurrentContext.Parameters;
-
-        static readonly AsyncLocal<PythonScriptContext> AmbientContext = new AsyncLocal<PythonScriptContext>();
-
-        /// <summary>
-        /// Context used by the calls without the explicit context
-        /// </summary>
-        static PythonScriptContext CurrentContext =>
-            AmbientContext.Value ?? (AmbientContext.Value = new PythonScriptContext());
-
-        /// <summary>
         /// True (default) to throw <see cref="NotSupportedException"/> for a column with unknown dtype.
         /// False to convert such columns to string
         /// </summary>
         public static bool StrictColumnTypes { get; set; } = true;
 
         /// <summary>
-        /// Runs the specified Python script and returns result as a DataTable.
-        /// The ambient context (<see cref="Query"/>, <see cref="Parameters"/>) is used
+        /// Runs the specified Python script with the default execution context and returns result as a DataTable
         /// </summary>
         /// <param name="scriptText">Python script text</param>
         /// <returns>Result as a DataTable</returns>
@@ -76,7 +51,7 @@ namespace Pike.PythonClient64
         /// Runs the specified Python script with the specified execution context and returns result as a DataTable
         /// </summary>
         /// <param name="scriptText">Python script text</param>
-        /// <param name="context">Execution context; when null, the ambient context is used</param>
+        /// <param name="context">Execution context; when null, a default context is used</param>
         /// <returns>Result as a DataTable</returns>
         /// <exception cref="ArgumentException">If <paramref name="scriptText"/> is null or empty</exception>
         /// <exception cref="InvalidOperationException">If connection is not open</exception>
@@ -96,7 +71,7 @@ namespace Pike.PythonClient64
         /// The cursor takes the ownership of the result object and must be disposed by the caller
         /// </summary>
         /// <param name="scriptText">Python script text</param>
-        /// <param name="context">Execution context; when null, the ambient context is used</param>
+        /// <param name="context">Execution context; when null, a default context is used</param>
         /// <param name="chunkSize">Number of rows read at once</param>
         /// <returns>Cursor over the result DataFrame</returns>
         /// <exception cref="InvalidOperationException">Thrown when the connection is not open</exception>
@@ -130,13 +105,13 @@ namespace Pike.PythonClient64
         }
 
         /// <summary>
-        /// Resolves the execution context: the explicit one, the ambient one or a new default context
+        /// Resolves the execution context: the explicit one or a new default context
         /// </summary>
         /// <param name="context">Explicit context</param>
         /// <returns>Execution context</returns>
         static PythonScriptContext ResolveContext(PythonScriptContext context)
         {
-            return context ?? AmbientContext.Value ?? new PythonScriptContext();
+            return context ?? new PythonScriptContext();
         }
 
         /// <summary>
@@ -193,7 +168,7 @@ namespace Pike.PythonClient64
         /// The python script itself can't be interrupted, so the work is executed on a thread pool thread
         /// </summary>
         /// <param name="scriptText">Python script text</param>
-        /// <param name="context">Execution context; when null, the ambient context is used</param>
+        /// <param name="context">Execution context; when null, a default context is used</param>
         /// <param name="cancellationToken">Cancellation token, checked before the execution starts</param>
         /// <returns>Result as a DataTable</returns>
         public static Task<DataTable> RunScriptAsync(string scriptText, PythonScriptContext context = null,
@@ -348,19 +323,6 @@ namespace Pike.PythonClient64
         static PyObject AsPyObject(object value)
         {
             return value as PyObject ?? throw new InvalidOperationException($"Unexpected result type: {value?.GetType()}");
-        }
-
-        /// <summary>
-        /// Resets the ambient context: query text, parameters and result settings
-        /// </summary>
-        [Obsolete("Use PythonScriptContext instead")]
-        public static void Reset()
-        {
-            var context = CurrentContext;
-            context.Query = null;
-            context.Parameters.Clear();
-            context.ResultName = ResultKey;
-            context.ResultRequired = true;
         }
     }
 }
