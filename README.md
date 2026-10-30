@@ -70,6 +70,14 @@ Manual registration (x64 `machine.config`):
 There is no installer project in the solution anymore: the legacy Visual Studio Installer project (`.vdproj`, which
 required a separate VS extension) was removed in 2.1.0, use the scripts above.
 
+An MSI/graphical installer is **not** part of 2.1.0 and is deliberately deferred. The installation itself is only six
+files plus one `machine.config` entry (the provider installs neither Python nor pandas), so the scripts above remain
+the supported path: they are transparent, exercised by CI and need no additional toolchain. A per-machine MSI
+(`msiexec /qn`, ARP entry, repair/uninstall) will be added on top of these scripts — reusing the same registration
+code — once silent enterprise deployment (GPO / SCCM / Intune) becomes a requirement. The planned shape is a
+`Pike.PythonClient64.Install.Tool.exe` (install/uninstall/status), a WiX-built MSI and an optional Burn bootstrapper
+for a wizard UI.
+
 ### Build artifacts and NuGet package
 
 ```powershell
