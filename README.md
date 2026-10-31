@@ -362,10 +362,10 @@ The helper scripts live in `scripts\`:
 | `scripts\pack.ps1` | Release build + `dotnet pack` into `artifacts\` (nupkg/snupkg and a flat deploy folder) |
 
 ```powershell
-# unit tests: do not need Python (85 tests)
+# unit tests: do not need Python (90 tests)
 .\scripts\test\Invoke-Tests.ps1 -Category Unit
 
-# integration tests (60 tests): create the environment once, it is picked up automatically
+# integration tests (62 tests): create the environment once, it is picked up automatically
 .\scripts\test\Initialize-PythonEnvironment.ps1
 .\scripts\test\Invoke-Tests.ps1 -Category Python
 
@@ -401,7 +401,7 @@ The provider registration for the tests is taken from `Pike.PythonClient.Test\ap
 
 ### Tested versions
 
-The suite has **141 tests** (87 unit without Python + 54 integration). Every combination below passes the whole
+The suite has **152 tests** (90 unit without Python + 62 integration). Every combination below passes the whole
 integration suite on Windows x64:
 
 | Runtime | Python | pandas | numpy | Result |

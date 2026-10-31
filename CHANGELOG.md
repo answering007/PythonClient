@@ -31,7 +31,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - The whole frame is read in a single pass: every column is converted once, without the `iloc[start:stop]` slices the
   chunk reader needed, so a full materialization copies less data.
-- Test suite: **141 tests** (87 unit + 54 integration).
+- Test suite: **152 tests** (90 unit + 62 integration), including the new `ScriptVariablesTests` (`query`/`params`
+  transfer: command text vs script file, an always-defined `params` dictionary, prefix trimming, execution isolation)
+  and `ScriptContextUnit` (context defaults, variable names).
 
 ## [2.1.0] - 2026-10-29
 
