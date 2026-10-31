@@ -1,6 +1,7 @@
 """Module for testing the PythonClient."""
 import pandas as pd
 
+
 def test_function(df: pd.DataFrame) -> pd.DataFrame:
     """
     Add a column named 'test_function' to the DataFrame with the string 'test'.
