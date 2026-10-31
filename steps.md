@@ -1154,3 +1154,58 @@ git grep -i 'streaming|chunk|DataFrameCursor|DataFrameColumn|PythonDataReader' -
 (python dtype был доступен только у удалённого `PythonDataReader`). Удаление публичных членов — breaking change,
 зафиксировано в CHANGELOG.
 
+
+### 11.10 Power Query/Excel: `CommandTimeout` принимается и игнорируется — ✅ (2026-11-01)
+
+**Симптом (из Excel):**
+```
+DataSource.Error: При чтении данных от поставщика произошла ошибка:
+'CommandTimeout is not supported, python scripts can't be interrupted reliably'
+DataSourceKind=AdoDotNet
+DataSourcePath=Pike.PythonClient64.Data.PythonProviderFactory/pythondll=...;pythonpath=...
+```
+
+**Причина**
+
+Коннектор Power Query `AdoDotNet` сам выставляет `DbCommand.CommandTimeout` (у `AdoDotNet.Query` он ненулевой по
+умолчанию), а `PythonCommand.EnsureCanExecute()` бросал `NotSupportedException` на любое значение `> 0` — до запуска
+скрипта. В C#/сэмпле проблема не проявлялась, потому что там `CommandTimeout` не задаётся (по умолчанию 0). Итог:
+провайдер был принципиально несовместим с Power Query.
+
+**Изменённые файлы:** `Pike.PythonClient64\Data\PythonCommand.cs`, `Pike.PythonClient.Test\Tests\Python\CommandTests.cs`,
+`Pike.PythonClient.Test\Tests\Unit\CommandUnit.cs`, `Pike.PythonClient.Test\app.config`, `README.md`,
+`docs\power-query.md`, `CHANGELOG.md`
+
+**Сделано**
+- `CommandTimeout` теперь хранится в поле, валидируется как обычное ADO.NET-свойство (`< 0` →
+  `ArgumentOutOfRangeException`) и **игнорируется**: скрипт всё равно нельзя прервать, `Cancel()` — no-op.
+  Проверка таймаута удалена из `EnsureCanExecute()`, XML-доки поправлены.
+- Тесты: `P1_3_CommandTimeoutThrowsNotSupported` → `P1_3_CommandTimeoutIsIgnored` (интеграционный: `CommandTimeout = 30`,
+  `ExecuteReader()` возвращает 3 строки — ровно сценарий Excel); новый unit-тест `P1_3_CommandTimeoutIsAccepted`
+  (значение по умолчанию, установка, отказ на `-1`). Итог: **141 тест** (87 unit + 54 integration).
+- `Pike.PythonClient.Test\app.config`: перед собственной записью добавлен
+  `<remove invariant="Pike.PythonClient64.Data.PythonProviderFactory" />`, `type` приведён к полному имени.
+  Без этого после установки провайдера на машину тесты падали с
+  `ConfigurationErrorsException: На столбец "InvariantName" наложено ограничение по уникальности` — `machine.config`
+  и `app.config` давали дубликат invariant.
+- Документация: README (`Limitations` — «принимается и игнорируется», две новые строки Troubleshooting:
+  дубликат invariant и приоритет GAC над локальной сборкой), `docs\power-query.md` (заметка про таймаут),
+  CHANGELOG (`[Unreleased] → Fixed`).
+
+**Проверка**
+```
+dotnet build PythonClient.sln -c Release      # 0 предупреждений, 0 ошибок
+Invoke-Tests.ps1 -Category All                # 141 / 141
+scripts\install.ps1 (admin)                    # GAC + machine.config обновлены, самопроверка GAC_64 пройдена
+Excel 2024 x64 + PowerQuery - 01 - Basic example.xlsx   # запрос выполняется, ошибка таймаута ушла
+```
+
+**Побочные наблюдения (важно для локальной разработки)**
+- Для strong-named сборок **GAC имеет приоритет над папкой приложения**: после `install.ps1` процессы (включая
+  `vstest`) грузят сборку из `GAC_64`, даже если в `bin` лежит более свежая. Поэтому локальный прогон проверяет
+  установленную копию: перед проверкой правок нужно переустановить (`install.ps1`) или снять провайдер
+  (`uninstall.ps1`). Это зафиксировано в README (Troubleshooting).
+- Повторная установка падала на копировании `Pike.PythonClient64.Install.dll` в `%ProgramFiles%\Pike\PythonClient64`
+  (`файл используется другим процессом`) — держало окно PowerShell, где ранее выполнялся `install.ps1` (`Add-Type`
+  загружает сборку в процесс). Лечится закрытием этого окна; файл, который нельзя перезаписать, можно переименовать.
+

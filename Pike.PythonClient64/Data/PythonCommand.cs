@@ -28,9 +28,22 @@ namespace Pike.PythonClient64.Data
         /// <inheritdoc />
         /// <summary>
         /// Gets or sets the wait time in seconds before terminating the attempt to execute a command.
-        /// Default value is 0. Python scripts can't be interrupted reliably, so a non-zero value is not supported
+        /// The value is accepted for ADO.NET compatibility (Power Query / Excel sets it) but ignored: a python script
+        /// can't be interrupted reliably, so the execution is never aborted. Use a timeout inside the script instead.
+        /// Default value is 0
         /// </summary>
-        public override int CommandTimeout { get; set; } = 0;
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when the value is negative</exception>
+        public override int CommandTimeout
+        {
+            get => _commandTimeout;
+            set
+            {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException(nameof(value), value, "CommandTimeout can't be negative");
+
+                _commandTimeout = value;
+            }
+        }
         
         /// <inheritdoc />
         /// <summary>
@@ -56,6 +69,7 @@ namespace Pike.PythonClient64.Data
         public override UpdateRowSource UpdatedRowSource { get; set; } = UpdateRowSource.None;
 
         PythonConnection _pythonConnection;
+        int _commandTimeout;
         
         /// <inheritdoc />
         /// <summary>
@@ -199,7 +213,7 @@ namespace Pike.PythonClient64.Data
         /// <param name="resultRequired">True to require the result variable</param>
         /// <returns>Result table</returns>
         /// <exception cref="InvalidOperationException">Thrown when the connection is not set or not open</exception>
-        /// <exception cref="NotSupportedException">Thrown when a timeout or a transaction is set</exception>
+        /// <exception cref="NotSupportedException">Thrown when a transaction is set</exception>
         /// <exception cref="FileNotFoundException">Thrown when the script file is not found</exception>
         DataTable ExecuteScript(CommandBehavior behavior, bool resultRequired = true)
         {
@@ -257,14 +271,11 @@ namespace Pike.PythonClient64.Data
         /// Validates the command state before the execution
         /// </summary>
         /// <exception cref="InvalidOperationException">Thrown when the connection is not set or not open</exception>
-        /// <exception cref="NotSupportedException">Thrown when a timeout or a transaction is set</exception>
+        /// <exception cref="NotSupportedException">Thrown when a transaction is set</exception>
         void EnsureCanExecute()
         {
             if (DbConnection == null) throw new InvalidOperationException("DbConnection can't be null");
             if (DbConnection.State != ConnectionState.Open) throw new InvalidOperationException("Connection must be open");
-            if (CommandTimeout > 0)
-                throw new NotSupportedException(
-                    "CommandTimeout is not supported, python scripts can't be interrupted reliably");
             if (DbTransaction != null) throw new NotSupportedException("Transactions are not supported");
         }
 

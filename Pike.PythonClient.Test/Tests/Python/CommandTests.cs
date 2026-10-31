@@ -162,10 +162,10 @@ result = pd.DataFrame({
         }
 
         /// <summary>
-        /// CommandTimeout is not supported and must be reported explicitly (P1-3)
+        /// CommandTimeout set by the host (Power Query does it) is accepted and does not abort the execution (P1-3)
         /// </summary>
         [TestMethod]
-        public void P1_3_CommandTimeoutThrowsNotSupported()
+        public void P1_3_CommandTimeoutIsIgnored()
         {
             using (var connection = TestEnvironment.CreateConnection())
             using (var command = connection.CreateCommand())
@@ -173,7 +173,10 @@ result = pd.DataFrame({
                 command.CommandText = Script;
                 command.CommandTimeout = 30;
 
-                Assert.ThrowsException<NotSupportedException>(() => command.ExecuteReader());
+                var table = new DataTable();
+                using (var reader = command.ExecuteReader()) table.Load(reader);
+
+                Assert.AreEqual(3, table.Rows.Count);
             }
         }
 

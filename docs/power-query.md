@@ -86,6 +86,8 @@ result = pd.DataFrame({'Query': [query_text]})
 ## Notes
 
 - The script must assign a `pandas.DataFrame` to `result`.
+- The `AdoDotNet` connector sets `CommandTimeout` on the command; the provider accepts and ignores it (a python script
+  cannot be interrupted reliably), so limit the execution time inside the script.
 - One Python interpreter per Excel process: `PythonDataProvider.ShutdownOnLastClose = false` keeps it alive between
   refreshes (recommended for interactive scenarios).
 - Errors are reported as provider exceptions and appear in the Power Query error pane; see the troubleshooting table

@@ -291,8 +291,9 @@ Rules:
   (recommended for Excel/Power Query). Two connections can use different path components, but not different
   `python*.dll` files.
 - **Transactions are not supported** (`BeginTransaction` → `NotSupportedException`), `ChangeDatabase` is not supported.
-- **`CommandTimeout` is not supported** (`NotSupportedException` when > 0): a Python script cannot be interrupted
-  reliably, `Cancel()` does nothing. Use script-level timeouts.
+- **`CommandTimeout` is accepted and ignored**: a Python script cannot be interrupted reliably, so the value (Power
+  Query / Excel sets it for `AdoDotNet.Query`) never aborts the execution and `Cancel()` does nothing. Use timeouts
+  inside the script.
 - **Threading.** The GIL is acquired for every operation, so parallel commands are serialized by Python itself.
   `PythonConnection`/`PythonCommand` instances are not thread-safe; use one command per thread.
 - **Memory.** The whole `DataFrame` is always materialized into a `DataTable` before the reader is returned, so a large
@@ -338,7 +339,8 @@ see `docs/power-query.md` and the examples in `Pike.PythonClient.Test\Excel`.
 | `InvalidOperationException: 'result' must be a pandas.DataFrame` | the script assigns a list/dict instead of a DataFrame |
 | `NotSupportedException: Column '...' has unsupported dtype '...'` | unsupported dtype; cast it in the script or disable `PythonDataProvider`/`PythonDataQuery.StrictColumnTypes` |
 | `DbProviderFactories.GetFactory` fails in Power Query | the provider is missing from the GAC or from `machine.config` (run `install.ps1`; `uninstall.ps1` removes both), or 32-bit Excel is used |
-| `NotSupportedException: CommandTimeout is not supported` | set `CommandTimeout = 0` |
+| `ConfigurationErrorsException: ... InvariantName ... already exists` | the provider is registered twice: in `machine.config` (by `install.ps1`) and in the application `app.config`; keep one of them, or add `<remove invariant="..." />` before `<add>` (see `Pike.PythonClient.Test\app.config`) |
+| Local changes have no effect after installation | a strong-named assembly is resolved from the GAC before the application folder: rerun `install.ps1` (or `uninstall.ps1`) to replace the GAC copy |
 
 ## Build and test
 
@@ -399,7 +401,7 @@ The provider registration for the tests is taken from `Pike.PythonClient.Test\ap
 
 ### Tested versions
 
-The suite has **140 tests** (86 unit without Python + 54 integration). Every combination below passes the whole
+The suite has **141 tests** (87 unit without Python + 54 integration). Every combination below passes the whole
 integration suite on Windows x64:
 
 | Runtime | Python | pandas | numpy | Result |

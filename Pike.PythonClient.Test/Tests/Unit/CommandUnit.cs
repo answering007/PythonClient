@@ -149,6 +149,22 @@ namespace Pike.PythonClient.Test.Tests.Unit
         }
 
         /// <summary>
+        /// CommandTimeout is accepted (Power Query sets it) and validated as an ADO.NET property (P1-3)
+        /// </summary>
+        [TestMethod]
+        public void P1_3_CommandTimeoutIsAccepted()
+        {
+            var command = new PythonCommand();
+            Assert.AreEqual(0, command.CommandTimeout);
+
+            command.CommandTimeout = 30;
+            Assert.AreEqual(30, command.CommandTimeout);
+
+            Assert.ThrowsException<ArgumentOutOfRangeException>(() => command.CommandTimeout = -1);
+            Assert.AreEqual(30, command.CommandTimeout);
+        }
+
+        /// <summary>
         /// Double close and dispose do not throw (P0-7)
         /// </summary>
         [TestMethod]

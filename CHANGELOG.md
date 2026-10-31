@@ -6,6 +6,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Power Query / Excel: `CommandTimeout` was rejected.** The `AdoDotNet` connector sets `CommandTimeout` on the command,
+  and the provider failed with `NotSupportedException: CommandTimeout is not supported, python scripts can't be
+  interrupted reliably` before running the script. The value is now accepted (and validated as an ADO.NET property:
+  negative values throw `ArgumentOutOfRangeException`) and ignored — a python script cannot be interrupted, so the
+  execution is never aborted and `Cancel()` stays a no-op.
+- The test `app.config` removes the inherited `machine.config` record before adding its own: with the provider installed
+  on the machine, `DbProviderFactories` rejected the duplicated invariant name and the configuration could not be loaded.
+
 ### Removed
 
 - **Chunked (streaming) DataFrame reading** — breaking change. `PythonCommand.Streaming`, `PythonCommand.StreamingChunkSize`
@@ -21,7 +31,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - The whole frame is read in a single pass: every column is converted once, without the `iloc[start:stop]` slices the
   chunk reader needed, so a full materialization copies less data.
-- Test suite: **140 tests** (86 unit + 54 integration).
+- Test suite: **141 tests** (87 unit + 54 integration).
 
 ## [2.1.0] - 2026-10-29
 
