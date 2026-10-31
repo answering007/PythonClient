@@ -75,6 +75,13 @@ $combinations = @(
         Packages            = @('numpy', 'pandas')
         ExpectedUnsupported = $false
         Comment             = 'Python 3.13 (verified, pythonnet 3.0.5 supports 3.7-3.13)'
+    },
+    [pscustomobject]@{
+        Name                = 'py311-polars1'
+        Python              = '3.11'
+        Packages            = @('numpy', 'pandas', 'polars')
+        ExpectedUnsupported = $false
+        Comment             = 'polars results: the frame is read without converting it to pandas'
     }
 )
 

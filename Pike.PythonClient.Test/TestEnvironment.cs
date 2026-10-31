@@ -3,6 +3,7 @@ using System.Data;
 using System.IO;
 using System.Linq;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Python.Runtime;
 using Pike.PythonClient64;
 using Pike.PythonClient64.Data;
 
@@ -74,6 +75,41 @@ namespace Pike.PythonClient.Test
                 Assert.Inconclusive(
                     $"Python runtime is not configured (set {PythonDllVariable} or {PythonRuntimeLocator.EnvironmentVariable}, " +
                     "or create the local environment with scripts\\test\\Initialize-PythonEnvironment.ps1)");
+        }
+
+        /// <summary>
+        /// True when the 'polars' package is importable in the configured python runtime
+        /// </summary>
+        public static bool HasPolars
+        {
+            get
+            {
+                if (!IsPythonAvailable) return false;
+
+                EnsureProviderOpen();
+
+                using (Py.GIL())
+                {
+                    try
+                    {
+                        using (Py.Import("polars")) return true;
+                    }
+                    catch (PythonException)
+                    {
+                        // polars is an optional package
+                        return false;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// Marks the test as inconclusive when polars is not installed
+        /// </summary>
+        public static void SkipIfNoPolars()
+        {
+            if (!HasPolars)
+                Assert.Inconclusive("polars is not installed in the python environment (uv pip install polars)");
         }
 
         /// <summary>

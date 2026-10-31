@@ -25,7 +25,7 @@ jobs:
           architecture: 'x64'
 
       - name: Install Python packages
-        run: python -m pip install --upgrade pip numpy pandas
+        run: python -m pip install --upgrade pip numpy pandas polars
 
       - name: Restore
         run: dotnet restore PythonClient.sln
@@ -37,7 +37,7 @@ jobs:
         shell: pwsh
         run: ./scripts/test/Invoke-Tests.ps1 -Category Unit -Configuration Release -NoBuild
 
-      - name: Integration tests (Python + pandas)
+      - name: Integration tests (Python + pandas + polars)
         shell: pwsh
         env:
           PYTHONNET_TEST_DLL: ${{ env.pythonLocation }}\python311.dll

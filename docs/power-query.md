@@ -71,6 +71,26 @@ def decode_table(text: str) -> pd.DataFrame:
 result = decode_table(globals()['query'])
 ```
 
+The same payload can be decoded into polars, without pandas:
+
+```python
+import base64
+import gzip
+import json
+import polars as pl
+
+raw_data = gzip.decompress(base64.b64decode(globals()['query']))
+result = pl.DataFrame(json.loads(raw_data))
+result = result.with_columns((pl.col('Value') * 13).alias('Value'))
+```
+
+## polars result
+
+`result` may be a `polars.DataFrame`: the provider detects the frame type and reads it directly, `to_pandas()` is not
+needed. All polars temporal types (`Date`, `Datetime` in `ns`/`us`/`ms`, `Duration`, `Time`, time zone aware values),
+`Categorical`/`Enum`, `Decimal`, `Binary` and `Null` are supported; `LazyFrame` must be materialized in the script
+(`result = <lazy>.collect()`). See the table in `README.md`.
+
 ## Using a script file
 
 `FILE=C:\Scripts\Report.py` in the connection string makes the provider execute the file; the command text is passed
@@ -87,7 +107,7 @@ An empty command text means "no query": `query` is not defined, so a script that
 
 ## Notes
 
-- The script must assign a `pandas.DataFrame` to `result`.
+- The script must assign a `pandas.DataFrame` or a `polars.DataFrame` to `result`.
 - The `AdoDotNet` connector sets `CommandTimeout` on the command; the provider accepts and ignores it (a python script
   cannot be interrupted reliably), so limit the execution time inside the script.
 - One Python interpreter per Excel process: `PythonDataProvider.ShutdownOnLastClose = false` keeps it alive between

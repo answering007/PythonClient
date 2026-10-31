@@ -41,6 +41,11 @@ namespace Pike.PythonClient64
             var bracket = normalized.IndexOf('[');
             if (bracket > 0) normalized = normalized.Substring(0, bracket);
 
+            // polars dtype parameters: 'Datetime(time_unit='us', time_zone=None)', 'Decimal(precision=38, scale=2)',
+            // 'List(String)', 'Enum(categories=['a', 'b'])'
+            var parenthesis = normalized.IndexOf('(');
+            if (parenthesis > 0) normalized = normalized.Substring(0, parenthesis);
+
             return normalized.Trim();
         }
 
@@ -123,6 +128,8 @@ namespace Pike.PythonClient64
             var longConverter = new LongConverter();
             var stringConverter = new StringConverter();
             var timeSpan = new TimeSpanConverter();
+            var binaryConverter = new BinaryConverter();
+            var decimalConverter = new DecimalConverter();
 
             // Keys are case-insensitive: nullable pandas extension dtypes (Int64, UInt32, Float64, boolean)
             // share the converter with their numpy counterparts
@@ -134,6 +141,15 @@ namespace Pike.PythonClient64
             Add(longConverter, "int64", "uint64", "long");
             Add(timeSpan, "timedelta64", "timedelta");
             Add(stringConverter, "object", "o", "str", "string", "category", "unicode");
+
+            // polars dtype names: the registry is case-insensitive, so Boolean/Int64/Float64/String are already
+            // covered by the pandas names above
+            Add(dateTime, "Date");
+            Add(doubleConverter, "Float16");
+            Add(decimalConverter, "Decimal");
+            Add(timeSpan, "Duration", "Time");
+            Add(stringConverter, "Utf8", "Categorical", "Enum", "Null");
+            Add(binaryConverter, "Binary");
 
             return result;
 

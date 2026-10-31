@@ -6,6 +6,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+
+- **polars support: a `polars.DataFrame` result is read directly, without converting it to pandas.** The provider
+  detects the frame type by the python type of `result` (`pandas`/`polars` module name, no import of either package)
+  and reads it column by column: `to_list()` for plain values and `to_physical()` with nanosecond scaling for
+  `Date`/`Datetime`/`Duration`/`Time` (exact values, all `time_unit`s, dates before 1970, time zone aware datetimes).
+  Supported dtypes: `Boolean`, integers (including `UInt64`), `Float16/32/64`, `String`/`Utf8`, `Categorical`, `Enum`,
+  `Date`, `Datetime`, `Duration`, `Time`, `Decimal` (as `double`), `Binary` (as `byte[]`), `Null` (as `string`);
+  `List`/`Array`/`Struct`/`Map`/`Object`/`Int128`/`UInt128` raise `NotSupportedException` in strict mode and are
+  converted to strings with `PythonDataQuery.StrictColumnTypes = false`. pandas behaviour is unchanged; a
+  `LazyFrame` is rejected with a hint to call `collect()`. New `BinaryConverter` and `DecimalConverter`.
+- polars is optional and is not required at run time: without the package the pandas path works as before, and the
+  new polars integration tests are reported as inconclusive.
+
 ### Fixed
 
 - **Power Query / Excel: with `FILE` in the connection string the command text was not passed to the script.** The
@@ -34,12 +48,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Changed
 
+- `SupportedTypes.NormalizeDtype` also strips the parameters in round brackets, so polars dtype names are normalized
+  the same way as pandas ones (`Datetime(time_unit='us', time_zone=None)` → `Datetime`,
+  `Decimal(precision=38, scale=2)` → `Decimal`, `List(String)` → `List`); pandas names are not affected.
+- The frame conversion is moved out of `PythonDataQuery` into internal readers (`FrameReaders`: pandas, polars,
+  shared base, dtype units), so both formats share the column naming, strict-mode policy, row filling and error
+  messages. The public API is unchanged.
 - The whole frame is read in a single pass: every column is converted once, without the `iloc[start:stop]` slices the
   chunk reader needed, so a full materialization copies less data.
-- Test suite: **154 tests** (90 unit + 64 integration), including the new `ScriptVariablesTests` (`query`/`params`
+- Test suite: **176 tests** (95 unit + 81 integration), including the new `ScriptVariablesTests` (`query`/`params`
   transfer: command text vs script file, an always-defined `params` dictionary, prefix trimming, execution isolation,
-  the compressed Excel table payload of the `PowerQuery - 04` workbook) and `ScriptContextUnit` (context defaults,
-  variable names).
+  the compressed Excel table payload of the `PowerQuery - 04` workbook), `ScriptContextUnit` (context defaults,
+  variable names), `PolarsDtypeUnit` (dtype normalization and the polars registry) and `PolarsTypesTests`
+  (core/temporal/categorical/decimal/binary/null types, nested types, empty frames, ADO.NET parity, `LazyFrame`
+  rejection, `FILE=` + `query`/`params`, 100 000-row frame).
 
 ## [2.1.0] - 2026-10-29
 

@@ -9,6 +9,11 @@
 
         . .\scripts\test\Initialize-PythonEnvironment.ps1
 
+    polars is optional: without it the polars integration tests are reported as inconclusive.
+    Add it to run them:
+
+        . .\scripts\test\Initialize-PythonEnvironment.ps1 -Packages numpy,pandas,polars
+
     Requirements: uv (https://docs.astral.sh/uv/) must be available in PATH.
 
 .PARAMETER PythonVersion

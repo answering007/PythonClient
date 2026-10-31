@@ -13,6 +13,7 @@ and designed for in-process consumers such as Power Query / Excel, DataAdapter-b
 - [Connection string](#connection-string)
 - [Parameters](#parameters)
 - [Supported DataFrame column types](#supported-dataframe-column-types)
+- [polars support](#polars-support)
 - [Limitations](#limitations)
 - [Security](#security)
 - [Troubleshooting](#troubleshooting)
@@ -27,7 +28,7 @@ and designed for in-process consumers such as Power Query / Excel, DataAdapter-b
 | .NET | **.NET Framework 4.8** (Power Query / Excel host), process must be **x64** |
 | pythonnet | **3.0.5** (`Python.Runtime.dll` is deployed with the provider) |
 | Python | Python **3.9 – 3.13 x64**, e.g. CPython or Anaconda (3.7/3.8 are not tested); `python3xx.dll` must match the process bitness |
-| Python packages | `numpy`, `pandas` (pandas **1.5 – 3.1**, numpy **1.26 – 2.x**) in the same environment |
+| Python packages | `numpy`, `pandas` (pandas **1.5 – 3.1**, numpy **1.26 – 2.x**) in the same environment; **`polars` is optional** (1.x/2.x, needed only for polars results) |
 | Excel | 64-bit Excel is required for Power Query scenarios (the provider is x64-only) |
 
 The provider does not install Python: `PYTHONDLL` must point to an existing `python3xx.dll`.
@@ -168,9 +169,9 @@ using (var connection = new PythonConnection { ConnectionString = builder.Connec
 
 In both modes an empty `CommandText` means "no query": the `query` variable is not defined then.
 
-The script must assign a `pandas.DataFrame` to the `result` variable (the name can be changed with
-`PythonScriptContext.ResultName`). Missing `result` raises `KeyNotFoundException`; a non-DataFrame result raises
-`InvalidOperationException`.
+The script must assign a `pandas.DataFrame` or a `polars.DataFrame` to the `result` variable (the name can be changed
+with `PythonScriptContext.ResultName`). The frame type is detected automatically, see [polars support](#polars-support).
+Missing `result` raises `KeyNotFoundException`; a result that is not a frame raises `InvalidOperationException`.
 
 ## Connection string
 
@@ -287,6 +288,46 @@ Rules:
 - characters `[`, `]`, `.` are replaced in the column name (`a.b` → `a_b`), colliding names get a `_2`, `_3` suffix;
 - custom converters can be registered: `SupportedTypes.Register(new MyConverter(), "dtype_name")`.
 
+## polars support
+
+`result` may be a `polars.DataFrame`: the provider detects the frame type by the type of the object and reads it
+directly, without converting it to pandas (`to_pandas()` is not needed):
+
+```python
+import polars as pl
+
+result = pl.DataFrame({
+    'No': [1, 2, 3],
+    'Name': ['Olivia', 'Ava', 'Isabella'],
+    'Value': [0.0, 0.6931471805599453, 1.0986122886681098],
+})
+```
+
+The detection does not import pandas or polars, so both packages stay optional. pandas results work exactly as before;
+an object that is neither pandas nor polars but has `columns` and `dtypes` is still read by the pandas reader.
+
+| polars dtype | .NET type | Notes |
+|---|---|---|
+| `Boolean` | `bool` | `null` → `DBNull` |
+| `Int8`, `Int16`, `Int32`, `UInt8`, `UInt16`, `UInt32` | `int` | out of range / `null` → `DBNull` |
+| `Int64`, `UInt64` | `long` | `null` → `DBNull`; `UInt64` above `long.MaxValue` → `DBNull` |
+| `Float16`, `Float32`, `Float64` | `double` | `NaN` and `null` → `DBNull` |
+| `String`, `Utf8`, `Categorical`, `Enum` | `string` | values are read as text, not as the physical codes |
+| `Date` | `DateTime` | midnight of the date |
+| `Datetime` (`ns`/`us`/`ms`, with or without a time zone) | `DateTime` | read from the physical value; a time zone aware value keeps the UTC clock time (`DataColumn` does not preserve `DateTime.Kind`) |
+| `Duration` | `TimeSpan` | `null` → `DBNull` |
+| `Time` | `TimeSpan` | time of day |
+| `Decimal` | `double` | transferred as `double`, the same way as a decimal parameter |
+| `Binary` | `byte[]` | `null` → `DBNull` |
+| `Null` | `string` | every value is `DBNull` |
+| `List`, `Array`, `Struct`, `Map`, `Object`, `Unknown`, `Extension`, `Int128`, `UInt128` | `string` only with `StrictColumnTypes = false` | `NotSupportedException` by default |
+
+Rules:
+
+- a `polars.LazyFrame` must be materialized in the script (`result = <lazy>.collect()`), a `polars.Series` is not
+  accepted — both are reported with the actual type and a hint;
+- empty frames keep the schema (typed columns, `0` rows), a frame without columns gives an empty table.
+
 ## Limitations
 
 - **One Python engine per process.** `PythonConnection.Open()` initializes it once; `Close()` only releases the
@@ -304,6 +345,11 @@ Rules:
   transferred.
 - **`CommandBehavior`**: `SchemaOnly`, `SingleRow` and `CloseConnection` are supported.
 - **`ExecuteNonQuery`** returns the number of result rows; scripts without `result` give `0`.
+- **polars is optional**: it is installed only when the script uses it (`pip install polars`), and the provider never
+  imports it. Without polars the polars integration tests are reported as inconclusive.
+- **polars nested and 128-bit types** (`List`, `Struct`, `Array`, `Int128`, ...) have no `DataTable` representation:
+  they raise `NotSupportedException` unless `PythonDataQuery.StrictColumnTypes = false`, then the string
+  representation is used. Cast the column in the script to keep typed data.
 
 ## Security
 
@@ -366,11 +412,12 @@ The helper scripts live in `scripts\`:
 | `scripts\pack.ps1` | Release build + `dotnet pack` into `artifacts\` (nupkg/snupkg and a flat deploy folder) |
 
 ```powershell
-# unit tests: do not need Python (90 tests)
+# unit tests: do not need Python (95 tests)
 .\scripts\test\Invoke-Tests.ps1 -Category Unit
 
-# integration tests (64 tests): create the environment once, it is picked up automatically
-.\scripts\test\Initialize-PythonEnvironment.ps1
+# integration tests (81 tests): create the environment once, it is picked up automatically
+# polars is optional; add it to the environment to run the polars tests (17 more)
+.\scripts\test\Initialize-PythonEnvironment.ps1 -Packages numpy,pandas,polars
 .\scripts\test\Invoke-Tests.ps1 -Category Python
 
 # or point the run at any other virtual environment
@@ -405,19 +452,21 @@ The provider registration for the tests is taken from `Pike.PythonClient.Test\ap
 
 ### Tested versions
 
-The suite has **154 tests** (90 unit without Python + 64 integration). Every combination below passes the whole
+The suite has **176 tests** (95 unit without Python + 81 integration). Every combination below passes the whole
 integration suite on Windows x64:
 
-| Runtime | Python | pandas | numpy | Result |
-|---|---|---|---|---|
-| .NET Framework 4.8 | 3.9.25 | 1.5.3 | 1.26.4 | 60 / 60 |
-| .NET Framework 4.8 | 3.11.16 | 2.2.3 | 1.26.4 | 60 / 60 |
-| .NET Framework 4.8 | 3.11.16 | 3.1.0 | 2.4.6 | 60 / 60 |
-| .NET Framework 4.8 | 3.13.15 | 3.1.0 | 2.5.4 | 60 / 60 |
+| Runtime | Python | pandas | numpy | polars | Result |
+|---|---|---|---|---|---|
+| .NET Framework 4.8 | 3.9.25 | 1.5.3 | 1.26.4 | — | 64 / 64 (17 inconclusive) |
+| .NET Framework 4.8 | 3.11.16 | 2.2.3 | 1.26.4 | — | 64 / 64 (17 inconclusive) |
+| .NET Framework 4.8 | 3.11.16 | 3.1.0 | 2.4.6 | 2.1.0 | 81 / 81 |
+| .NET Framework 4.8 | 3.13.15 | 3.1.0 | 2.5.4 | — | 64 / 64 (17 inconclusive) |
 
 pandas 3 changed the default datetime resolution to microseconds (`datetime64[us]`), the provider reads the unit from
 the dtype and supports `[ns]`, `[us]`, `[ms]`, `[s]`, `[m]`, `[h]` and `[D]`. Missing values are mapped to `DBNull`
 regardless of the representation (`None`, `pd.NA`, `pd.NaT`, `np.nan`, `nan` of the inferred string dtype).
+
+polars is optional: without the package the 17 polars tests are reported as inconclusive, the pandas suite stays green.
 
 ### Sample (.NET Framework 4.8)
 
@@ -437,9 +486,9 @@ build.
 
 `.github/workflows/ci.yml` runs on `windows-latest`:
 
-- **build-and-test** — build (Release), Unit tests, integration tests (Python 3.11 + numpy/pandas), smoke checks,
+- **build-and-test** — build (Release), Unit tests, integration tests (Python 3.11 + numpy/pandas/polars), smoke checks,
   `scripts/pack.ps1`, upload of the nupkg and the deployable binaries;
-- **version-matrix** — the same integration suite for the Python/pandas combinations from
+- **version-matrix** — the same integration suite for the Python/pandas/polars combinations from
   `scripts/test/Invoke-VersionMatrix.ps1` (uv installs the interpreters).
 
 ## Examples
