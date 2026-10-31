@@ -24,4 +24,13 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
 
+  <!-- A strong-named assembly is resolved from the GAC before the application folder, so a provider installed on the
+       machine (Release, AssemblyVersion 2.0.0.0) would hide the local build from the tests and from local tools.
+       Debug builds therefore use 2.0.0.1; Pike.PythonClient.Test patches the provider record of its copied app.config
+       to the same version. Release keeps 2.0.0.0 — the version the machine.config registration expects. -->
+  <PropertyGroup Condition="'$(Configuration)' != 'Release'">
+    <AssemblyVersion>2.0.0.1</AssemblyVersion>
+    <FileVersion>2.1.0.1</FileVersion>
+  </PropertyGroup>
+
 </Project>

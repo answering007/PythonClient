@@ -60,6 +60,11 @@ GAC for the same reason — the dependencies of a GAC assembly are probed in the
 whole 2.x line, so a provider upgrade keeps the existing record valid; only the GAC entries are replaced.
 `install.ps1` verifies the result in a new process and fails if the type is not loaded from `GAC_64`.
 
+Debug builds use `AssemblyVersion` **2.0.0.1** (see `Directory.Build.props`), so the provider installed on the machine
+does not shadow the developer build: a strong-named assembly is always resolved from the GAC first. The test project
+patches the provider record of its copied `app.config` to the same version, so `DbProviderFactories` and the tests use
+the freshly built assembly. Release keeps 2.0.0.0 — the version the `machine.config` record expects.
+
 The registration code lives in the separate `Pike.PythonClient64.Install.dll` (project `Pike.PythonClient64.Install`):
 the runtime provider loaded by Excel/Power Query references only `mscorlib`, `System`, `System.Core`, `System.Data`,
 `Microsoft.CSharp` and `pythonnet` — no installer or `System.Configuration.Install` dependency is pulled into the
@@ -390,7 +395,7 @@ see `docs/power-query.md` and the examples in `Pike.PythonClient.Test\Excel`.
 | `ValueError: The 'query' variable is not defined in the global scope` | the command text is empty, or Excel loaded an older provider from the GAC: rebuild, rerun `install.ps1` and restart Excel |
 | `DbProviderFactories.GetFactory` fails in Power Query | the provider is missing from the GAC or from `machine.config` (run `install.ps1`; `uninstall.ps1` removes both), or 32-bit Excel is used |
 | `ConfigurationErrorsException: ... InvariantName ... already exists` | the provider is registered twice: in `machine.config` (by `install.ps1`) and in the application `app.config`; keep one of them, or add `<remove invariant="..." />` before `<add>` (see `Pike.PythonClient.Test\app.config`) |
-| Local changes have no effect after installation | a strong-named assembly is resolved from the GAC before the application folder: rerun `install.ps1` (or `uninstall.ps1`) to replace the GAC copy |
+| Local changes have no effect after installation | a strong-named assembly is resolved from the GAC before the application folder: rerun `install.ps1` (or `uninstall.ps1`) to replace the GAC copy. Debug builds are not affected — they use `AssemblyVersion` 2.0.0.1 and the test `app.config` is patched to it automatically |
 
 ## Build and test
 

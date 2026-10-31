@@ -554,9 +554,11 @@ static bool IsTimeZoneAware(string dtype)       // time_zone=None → false
 
 - `dotnet build PythonClient.sln -c Debug|Release` — без ошибок и предупреждений компилятора;
 - `Invoke-Tests.ps1 -Category All`: **176/176** на локальной сборке провайдера;
-- на машине с установленным провайдером GAC-копия перекрывает `bin`, поэтому локальная проверка выполнялась
-  сборкой с `-p:AssemblyVersion=2.0.0.1` и версией `2.0.0.1` в `bin`-конфиге теста; `AssemblyHooks` печатает
-  `Provider assembly: <путь>` — по этой строке видно, какая копия загружена;
+- на машине с установленным провайдером GAC-копия перекрывает `bin`, поэтому **Debug-сборки получают
+  `AssemblyVersion` 2.0.0.1** (`Directory.Build.props`), а `Pike.PythonClient.Test` автоматически патчит
+  `app.config` в `bin` на ту же версию (MSBuild-таргет `PatchProviderVersionInTestConfig`); Release остаётся
+  2.0.0.0 для существующей записи в `machine.config`. `AssemblyHooks` печатает `Provider assembly: <путь>`;
+- прогон по умолчанию (`Invoke-Tests.ps1 -Category All`, Debug) — **176/176**, ручных обходов не требуется;
 - без polars в окружении 17 polars-тестов переходят в `Inconclusive` (проверка `HasPolars`).
 
 ---

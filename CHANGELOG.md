@@ -54,6 +54,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - The frame conversion is moved out of `PythonDataQuery` into internal readers (`FrameReaders`: pandas, polars,
   shared base, dtype units), so both formats share the column naming, strict-mode policy, row filling and error
   messages. The public API is unchanged.
+- **Debug builds use `AssemblyVersion` 2.0.0.1.** A strong-named assembly is resolved from the GAC before the
+  application folder, so with the provider installed on the machine the tests silently ran against the installed copy
+  (stale code, `TypeLoadException` for a new type). `Directory.Build.props` sets 2.0.0.1 for every non-Release build and
+  `Pike.PythonClient.Test` patches its copied `app.config` with the same version; Release keeps 2.0.0.0 for the
+  existing `machine.config` registration.
 - The whole frame is read in a single pass: every column is converted once, without the `iloc[start:stop]` slices the
   chunk reader needed, so a full materialization copies less data.
 - Test suite: **176 tests** (95 unit + 81 integration), including the new `ScriptVariablesTests` (`query`/`params`

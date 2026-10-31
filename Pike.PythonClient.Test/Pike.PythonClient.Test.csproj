@@ -30,4 +30,14 @@
     <None Update="Python\*.py" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
+  <!-- Keeps the provider record of the copied app.config in sync with the assembly version of this build: without it
+       DbProviderFactories.GetFactory would resolve the provider from the GAC (Release 2.0.0.0) instead of the
+       assembly that was just built, see Directory.Build.props -->
+  <Target Name="PatchProviderVersionInTestConfig" AfterTargets="Build"
+          Condition="Exists('$(OutDir)$(TargetFileName).config')">
+    <XmlPoke XmlInputPath="$(OutDir)$(TargetFileName).config"
+             Query="/configuration/system.data/DbProviderFactories/add/@type"
+             Value="Pike.PythonClient64.Data.PythonProviderFactory, Pike.PythonClient64, Version=$(AssemblyVersion), Culture=neutral, PublicKeyToken=8c0beba75960bb80" />
+  </Target>
+
 </Project>
