@@ -251,8 +251,10 @@ namespace Pike.PythonClient64.Data
         {
             var context = new PythonScriptContext
             {
-                // Query text is passed to the script only when the connection string has no script file
-                Query = _pythonConnection.UseQueryAsScript ? CommandText : null,
+                // Command text is passed to the script as 'query': it is the script itself when the connection has
+                // no script file, or the payload processed by the script file (Power Query 'table to script' scenario).
+                // Empty command text means 'no query': the 'query' variable is not defined in that case
+                Query = CommandText,
                 ResultRequired = resultRequired
             };
 

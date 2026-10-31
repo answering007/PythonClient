@@ -17,6 +17,9 @@ namespace Pike.PythonClient.Test
         [AssemblyInitialize]
         public static void AssemblyInitialize(TestContext context)
         {
+            // A strong-named assembly is resolved from the GAC before the application folder: an installed provider
+            // shadows the freshly built one, so the location is reported for every run
+            context.WriteLine($"Provider assembly: {typeof(PythonDataProvider).Assembly.Location}");
             context.WriteLine($"Python runtime: {TestEnvironment.PythonDll ?? "<not configured>"}");
             context.WriteLine($"Python version: {PythonRuntimeLocator.PythonVersion ?? "<unknown>"}");
             context.WriteLine($"Python home: {PythonRuntimeLocator.PythonHome ?? "<none>"}");

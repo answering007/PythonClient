@@ -1,6 +1,8 @@
 using System;
 using System.Data;
 using System.IO;
+using System.IO.Compression;
+using System.Linq;
 using System.Text;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Pike.PythonClient64;
@@ -70,6 +72,41 @@ namespace Pike.PythonClient.Test.Tests.Python
         }
 
         /// <summary>
+        /// Returns the full path to the test python script copied to the output folder
+        /// </summary>
+        /// <param name="fileName">Script file name</param>
+        /// <returns>Full path to the script</returns>
+        static string GetScriptFile(string fileName)
+        {
+            var scriptFile = Path.Combine(
+                AppDomain.CurrentDomain.BaseDirectory,
+                SettingsMain.Default.PythonScriptsFolder,
+                fileName);
+
+            if (!File.Exists(scriptFile)) throw new FileNotFoundException("Where is the script?", scriptFile);
+
+            return scriptFile;
+        }
+
+        /// <summary>
+        /// Returns the gzip compressed and base64 encoded JSON, the payload Power Query creates for an Excel table
+        /// (<c>Binary.Compress(Json.FromValue(...))</c> + <c>Binary.ToText</c>)
+        /// </summary>
+        /// <param name="json">JSON text of the table</param>
+        /// <returns>Base64 text of the compressed JSON</returns>
+        static string CreateCompressedPayload(string json)
+        {
+            using (var output = new MemoryStream())
+            {
+                using (var gzip = new GZipStream(output, CompressionMode.Compress, true))
+                using (var writer = new StreamWriter(gzip, new UTF8Encoding(false)))
+                    writer.Write(json);
+
+                return Convert.ToBase64String(output.ToArray());
+            }
+        }
+
+        /// <summary>
         /// Command text is passed to the script as the 'query' variable when the connection has no script file
         /// </summary>
         [TestMethod]
@@ -89,10 +126,42 @@ result = pd.DataFrame({'Query': [globals()['query']]})";
         }
 
         /// <summary>
-        /// No 'query' variable is defined for the script taken from the file: the command text is not a script then
+        /// Command text is passed to the script as 'query' when the connection uses a script file
+        /// (Power Query passes the compressed Excel table there)
         /// </summary>
         [TestMethod]
-        public void QueryVariableIsAbsentForScriptFile()
+        public void QueryVariableContainsCommandTextForScriptFile()
+        {
+            const string script = @"import pandas as pd
+result = pd.DataFrame({'Query': [globals().get('query')], 'HasQuery': ['query' in globals()]})";
+            const string commandText = "payload for the script file";
+
+            var scriptFile = CreateScriptFile(script);
+            try
+            {
+                var builder = TestEnvironment.CreateBuilder(scriptFile);
+                using (var connection = new PythonConnection { ConnectionString = builder.ConnectionString })
+                {
+                    connection.Open();
+                    Assert.IsFalse(connection.UseQueryAsScript);
+
+                    var table = Execute(connection, commandText);
+
+                    Assert.AreEqual(true, table.Rows[0]["HasQuery"]);
+                    Assert.AreEqual(commandText, table.Rows[0]["Query"]);
+                }
+            }
+            finally
+            {
+                File.Delete(scriptFile);
+            }
+        }
+
+        /// <summary>
+        /// Empty command text means "no query": the 'query' variable is not defined, the script file still runs
+        /// </summary>
+        [TestMethod]
+        public void QueryVariableIsAbsentForEmptyCommandText()
         {
             const string script = @"import pandas as pd
 result = pd.DataFrame({'HasQuery': ['query' in globals()]})";
@@ -104,9 +173,8 @@ result = pd.DataFrame({'HasQuery': ['query' in globals()]})";
                 using (var connection = new PythonConnection { ConnectionString = builder.ConnectionString })
                 {
                     connection.Open();
-                    Assert.IsFalse(connection.UseQueryAsScript);
 
-                    var table = Execute(connection, "ignored command text");
+                    var table = Execute(connection, string.Empty);
 
                     Assert.AreEqual(false, table.Rows[0]["HasQuery"]);
                 }
@@ -251,6 +319,35 @@ result = frame.query(globals()['query']).head(params['limit'])";
 
             Assert.AreEqual(1, table.Rows.Count);
             Assert.AreEqual(2L, Convert.ToInt64(table.Rows[0]["Value"]));
+        }
+
+        /// <summary>
+        /// The 'Transfer table to script' Power Query scenario (PowerQuery - 04 workbook): the compressed Excel table
+        /// is passed as the command text and decoded by the script file (TestScript03.py)
+        /// </summary>
+        [TestMethod]
+        public void ExcelTablePayloadReachesScriptFile()
+        {
+            const string json =
+                "{\"No\":[1,2,3],\"Name\":[\"Olivia\",\"Ava\",\"Isabella\"]," +
+                "\"Value\":[0.0,0.6931471805599453,1.0986122886681098]}";
+            const double expectedValue = 9.010913347279289; // 0.6931471805599453 * 13
+
+            var builder = TestEnvironment.CreateBuilder(GetScriptFile("TestScript03.py"));
+            using (var connection = new PythonConnection { ConnectionString = builder.ConnectionString })
+            {
+                connection.Open();
+
+                var table = Execute(connection, CreateCompressedPayload(json));
+
+                Assert.AreEqual(3, table.Rows.Count);
+                CollectionAssert.AreEqual(
+                    new[] { "No", "Name", "Value" },
+                    table.Columns.Cast<DataColumn>().Select(column => column.ColumnName).ToArray());
+                Assert.AreEqual(1L, Convert.ToInt64(table.Rows[0]["No"]));
+                Assert.AreEqual("Ava", table.Rows[1]["Name"]);
+                Assert.AreEqual(expectedValue, Convert.ToDouble(table.Rows[1]["Value"]), 1e-9);
+            }
         }
     }
 }

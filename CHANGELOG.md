@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Fixed
 
+- **Power Query / Excel: with `FILE` in the connection string the command text was not passed to the script.** The
+  `query` variable was defined only when the connection had no script file (regression since 2.1.0), so the
+  "Transfer table to script" workbook (`PowerQuery - 04`) failed with
+  `ValueError: The 'query' variable is not defined in the global scope`. `CommandText` is now always passed as
+  `query` when it is not empty: either the script itself (no `FILE`) or the payload decoded by the script file.
 - **Power Query / Excel: `CommandTimeout` was rejected.** The `AdoDotNet` connector sets `CommandTimeout` on the command,
   and the provider failed with `NotSupportedException: CommandTimeout is not supported, python scripts can't be
   interrupted reliably` before running the script. The value is now accepted (and validated as an ADO.NET property:
@@ -31,9 +36,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - The whole frame is read in a single pass: every column is converted once, without the `iloc[start:stop]` slices the
   chunk reader needed, so a full materialization copies less data.
-- Test suite: **152 tests** (90 unit + 62 integration), including the new `ScriptVariablesTests` (`query`/`params`
-  transfer: command text vs script file, an always-defined `params` dictionary, prefix trimming, execution isolation)
-  and `ScriptContextUnit` (context defaults, variable names).
+- Test suite: **154 tests** (90 unit + 64 integration), including the new `ScriptVariablesTests` (`query`/`params`
+  transfer: command text vs script file, an always-defined `params` dictionary, prefix trimming, execution isolation,
+  the compressed Excel table payload of the `PowerQuery - 04` workbook) and `ScriptContextUnit` (context defaults,
+  variable names).
 
 ## [2.1.0] - 2026-10-29
 

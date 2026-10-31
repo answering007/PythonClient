@@ -163,7 +163,10 @@ using (var connection = new PythonConnection { ConnectionString = builder.Connec
 1. **Command text as a script** — when `FILE` is not specified in the connection string, `CommandText` is executed
    as Python code; the same text is available inside the script as the `query` variable.
 2. **Script file** — `FILE=<path>` in the connection string: the file content is executed, `CommandText` is passed
-   to the script as the `query` variable. Files are read as UTF-8 (BOM is detected) and cached until the file changes.
+   to the script as the `query` variable (Power Query uses this to pass an Excel table). Files are read as UTF-8
+   (BOM is detected) and cached until the file changes.
+
+In both modes an empty `CommandText` means "no query": the `query` variable is not defined then.
 
 The script must assign a `pandas.DataFrame` to the `result` variable (the name can be changed with
 `PythonScriptContext.ResultName`). Missing `result` raises `KeyNotFoundException`; a non-DataFrame result raises
@@ -338,6 +341,7 @@ see `docs/power-query.md` and the examples in `Pike.PythonClient.Test\Excel`.
 | `KeyNotFoundException: ... assign result ...` | the script does not define the `result` variable |
 | `InvalidOperationException: 'result' must be a pandas.DataFrame` | the script assigns a list/dict instead of a DataFrame |
 | `NotSupportedException: Column '...' has unsupported dtype '...'` | unsupported dtype; cast it in the script or disable `PythonDataProvider`/`PythonDataQuery.StrictColumnTypes` |
+| `ValueError: The 'query' variable is not defined in the global scope` | the command text is empty, or Excel loaded an older provider from the GAC: rebuild, rerun `install.ps1` and restart Excel |
 | `DbProviderFactories.GetFactory` fails in Power Query | the provider is missing from the GAC or from `machine.config` (run `install.ps1`; `uninstall.ps1` removes both), or 32-bit Excel is used |
 | `ConfigurationErrorsException: ... InvariantName ... already exists` | the provider is registered twice: in `machine.config` (by `install.ps1`) and in the application `app.config`; keep one of them, or add `<remove invariant="..." />` before `<add>` (see `Pike.PythonClient.Test\app.config`) |
 | Local changes have no effect after installation | a strong-named assembly is resolved from the GAC before the application folder: rerun `install.ps1` (or `uninstall.ps1`) to replace the GAC copy |
@@ -365,7 +369,7 @@ The helper scripts live in `scripts\`:
 # unit tests: do not need Python (90 tests)
 .\scripts\test\Invoke-Tests.ps1 -Category Unit
 
-# integration tests (62 tests): create the environment once, it is picked up automatically
+# integration tests (64 tests): create the environment once, it is picked up automatically
 .\scripts\test\Initialize-PythonEnvironment.ps1
 .\scripts\test\Invoke-Tests.ps1 -Category Python
 
@@ -401,7 +405,7 @@ The provider registration for the tests is taken from `Pike.PythonClient.Test\ap
 
 ### Tested versions
 
-The suite has **152 tests** (90 unit without Python + 62 integration). Every combination below passes the whole
+The suite has **154 tests** (90 unit without Python + 64 integration). Every combination below passes the whole
 integration suite on Windows x64:
 
 | Runtime | Python | pandas | numpy | Result |

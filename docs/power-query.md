@@ -73,8 +73,8 @@ result = decode_table(globals()['query'])
 
 ## Using a script file
 
-`FILE=C:\Scripts\Report.py` in the connection string makes the provider execute the file; the query text is passed to
-the script as `query`:
+`FILE=C:\Scripts\Report.py` in the connection string makes the provider execute the file; the command text is passed
+to the script as `query` (the "Transfer table to script" workbook relies on this):
 
 ```python
 import pandas as pd
@@ -82,6 +82,8 @@ import pandas as pd
 query_text = globals()['query'] if 'query' in globals() else None
 result = pd.DataFrame({'Query': [query_text]})
 ```
+
+An empty command text means "no query": `query` is not defined, so a script that requires it raises an error.
 
 ## Notes
 
