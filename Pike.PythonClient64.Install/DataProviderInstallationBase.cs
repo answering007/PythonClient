@@ -139,8 +139,11 @@ namespace Pike.PythonClient64.Install
             Name = name;
             Description = description;
             Invariant = type.FullName;
-            // Version independent qualified name, so the assembly upgrade does not break the registration
-            QualifiedName = $"{type.FullName}, {type.Assembly.GetName().Name}";
+            // Fully qualified name (Version, Culture, PublicKeyToken): the runtime resolves an assembly outside
+            // the host application base only by a full name, which is what the GAC installation relies on.
+            // AssemblyVersion is fixed for the whole 2.x line (Directory.Build.props), so the registered record
+            // stays valid across provider upgrades.
+            QualifiedName = type.AssemblyQualifiedName;
         }
 
         /// <summary>

@@ -31,6 +31,8 @@ and designed for in-process consumers such as Power Query / Excel, DataAdapter-b
 | Excel | 64-bit Excel is required for Power Query scenarios (the provider is x64-only) |
 
 The provider does not install Python: `PYTHONDLL` must point to an existing `python3xx.dll`.
+The installation itself needs administrator rights: `Pike.PythonClient64.dll` and `Python.Runtime.dll` are published
+into the GAC and the provider is registered in the x64 `machine.config`.
 
 ## Installation
 
@@ -38,13 +40,24 @@ Recommended (PowerShell, elevated):
 
 ```powershell
 dotnet build PythonClient.sln -c Release
-.\scripts\install.ps1          # copies files to %ProgramFiles%\Pike\PythonClient64 and registers machine.config
-.\scripts\uninstall.ps1        # removes the registration and the files
+.\scripts\install.ps1          # copies files, installs the assemblies into the GAC and registers machine.config
+.\scripts\uninstall.ps1        # removes the registration, the GAC entries and the files
 ```
 
-`scripts\install.ps1` writes the registration into the 64-bit `machine.config` of .NET Framework 4.x and creates a
-backup `machine.config.bak-<utc>`. The registration uses a version-independent type name
-(`Pike.PythonClient64.Data.PythonProviderFactory, Pike.PythonClient64`), so a provider upgrade does not break it.
+Run the scripts from an elevated **64-bit Windows PowerShell 5.1** (`System.EnterpriseServices.Internal.Publish`,
+which updates the GAC, does not exist in PowerShell 7); `gacutil` and the Windows SDK are not required.
+
+`scripts\install.ps1` publishes `Pike.PythonClient64.dll` and its `pythonnet` dependency `Python.Runtime.dll` into the
+global assembly cache, then writes the registration into the 64-bit `machine.config` of .NET Framework 4.x and creates
+a backup `machine.config.bak-<utc>`. Both the provider and pythonnet are strong-named, so the GAC accepts them.
+
+The registration contains the **fully qualified** type name
+(`Pike.PythonClient64.Data.PythonProviderFactory, Pike.PythonClient64, Version=2.0.0.0, Culture=neutral,
+PublicKeyToken=8c0beba75960bb80`): the runtime resolves an assembly outside the host application base (the Excel
+folder) only by a full name, and a partial name is never looked up in the GAC. `Python.Runtime.dll` has to be in the
+GAC for the same reason — the dependencies of a GAC assembly are probed in the GAC. `AssemblyVersion` is fixed for the
+whole 2.x line, so a provider upgrade keeps the existing record valid; only the GAC entries are replaced.
+`install.ps1` verifies the result in a new process and fails if the type is not loaded from `GAC_64`.
 
 The registration code lives in the separate `Pike.PythonClient64.Install.dll` (project `Pike.PythonClient64.Install`):
 the runtime provider loaded by Excel/Power Query references only `mscorlib`, `System`, `System.Core`, `System.Data`,
@@ -61,19 +74,22 @@ Manual registration (x64 `machine.config`):
       <add name="Python x64 Data Provider"
            invariant="Pike.PythonClient64.Data.PythonProviderFactory"
            description=".Net Framework Data Provider for Python x64"
-           type="Pike.PythonClient64.Data.PythonProviderFactory, Pike.PythonClient64" />
+           type="Pike.PythonClient64.Data.PythonProviderFactory, Pike.PythonClient64, Version=2.0.0.0, Culture=neutral, PublicKeyToken=8c0beba75960bb80" />
     </DbProviderFactories>
   </system.data>
 </configuration>
 ```
 
+The record alone is not enough: `Pike.PythonClient64.dll` and `Python.Runtime.dll` must be present in the GAC
+(`scripts\install.ps1` does both), otherwise the runtime cannot resolve the type outside the Excel folder.
+
 There is no installer project in the solution anymore: the legacy Visual Studio Installer project (`.vdproj`, which
 required a separate VS extension) was removed in 2.1.0, use the scripts above.
 
 An MSI/graphical installer is **not** part of 2.1.0 and is deliberately deferred. The installation itself is only six
-files plus one `machine.config` entry (the provider installs neither Python nor pandas), so the scripts above remain
-the supported path: they are transparent, exercised by CI and need no additional toolchain. A per-machine MSI
-(`msiexec /qn`, ARP entry, repair/uninstall) will be added on top of these scripts — reusing the same registration
+files, two GAC entries and one `machine.config` entry (the provider installs neither Python nor pandas), so the scripts
+above remain the supported path: they are transparent, exercised by CI and need no additional toolchain. A per-machine
+MSI (`msiexec /qn`, ARP entry, repair/uninstall) will be added on top of these scripts — reusing the same registration
 code — once silent enterprise deployment (GPO / SCCM / Intune) becomes a requirement. The planned shape is a
 `Pike.PythonClient64.Install.Tool.exe` (install/uninstall/status), a WiX-built MSI and an optional Burn bootstrapper
 for a wizard UI.
@@ -344,7 +360,7 @@ see `docs/power-query.md` and the examples in `Pike.PythonClient.Test\Excel`.
 | `KeyNotFoundException: ... assign result ...` | the script does not define the `result` variable |
 | `InvalidOperationException: 'result' must be a pandas.DataFrame` | the script assigns a list/dict instead of a DataFrame |
 | `NotSupportedException: Column '...' has unsupported dtype '...'` | unsupported dtype; cast it in the script or disable `PythonDataProvider`/`PythonDataQuery.StrictColumnTypes` |
-| `DbProviderFactories.GetFactory` fails in Power Query | provider is not registered in `machine.config` (run `install.ps1`) or 32-bit Excel is used |
+| `DbProviderFactories.GetFactory` fails in Power Query | the provider is missing from the GAC or from `machine.config` (run `install.ps1`; `uninstall.ps1` removes both), or 32-bit Excel is used |
 | `NotSupportedException: CommandTimeout is not supported` | set `CommandTimeout = 0` |
 
 ## Build and test

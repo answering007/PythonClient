@@ -34,7 +34,24 @@ Recommendations:
 
 ## Strong name key
 
-`Pike.PythonClient64\key.snk` (the strong name key used to sign the assembly) is stored in the repository.
-Changing or removing it changes the `PublicKeyToken`, which breaks existing `machine.config` registrations and
-assembly bindings. Keep the key stable for released versions; if the key must be rotated, publish a migration note
+`Pike.PythonClient64\key.snk` (the strong name key used to sign `Pike.PythonClient64.dll` and
+`Pike.PythonClient64.Install.dll`) is stored in the repository. Changing or removing it changes the `PublicKeyToken`,
+which breaks the existing `machine.config` registrations (they contain the fully qualified type name), the GAC entries
+and assembly bindings. Keep the key stable for released versions; if the key must be rotated, publish a migration note
 and update the registration with `install.ps1`.
+
+A strong name is an identity, not a signature of authorship: the key is public, so anyone can build an assembly with
+the same `PublicKeyToken`. Authenticity has to be established with an Authenticode signature of the shipped
+`Pike.PythonClient64.dll` (and of an installer package, if one is added later).
+
+## Global assembly cache
+
+`scripts\install.ps1` publishes `Pike.PythonClient64.dll` and `Python.Runtime.dll` into the GAC (`GAC_64`), because the
+`machine.config` registration resolves the provider by its fully qualified name outside the host application base.
+The GAC is machine-wide shared state:
+
+- only one version of the provider can be installed at a time (`AssemblyVersion` is fixed to `2.0.0.0`, so an upgrade
+  replaces the previous GAC entry);
+- the provider becomes available to **any** process on the machine that registers it, including 64-bit Excel — review
+  the threat model above before installing it on a shared machine;
+- `scripts\uninstall.ps1` must be used to remove it: deleting the folder only leaves the assemblies in the GAC.

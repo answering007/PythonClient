@@ -10,7 +10,8 @@
       - PythonParameter contract (null/DBNull, DbType, Direction, renaming);
       - column converters (datetime64/timedelta64 units, NaT, NaN, null);
       - SupportedTypes dtype registry;
-      - machine.config paths.
+      - machine.config paths;
+      - assembly identity (strong name, fixed AssemblyVersion) required by the GAC installation.
 
     The script is a quick sanity check between test runs: the full coverage lives in the test project.
 
@@ -74,6 +75,18 @@ function Get-ErrorType($errorRecord) {
     while ($exception.InnerException) { $exception = $exception.InnerException }
 
     return $exception.GetType().Name
+}
+
+Write-Host ''
+Write-Host 'Assembly identity' -ForegroundColor Cyan
+$assemblyName = [Reflection.AssemblyName]::GetAssemblyName($assemblyPath)
+$publicKeyToken = ($assemblyName.GetPublicKeyToken() | ForEach-Object { $_.ToString('x2') }) -join ''
+$qualifiedName = [Pike.PythonClient64.Data.PythonProviderFactory].AssemblyQualifiedName
+
+Assert-That 'assembly is strong-named' { $publicKeyToken.Length -gt 0 }
+Assert-That 'AssemblyVersion is fixed (machine.config record stays valid)' { $assemblyName.Version -eq [Version]'2.0.0.0' }
+Assert-That 'qualified name contains Culture and PublicKeyToken' {
+    $qualifiedName.Contains('Culture=neutral') -and $qualifiedName.Contains($publicKeyToken)
 }
 
 Write-Host ''

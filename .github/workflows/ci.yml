@@ -57,6 +57,11 @@ jobs:
         shell: pwsh
         run: ./scripts/pack.ps1
 
+      # Windows PowerShell 5.1 on purpose: the GAC is updated through System.EnterpriseServices.Internal.Publish
+      - name: Installation e2e (GAC + machine.config)
+        shell: powershell
+        run: ./scripts/test/Invoke-InstallE2E.ps1 -Configuration Release
+
       - name: Upload NuGet package
         uses: actions/upload-artifact@v4
         with:

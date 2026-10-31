@@ -4,14 +4,18 @@
 
 1. 64-bit Excel (the provider and Python are x64-only, 32-bit Excel cannot load it).
 2. Python 3.7–3.13 x64 with `numpy` and `pandas`.
-3. The provider is installed and registered in `machine.config`:
+3. The provider is installed into the GAC and registered in `machine.config` (elevated 64-bit Windows PowerShell 5.1):
 
 ```powershell
 dotnet build PythonClient.sln -c Release
-.\install.ps1
+.\scripts\install.ps1
 ```
 
 4. Restart Excel so the process reads the updated `machine.config`.
+
+`install.ps1` puts `Pike.PythonClient64.dll` and `Python.Runtime.dll` into `GAC_64` and writes the fully qualified type
+name into `machine.config`. Both steps are required: Excel probes neither the GAC without a full name nor the
+`%ProgramFiles%\Pike\PythonClient64` folder.
 
 ## Basic query
 

@@ -9,6 +9,10 @@
     <NoWarn>$(NoWarn);1591</NoWarn>
     <IsPackable>false</IsPackable>
     <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <!-- Strong-named with the same key as the runtime assembly: the GAC accepts only strong-named
+         assemblies, and both assemblies must share the same PublicKeyToken. -->
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\Pike.PythonClient64\key.snk</AssemblyOriginatorKeyFile>
   </PropertyGroup>
 
   <ItemGroup>

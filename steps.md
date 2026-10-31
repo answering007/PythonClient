@@ -1048,3 +1048,60 @@ Test-ProviderSmoke.ps1                                  # 41 / 41
 samples\...\bin\Release\net48\Pike.PythonClient64.Sample.exe   # async + streaming, 3 строки
 ```
 
+
+### 11.8 Установка в GAC + полное имя в machine.config — ✅ (2026-10-30)
+
+**Изменённые файлы:** `Directory.Build.props`, `Pike.PythonClient64.Install\Pike.PythonClient64.Install.csproj`,
+`Pike.PythonClient64.Install\DataProviderInstallationBase.cs`,
+`Pike.PythonClient.Test\Tests\Unit\DataProviderInstallationUnit.cs`, `scripts\install.ps1`, `scripts\uninstall.ps1`,
+`scripts\smoke\Test-ProviderSmoke.ps1`, `scripts\test\Invoke-InstallE2E.ps1` (новый), `.github\workflows\ci.yml`,
+`README.md`, `SECURITY.md`, `docs\power-query.md`, `CHANGELOG.md`, `plan.md`
+
+**Проблема**
+
+Регистрация писала `type="…PythonProviderFactory, Pike.PythonClient64"` — без версии и без `PublicKeyToken`. Проверка
+на этой машине (Windows PowerShell 5.1 x64) показала, что такое имя разрешается **только** в каталоге приложения
+хоста, GAC для частичных имён не проверяется:
+
+```
+Type.GetType('…DbProviderFactory, System.Data')                                        -> NULL
+Type.GetType('…DbProviderFactory, System.Data, PublicKeyToken=b77a5c…')                 -> NULL
+Type.GetType('…DbProviderFactory, System.Data, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c…') -> OK, GAC_64
+Assembly.Load('System.Xml')                                                             -> FAIL (сборка при этом лежит в GAC)
+Assembly.LoadWithPartialName('System.Xml')                                              -> GAC_MSIL (устаревший API, System.Data его не использует)
+```
+
+То есть «скопировать в `%ProgramFiles%\Pike\PythonClient64` + прописать `machine.config`» в Excel не работает, пока
+DLL нет рядом с `Excel.exe` или в GAC, а GAC требует полного имени (`Version` + `Culture` + `PublicKeyToken`).
+Это закрывает пункт «[проверить]» из `planClaude.md`.
+
+**Сделано**
+- `AssemblyVersion` зафиксирован на `2.0.0.0` для всей ветки 2.x (`Version`/`FileVersion` продолжают меняться):
+  полное имя в `machine.config` не зависит от релиза, апгрейд перезаписывает ту же запись в GAC.
+- `Pike.PythonClient64.Install.csproj` подписан тем же `key.snk` (GAC принимает только strong-named сборки).
+- `DataProviderInstallationBase.QualifiedName` = `type.AssemblyQualifiedName`.
+- `install.ps1`: копирование → `GacInstall` (`Pike.PythonClient64.dll`, `Python.Runtime.dll`) → регистрация →
+  самопроверка в новом процессе (`[Type]::GetType(...)` должен вернуть путь из `GAC_64`); откат GAC при ошибке;
+  новый ключ `-SkipGac`; требования (admin, 64-битный Windows PowerShell 5.1) проверяются явно.
+- `uninstall.ps1`: снятие записи → `GacRemove` → удаление файлов; `-SkipGac`.
+- Тесты: `P0_5_Register_UpdatesExistedRecord` проверяет полное имя и наличие `PublicKeyToken`; новый
+  `P0_5_Register_ReplacesPartialNameWithFullName` — регрессия на записи прежнего формата.
+- Smoke: три проверки идентичности сборки (strong name, `AssemblyVersion = 2.0.0.0`, `Culture` + `PublicKeyToken`).
+- CI: шаг `Installation e2e (GAC + machine.config)` через `shell: powershell` (5.1) после `pack.ps1`.
+
+**Проверка**
+```
+dotnet build PythonClient.sln -c Release        # 0 предупреждений, 0 ошибок
+Pike.PythonClient64.dll         => Version=2.0.0.0, PublicKeyToken=8c0beba75960bb80
+Pike.PythonClient64.Install.dll => Version=2.0.0.0, PublicKeyToken=8c0beba75960bb80
+Invoke-Tests.ps1 -Category Unit                 # 86 / 86 (включая новый тест P0_5_Register_ReplacesPartialNameWithFullName)
+Test-ProviderSmoke.ps1 -Configuration Release   # 44 / 44 (+3 проверки идентичности сборки)
+install.ps1 -SkipMachineConfig -SkipGac → uninstall.ps1 -SkipMachineConfig -SkipGac   # 5 файлов скопированы и удалены
+install.ps1 без прав администратора             # понятная ошибка, каталог не создаётся
+Invoke-InstallE2E.ps1                           # требует admin: выполняется в CI (проверки installed/uninstalled state)
+```
+
+**Ограничения:** GAC — machine-wide состояние (одна версия провайдера, side-by-side нет), 32-битный Excel сборку не
+видит (провайдер x64-only), `GacRemove` требует файл по пути — uninstall нужно запускать до ручного удаления каталога;
+сильное имя даёт идентичность, но не подлинность (нужна Authenticode-подпись).
+

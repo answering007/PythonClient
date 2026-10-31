@@ -3,7 +3,10 @@
   <!-- Shared build metadata for all projects in the repository -->
   <PropertyGroup>
     <Version>2.1.0</Version>
-    <AssemblyVersion>2.1.0.0</AssemblyVersion>
+    <!-- AssemblyVersion is fixed for the whole 2.x line: the x64 machine.config record contains the fully
+         qualified name (Version/Culture/PublicKeyToken), so a version bump would silently invalidate every
+         existing installation. FileVersion and the package Version still follow the release. -->
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
     <FileVersion>2.1.0.0</FileVersion>
 
     <Company>Pike</Company>

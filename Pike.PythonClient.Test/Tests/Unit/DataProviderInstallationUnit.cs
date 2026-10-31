@@ -3,6 +3,7 @@ using System.IO;
 using System.Text;
 using System.Xml;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Pike.PythonClient64.Data;
 using Pike.PythonClient64.Install;
 
 namespace Pike.PythonClient.Test.Tests.Unit
@@ -123,12 +124,36 @@ namespace Pike.PythonClient.Test.Tests.Unit
             Assert.AreEqual("Python x64 Data Provider", node.GetAttribute("name"));
             Assert.AreEqual(".Net Framework Data Provider for Python x64", node.GetAttribute("description"));
 
-            // Version must not be a part of the registered type name
+            // The registered type must be the fully qualified name: only a full name is resolved from the GAC
             var typeName = node.GetAttribute("type");
-            Assert.IsFalse(typeName.Contains("Version="), $"type attribute contains version: {typeName}");
-            Assert.AreEqual(Invariant + ", Pike.PythonClient64", typeName);
+            Assert.AreEqual(typeof(PythonProviderFactory).AssemblyQualifiedName, typeName);
+            StringAssert.Contains(typeName, "Version=");
+            StringAssert.Contains(typeName, "Culture=neutral");
+            StringAssert.Contains(typeName, "PublicKeyToken=");
+            Assert.AreNotEqual(0, typeof(PythonProviderFactory).Assembly.GetName().GetPublicKeyToken().Length,
+                "the provider assembly must stay strong-named, otherwise it cannot be installed into the GAC");
 
             Assert.AreEqual(1, xml.SelectNodes(XPath).Count);
+        }
+
+        /// <summary>
+        /// The record written by the previous releases (version independent, no PublicKeyToken) is replaced
+        /// by the fully qualified name
+        /// </summary>
+        [TestMethod]
+        public void P0_5_Register_ReplacesPartialNameWithFullName()
+        {
+            WriteConfig(@"	<system.data>
+		<DbProviderFactories>
+			<add name='Python x64 Data Provider' invariant='" + Invariant + @"' description='.Net Framework Data Provider for Python x64' type='" + Invariant + @", Pike.PythonClient64' />
+		</DbProviderFactories>
+	</system.data>");
+
+            new DbProviderInstallation().RegisterProvider(_configFile);
+
+            var node = GetProviderNode(Load());
+            Assert.IsNotNull(node);
+            Assert.AreEqual(typeof(PythonProviderFactory).AssemblyQualifiedName, node.GetAttribute("type"));
         }
 
         /// <summary>

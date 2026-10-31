@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [2.1.0] - 2026-10-29
 
+### Added
+
+- **GAC installation.** `scripts\install.ps1` now publishes `Pike.PythonClient64.dll` and its `pythonnet` dependency
+  `Python.Runtime.dll` into the global assembly cache (`GAC_64`) and verifies in a new process that the registered type
+  is resolved from there; `scripts\uninstall.ps1` removes the GAC entries as well, so an uninstall no longer leaves a
+  phantom provider behind. No `gacutil`/Windows SDK is needed (`System.EnterpriseServices.Internal.Publish`).
+  Both scripts require an elevated 64-bit Windows PowerShell 5.1 and check it.
+- `scripts\test\Invoke-InstallE2E.ps1` — installation end-to-end check (install → `DbProviderFactories.GetFactory`
+  from the GAC in a new process → uninstall), executed by CI.
+- `Pike.PythonClient64.Install.dll` is strong-named now (same `key.snk`), so every shipped assembly has a
+  `PublicKeyToken`.
+
 ### Added (optional roadmap stage 4)
 
 - **Async API.** `PythonConnection.OpenAsync`, `PythonCommand.ExecuteReaderAsync`/`ExecuteScalarAsync`/
@@ -27,6 +39,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - **Target framework: `net48` only.** The `net8.0-windows` target (an experiment in this release cycle) was dropped:
   the provider is distributed as a single `lib\net48` assembly for the x64 Power Query / Excel and desktop hosts.
   `dotnet build` outputs stay in `bin\<Configuration>\net48`, so the deployment scripts are unchanged.
+- **`machine.config` registration uses the fully qualified type name**
+  (`Pike.PythonClient64.Data.PythonProviderFactory, Pike.PythonClient64, Version=2.0.0.0, Culture=neutral,
+  PublicKeyToken=8c0beba75960bb80`) instead of the assembly simple name: only a full name is resolved from the GAC,
+  a partial name is probed in the host application base (the Excel folder) only.
+  `AssemblyVersion` is fixed to `2.0.0.0` for the whole 2.x line, so the record stays valid across upgrades.
+  *Migration:* run `uninstall.ps1` (or `install.ps1` directly) once on the machines that were registered by an
+  earlier build; the record is rewritten in place and the assemblies are published into the GAC.
 
 ### Removed
 
