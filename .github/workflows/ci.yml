@@ -47,7 +47,7 @@ jobs:
         shell: pwsh
         run: ./scripts/smoke/Test-ProviderSmoke.ps1 -Configuration Release
 
-      - name: Sample (.NET Framework 4.8 host, async + streaming)
+      - name: Sample (.NET Framework 4.8 host, async)
         shell: pwsh
         env:
           PYTHONNET_SAMPLE_DLL: ${{ env.pythonLocation }}\python311.dll

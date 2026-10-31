@@ -233,29 +233,6 @@ await using (var connection = new PythonConnection { ConnectionString = connecti
 A Python script cannot be interrupted, so the cancellation token only prevents the execution from starting
 (a pre-cancelled token returns a cancelled task). Use script-level timeouts for long computations.
 
-## Streaming large results
-
-By default the whole `DataFrame` is materialized into a `DataTable`. For large results set
-`PythonCommand.Streaming = true`: the provider returns a `PythonDataReader` that reads the frame in chunks
-(`StreamingChunkSize`, 4096 rows by default), so memory usage is bounded:
-
-```csharp
-using (var command = (PythonCommand)connection.CreateCommand())
-{
-    command.CommandText = script;
-    command.Streaming = true;
-    command.StreamingChunkSize = 10_000;
-
-    using (var reader = command.ExecuteReader())
-        while (reader.Read())
-            Process(reader.GetInt64(0), reader.GetString(1));
-}
-```
-
-Streaming mode supports `CommandBehavior.SchemaOnly`, `SingleRow` (one row) and `CloseConnection` (the connection is
-closed when the reader is closed), `GetSchemaTable()` (standard ADO.NET schema, so `DataTable.Load` works) and typed
-getters. `ExecuteNonQuery`/`ExecuteScalar` always materialize the result to compute the count/first value.
-
 ## Custom converters
 
 Any dtype can be mapped by a custom `IColumnConverter`; the registry is process-wide and thread-safe:
@@ -318,9 +295,9 @@ Rules:
   reliably, `Cancel()` does nothing. Use script-level timeouts.
 - **Threading.** The GIL is acquired for every operation, so parallel commands are serialized by Python itself.
   `PythonConnection`/`PythonCommand` instances are not thread-safe; use one command per thread.
-- **Memory.** By default the whole `DataFrame` is materialized into a `DataTable` before the reader is returned.
-  Use `PythonCommand.Streaming = true` to read the frame in chunks (bounded memory) — see
-  [Streaming large results](#streaming-large-results).
+- **Memory.** The whole `DataFrame` is always materialized into a `DataTable` before the reader is returned, so a large
+  result must fit into memory. Reduce the frame in the script (`LIMIT`, `.head(n)`, aggregation) before it is
+  transferred.
 - **`CommandBehavior`**: `SchemaOnly`, `SingleRow` and `CloseConnection` are supported.
 - **`ExecuteNonQuery`** returns the number of result rows; scripts without `result` give `0`.
 
@@ -422,7 +399,7 @@ The provider registration for the tests is taken from `Pike.PythonClient.Test\ap
 
 ### Tested versions
 
-The suite has **145 tests** (85 unit without Python + 60 integration). Every combination below passes the whole
+The suite has **140 tests** (86 unit without Python + 54 integration). Every combination below passes the whole
 integration suite on Windows x64:
 
 | Runtime | Python | pandas | numpy | Result |
@@ -438,7 +415,7 @@ regardless of the representation (`None`, `pd.NA`, `pd.NaT`, `np.nan`, `nan` of 
 
 ### Sample (.NET Framework 4.8)
 
-`samples\Pike.PythonClient64.Sample` is a minimal x64 console host that uses the async API and the streaming reader:
+`samples\Pike.PythonClient64.Sample` is a minimal x64 console host that uses the async API and prints the result table:
 
 ```powershell
 . .\scripts\test\Initialize-PythonEnvironment.ps1
@@ -447,7 +424,8 @@ $env:PYTHONNET_SAMPLE_PATH = $env:PYTHONPATH
 samples\Pike.PythonClient64.Sample\bin\Release\net48\Pike.PythonClient64.Sample.exe
 ```
 
-The sample is also executed by CI, so the async and streaming paths are covered at runtime on every build.
+The sample is also executed by CI, so the async path and the DataFrame conversion are covered at runtime on every
+build.
 
 ### Continuous integration
 

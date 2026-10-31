@@ -7,8 +7,8 @@ using Pike.PythonClient64.Data;
 namespace Pike.PythonClient64.Sample
 {
     /// <summary>
-    /// Minimal .NET Framework 4.8 host sample: runs a Python script through the provider (asynchronously) and prints
-    /// the result table, then reads the same result in streaming mode.
+    /// Minimal .NET Framework 4.8 host sample: runs a Python script through the provider asynchronously and prints
+    /// the whole result table that the provider materializes from the DataFrame.
     /// Environment variables:
     ///   PYTHONNET_SAMPLE_DLL  - full path to python3xx.dll (PYTHONNET_TEST_DLL is used as a fallback)
     ///   PYTHONNET_SAMPLE_PATH - extra sys.path entries separated by ';' (PYTHONPATH is used as a fallback)
@@ -60,26 +60,9 @@ result = pd.DataFrame({
                         command.CommandText = Script;
                         command.Parameters.Add(new PythonParameter { ParameterName = "limit", Value = 3 });
 
+                        // The whole DataFrame is materialized into a DataTable, the reader exposes it row by row
                         using (var reader = await command.ExecuteReaderAsync().ConfigureAwait(false))
                             Print(reader);
-                    }
-
-                    // Streaming API: the DataFrame is read in chunks, it is not materialized into a DataTable
-                    using (var streamingCommand = (PythonCommand)connection.CreateCommand())
-                    {
-                        streamingCommand.CommandText = Script;
-                        streamingCommand.Streaming = true;
-                        streamingCommand.StreamingChunkSize = 2;
-                        streamingCommand.Parameters.Add(new PythonParameter { ParameterName = "limit", Value = 3 });
-
-                        using (var reader = await streamingCommand.ExecuteReaderAsync().ConfigureAwait(false))
-                        {
-                            var rows = 0;
-                            while (await reader.ReadAsync().ConfigureAwait(false)) rows++;
-
-                            Console.WriteLine();
-                            Console.WriteLine($"Streaming reader: {rows} rows, {reader.FieldCount} columns");
-                        }
                     }
                 }
 

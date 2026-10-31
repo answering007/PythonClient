@@ -55,6 +55,43 @@ result = pd.DataFrame({'Value': [1, 2, 3]})";
         }
 
         /// <summary>
+        /// The reader returns every row of a large frame: the whole DataFrame is materialized (P1-3)
+        /// </summary>
+        [TestMethod]
+        public void P1_3_ReaderReturnsAllRows()
+        {
+            const string largeScript = @"import pandas as pd
+result = pd.DataFrame({
+    'Id': range(2500),
+    'Text': ['row'] * 2500,
+    'Value': [1.5] * 2500
+})";
+
+            using (var connection = TestEnvironment.CreateConnection())
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = largeScript;
+
+                using (var reader = command.ExecuteReader())
+                {
+                    Assert.AreEqual(3, reader.FieldCount);
+                    Assert.IsTrue(reader.HasRows);
+
+                    var count = 0;
+                    var lastId = -1L;
+                    while (reader.Read())
+                    {
+                        lastId = reader.GetInt64(0);
+                        count++;
+                    }
+
+                    Assert.AreEqual(2500, count);
+                    Assert.AreEqual(2499L, lastId);
+                }
+            }
+        }
+
+        /// <summary>
         /// CommandBehavior.SingleRow returns the first row only (P1-3)
         /// </summary>
         [TestMethod]

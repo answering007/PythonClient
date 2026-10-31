@@ -1105,3 +1105,52 @@ Invoke-InstallE2E.ps1                           # требует admin: выпо
 видит (провайдер x64-only), `GacRemove` требует файл по пути — uninstall нужно запускать до ручного удаления каталога;
 сильное имя даёт идентичность, но не подлинность (нужна Authenticode-подпись).
 
+
+### 11.9 Удаление потокового чтения DataFrame — ✅ (2026-10-31)
+
+**Изменённые файлы:** `Pike.PythonClient64\PythonDataQuery.cs`, `Pike.PythonClient64\Data\PythonCommand.cs`,
+удалены `Pike.PythonClient64\DataFrameCursor.cs`, `Pike.PythonClient64\DataFrameCursor.Conversion.cs`,
+`Pike.PythonClient64\DataFrameColumn.cs`, `Pike.PythonClient64\Data\PythonDataReader.cs`,
+`Pike.PythonClient.Test\Tests\Python\StreamingTests.cs`; `Pike.PythonClient.Test\Tests\Python\CommandTests.cs`,
+`samples\Pike.PythonClient64.Sample\Program.cs`, `.github\workflows\ci.yml`, `README.md`, `CHANGELOG.md`
+
+**Причина**
+
+Потоковый ридер (стадия 4 релиза 2.1.0) добавлял второй путь выполнения: `PythonCommand.Streaming` включал
+`ExecuteStreamingScript` → `DataFrameCursor` → `PythonDataReader`, где чанки читались через `iloc[start:stop]`
+(по умолчанию 4096 строк, 8192 при материализации). Цена: ~780 строк кода (`DataFrameCursor` 164 +
+`DataFrameCursor.Conversion` 249 + `DataFrameColumn` 52 + `PythonDataReader` 311), публичный тип-читатель,
+у которого без чанков нет смысла, и второй набор тестов. Пользователь попросил оставить только чтение фрейма целиком.
+
+**Сделано**
+- `PythonCommand`: удалены `Streaming`, `StreamingChunkSize` и `ExecuteStreamingScript`;
+  `ExecuteDbDataReader` → `ExecuteScript(behavior).CreateDataReader()` (стандартный `DataTableReader`).
+- `PythonDataQuery`: `ConvertDataFrameToDataTable` теперь читает весь кадр за один проход
+  (`ReadDataFrame` + `FillRows`), хелперы конвертации (`GetColumnConverter`, `MakeColumnName`,
+  `ReadColumnValues`, `ConvertSeriesValues`, `ScaleToNanoseconds`, `GetDtypeUnit`, `GetNanosecondsPerUnit`)
+  перенесены из `DataFrameCursor.Conversion` в `PythonDataQuery`; владение python-объектом сохранено —
+  `dataFrame.Dispose()` в `finally` под GIL. `CreateCursor`/`CreateCursorUnderGil` удалены.
+- Тесты: `StreamingTests` (7 тестов) удалён; единственный кейс, терявший покрытие, перенесён в `CommandTests` как
+  `P1_3_ReaderReturnsAllRows` (2500 строк, `FieldCount = 3`, последний `Id = 2499`). Остальные аспекты
+  (`SchemaOnly`, `SingleRow`, `CloseConnection`, `DataTable.Load`, NULL/NaT) уже покрыты `CommandTests` и
+  `ColumnTypesTests` через обычный путь.
+- Sample: убран блок streaming, комментарий исправлен на «async host»; шаг CI переименован в
+  `Sample (.NET Framework 4.8 host, async)`.
+- Документация: из README удалён раздел «Streaming large results», переписаны `Limitations → Memory`,
+  `Sample` и счётчик тестов; в CHANGELOG добавлен `## [Unreleased]` с `Removed`/`Changed` и *Migration*.
+
+**Проверка**
+```
+dotnet build PythonClient.sln -c Release / -c Debug   # 0 предупреждений, 0 ошибок
+Invoke-Tests.ps1 -Category All                        # 140 / 140 (86 unit + 54 integration; было 146)
+Test-ProviderSmoke.ps1 -Configuration Release         # 44 / 44 (не затрагивается)
+samples\...\Sample.exe                                # таблица из 3 строк, exit 0
+git grep -i 'streaming|chunk|DataFrameCursor|DataFrameColumn|PythonDataReader' -- '*.cs' '*.md' '*.yml'
+                                                      # пусто, кроме исторических записей CHANGELOG/steps
+```
+
+**Ограничения:** пик памяти = кадр в Python + массив значений + `DataTable` (раньше чанки ограничивали
+дополнительный массив); `GetDataTypeName` у `DataTableReader` возвращает .NET-тип, а не pandas dtype
+(python dtype был доступен только у удалённого `PythonDataReader`). Удаление публичных членов — breaking change,
+зафиксировано в CHANGELOG.
+

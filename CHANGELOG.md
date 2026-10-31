@@ -4,6 +4,25 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed
+
+- **Chunked (streaming) DataFrame reading** — breaking change. `PythonCommand.Streaming`, `PythonCommand.StreamingChunkSize`
+  and the public `PythonDataReader` are removed together with the internal `DataFrameCursor`/`DataFrameColumn`: the
+  provider always materializes the whole `DataFrame` into a `DataTable` and `ExecuteReader` returns a standard
+  `DataTableReader`. `CommandBehavior.SchemaOnly`/`SingleRow`/`CloseConnection`, typed getters, `GetSchemaTable()` and
+  `DataTable.Load` keep working through the standard reader.
+  *Migration:* drop the `Streaming`/`StreamingChunkSize` assignments (a plain `ExecuteReader()` is enough); replace
+  `GetDataTypeName` (python dtype) with `GetFieldType` (managed type); reduce large results in the script
+  (`LIMIT`, `.head(n)`, aggregation) instead of relying on bounded memory.
+
+### Changed
+
+- The whole frame is read in a single pass: every column is converted once, without the `iloc[start:stop]` slices the
+  chunk reader needed, so a full materialization copies less data.
+- Test suite: **140 tests** (86 unit + 54 integration).
+
 ## [2.1.0] - 2026-10-29
 
 ### Added
