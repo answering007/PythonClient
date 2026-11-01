@@ -16,10 +16,3 @@ result: pl.DataFrame = pl.DataFrame({
     'Created': pl.Series([dt.date(2020, 1, 1), None, dt.date(1960, 1, 1)], dtype=pl.Date),
     'Flag': pl.Series([True, None, False], dtype=pl.Boolean),
 })
-
-if query_text is not None:
-    # Power Query "table to script": gzip + base64 JSON → polars, no pandas
-    raw_data: bytes = gzip.decompress(base64.b64decode(query_text))
-    result = pl.DataFrame(json.loads(raw_data))
-    result = result.with_columns(
-        (pl.col('Value') * query_params.get('factor', 1)).alias('Value'))
