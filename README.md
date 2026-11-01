@@ -42,11 +42,15 @@ Recommended (PowerShell, elevated):
 ```powershell
 dotnet build PythonClient.sln -c Release
 .\scripts\install.ps1          # copies files, installs the assemblies into the GAC and registers machine.config
+.\scripts\Verify-Installation.ps1   # read-only check: files, machine.config, GAC entries, resolved type
 .\scripts\uninstall.ps1        # removes the registration, the GAC entries and the files
 ```
 
 Run the scripts from an elevated **64-bit Windows PowerShell 5.1** (`System.EnterpriseServices.Internal.Publish`,
 which updates the GAC, does not exist in PowerShell 7); `gacutil` and the Windows SDK are not required.
+`Verify-Installation.ps1` needs no administrator rights and changes nothing: it compares the installed files with
+`bin\Release`, checks the `machine.config` record, and loads the provider from the GAC in a new process (a stale GAC
+entry or a Debug build installed by mistake is reported with the failing check name).
 
 `scripts\install.ps1` publishes `Pike.PythonClient64.dll` and its `pythonnet` dependency `Python.Runtime.dll` into the
 global assembly cache, then writes the registration into the 64-bit `machine.config` of .NET Framework 4.x and creates
@@ -396,6 +400,7 @@ see `docs/power-query.md` and the examples in `Pike.PythonClient.Test\Excel`.
 | `DbProviderFactories.GetFactory` fails in Power Query | the provider is missing from the GAC or from `machine.config` (run `install.ps1`; `uninstall.ps1` removes both), or 32-bit Excel is used |
 | `ConfigurationErrorsException: ... InvariantName ... already exists` | the provider is registered twice: in `machine.config` (by `install.ps1`) and in the application `app.config`; keep one of them, or add `<remove invariant="..." />` before `<add>` (see `Pike.PythonClient.Test\app.config`) |
 | Local changes have no effect after installation | a strong-named assembly is resolved from the GAC before the application folder: rerun `install.ps1` (or `uninstall.ps1`) to replace the GAC copy. Debug builds are not affected — they use `AssemblyVersion` 2.0.0.1 and the test `app.config` is patched to it automatically |
+| Is the installed provider the current build? | run `.\scripts\Verify-Installation.ps1` (read-only, no administrator rights): it compares the installed files with `bin\Release` (SHA256), checks the `machine.config` record and both GAC entries, loads the provider in a new process and reports the installed build without polars support |
 
 ## Build and test
 
@@ -414,6 +419,7 @@ The helper scripts live in `scripts\`:
 | `scripts\test\Invoke-VersionMatrix.ps1` | runs the integration tests against Python 3.9/3.11/3.13 and pandas 1.5/2.2/3.1 (`.venv-matrix\*`) |
 | `scripts\test\PythonEnvironment.ps1` | shared helpers (create environment, resolve `python3xx.dll` and `site-packages`) |
 | `scripts\smoke\Test-ProviderSmoke.ps1` | 41 smoke checks on the built assembly (no Python required) |
+| `scripts\Verify-Installation.ps1` | read-only check of an installed machine (no administrator rights): installed files vs `bin\<Configuration>`, `machine.config` record, GAC entries, the type resolved in a new process, polars support in the installed build |
 | `scripts\pack.ps1` | Release build + `dotnet pack` into `artifacts\` (nupkg/snupkg and a flat deploy folder) |
 
 ```powershell

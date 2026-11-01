@@ -534,6 +534,7 @@ static bool IsTimeZoneAware(string dtype)       // time_zone=None → false
 | `Pike.PythonClient.Test/Python/TestScript04.py` | polars-скрипт: типы + `FILE=`/`query`/`params` + Excel-payload |
 | `Pike.PythonClient.Test/TestEnvironment.cs` | `HasPolars`, `SkipIfNoPolars` |
 | `scripts/test/Initialize-PythonEnvironment.ps1`, `Invoke-VersionMatrix.ps1`, `.github/workflows/ci.yml` | polars в примерах, матрице и CI |
+| `scripts/Verify-Installation.ps1` | read-only проверка установки: файлы ↔ `bin\<Configuration>`, `machine.config`, GAC, разрешение типа, polars в установленной сборке |
 | `README.md`, `docs/power-query.md`, `CHANGELOG.md` | документация, таблица типов, счётчики тестов |
 
 ### 10.2. Отклонения от плана
@@ -559,6 +560,10 @@ static bool IsTimeZoneAware(string dtype)       // time_zone=None → false
   `app.config` в `bin` на ту же версию (MSBuild-таргет `PatchProviderVersionInTestConfig`); Release остаётся
   2.0.0.0 для существующей записи в `machine.config`. `AssemblyHooks` печатает `Provider assembly: <путь>`;
 - прогон по умолчанию (`Invoke-Tests.ps1 -Category All`, Debug) — **176/176**, ручных обходов не требуется;
+- `scripts/Verify-Installation.ps1` до переустановки на текущей машине: **3 из 18** проверок падают —
+  `installed provider is the Release build`, `GAC copy is the Release build`, `installed build supports polars
+  results` (папка установки и GAC содержат сборку до polars), остальные проходят: запись `machine.config`,
+  видимость и путь GAC, `DbProviderFactories` в чистом процессе, pythonnet в GAC.
 - без polars в окружении 17 polars-тестов переходят в `Inconclusive` (проверка `HasPolars`).
 
 ---

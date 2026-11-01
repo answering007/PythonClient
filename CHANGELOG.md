@@ -19,6 +19,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   `LazyFrame` is rejected with a hint to call `collect()`. New `BinaryConverter` and `DecimalConverter`.
 - polars is optional and is not required at run time: without the package the pandas path works as before, and the
   new polars integration tests are reported as inconclusive.
+- `scripts\Verify-Installation.ps1` — read-only check of an installed machine (no administrator rights, no changes):
+  it compares the installed files with `bin\<Configuration>` (SHA256), verifies the `machine.config` record and its
+  version, both GAC entries (provider and pythonnet), the GAC copy of the provider, the type resolved by
+  `DbProviderFactories` in a new process and the presence of the polars reader in the installed build. Exit code `1`
+  with the failing check names makes it usable in scripts.
 
 ### Fixed
 
@@ -34,6 +39,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   execution is never aborted and `Cancel()` stays a no-op.
 - The test `app.config` removes the inherited `machine.config` record before adding its own: with the provider installed
   on the machine, `DbProviderFactories` rejected the duplicated invariant name and the configuration could not be loaded.
+- `scripts\test\Invoke-InstallE2E.ps1` looked for the x64 `machine.config` in `Framework64\Config\machine.config`
+  instead of `Framework64\v4.0.30319\Config\machine.config`: the file was never found, so the registration checks could
+  not pass. The path is now built from the runtime directory the same way as `DataProviderInstallationBase.Machine64Config`.
 
 ### Removed
 

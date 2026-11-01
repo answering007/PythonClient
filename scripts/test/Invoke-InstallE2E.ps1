@@ -59,9 +59,9 @@ $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $invariant = 'Pike.PythonClient64.Data.PythonProviderFactory'
 $xPath = "/configuration/system.data/DbProviderFactories/add[@invariant='$invariant']"
 
-# x64 machine.config: <Framework64>\v4.0.30319 -> <Framework64>\Config\machine.config
-$runtimeDirectory = [IO.DirectoryInfo]([Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory().TrimEnd('\'))
-$machineConfig = Join-Path $runtimeDirectory.Parent.FullName 'Config\machine.config'
+# x64 machine.config: <Framework64>\v4.0.30319\Config\machine.config (the same rule as Machine64Config)
+$runtimeDirectory = [Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory().TrimEnd('\')
+$machineConfig = Join-Path $runtimeDirectory 'Config\machine.config'
 
 $script:failures = @()
 $script:checks = 0
