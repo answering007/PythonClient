@@ -22,15 +22,17 @@ Pike.PythonClient64-2.1.0\
   install.cmd  verify.cmd  uninstall.cmd
   lib\        Pike.PythonClient64.dll/.xml/.pdb, Python.Runtime.dll,
               Pike.PythonClient64.Install.dll/.xml
-  scripts\    install.ps1, uninstall.ps1, Verify-Installation.ps1
+  scripts\    install.ps1, uninstall.ps1, Verify-Installation.ps1, Installation.Common.ps1
   samples\power-query\   ready-made workbooks
 ```
 
 `install.cmd` unblocks the extracted files (Mark-of-the-Web), requests elevation, reports the prerequisites and calls
-`scripts\install.ps1 -SourcePath lib`. The script copies the six files to `%ProgramFiles%\Pike\PythonClient64`,
-publishes `Pike.PythonClient64.dll` and `Python.Runtime.dll` into the GAC (`GAC_64`) and writes the fully qualified
-provider record into the x64 `machine.config` (a backup `machine.config.bak-<utc>` is created). The result is verified
-in a new process: the registered type must be loaded from `...\assembly\GAC_*`.
+`scripts\install.ps1 -SourcePath lib`. The script publishes three assemblies into the GAC —
+`Pike.PythonClient64` (`GAC_64`), `Python.Runtime` (pythonnet) and `Pike.PythonClient64.Install` (the registration
+code, so uninstall works without the archive) — and writes the fully qualified provider record into the x64
+`machine.config` (a backup `machine.config.bak-<utc>` is created). **No files are copied to `%ProgramFiles%`**: the GAC
+is the only installation location. The result is verified in a new process: the registered type must be loaded from
+`...\assembly\GAC_*`.
 
 4. Restart Excel: Power Query keeps the provider inside the Excel process.
 5. Check the installation at any time with `verify.cmd` (read-only, no administrator rights).
@@ -43,9 +45,10 @@ install.cmd -NoPause
 powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install.ps1 -SourcePath lib
 ```
 
-Advanced switches of `install.ps1`: `-InstallPath <dir>`, `-SkipGac`, `-SkipMachineConfig`,
-`-SkipPrerequisiteCheck`, `-PythonDll <path to python3xx.dll>` (used only by the prerequisite report).
-`install.ps1` is idempotent: the same assembly identity is replaced, the `machine.config` record is updated in place.
+Advanced switches of `install.ps1`: `-KeepFiles` (+ `-InstallPath <dir>`, a diagnostics copy of the assemblies),
+`-SkipGac`, `-SkipMachineConfig`, `-SkipPrerequisiteCheck`, `-PythonDll <path to python3xx.dll>` (used only by the
+prerequisite report). `install.ps1` is idempotent: the same assembly identity is replaced, the `machine.config` record
+is updated in place, and an old `%ProgramFiles%\Pike\PythonClient64` folder of version 2.1.0 is cleaned up.
 
 ## Install from source (developers)
 
@@ -65,24 +68,33 @@ The distribution ZIP for a release is built by `scripts\build-distribution.ps1` 
 
 | Item | Location |
 |---|---|
-| `Pike.PythonClient64.dll`, `.xml`, `Pike.PythonClient64.Install.dll`, `.xml`, `Python.Runtime.dll`, `.xml` | `%ProgramFiles%\Pike\PythonClient64` |
-| `Pike.PythonClient64` (provider) and `Python.Runtime` (pythonnet) | `GAC_64` |
+| `Pike.PythonClient64` (provider) | `GAC_64` |
+| `Python.Runtime` (pythonnet dependency) | GAC (`GAC_MSIL`) |
+| `Pike.PythonClient64.Install` (registration code used by the scripts) | `GAC_64` |
 | provider record, invariant `Pike.PythonClient64.Data.PythonProviderFactory` | x64 `machine.config` → `configuration/system.data/DbProviderFactories` |
 
-The record alone is not enough: both assemblies must be in the GAC, otherwise the runtime cannot resolve the type
-outside the Excel folder. `AssemblyVersion` is fixed for the whole 2.x line, so an upgrade replaces the same GAC entry
-and the existing `machine.config` record stays valid.
+Nothing is copied to `%ProgramFiles%`: the GAC is the single source of truth, so there are no duplicated files that can
+diverge from the published assemblies. `-KeepFiles` (with `-InstallPath`) creates a diagnostics copy of the files
+(`.dll/.xml/.pdb`) when support needs them next to a known path; it is not used by the runtime.
+
+The record alone is not enough: both runtime assemblies must be in the GAC, otherwise the runtime cannot resolve the
+type outside the Excel folder. `AssemblyVersion` is fixed for the whole 2.x line, so an upgrade replaces the same GAC
+entry and the existing `machine.config` record stays valid.
 
 ## Verify
 
 ```powershell
 .\scripts\Verify-Installation.ps1                       # repository: compared with bin\Release
 powershell -File scripts\Verify-Installation.ps1 -ReferencePath lib   # distribution ZIP
+
+# diagnostics copy created by install.ps1 -KeepFiles:
+.\scripts\Verify-Installation.ps1 -InstallPath D:\temp\pike -ReferencePath D:\temp\pike\lib
 ```
 
-18 checks: installed files vs the reference build (SHA256), `machine.config` record and its version, GAC entries,
-the GAC copy of the provider, the type resolved by `DbProviderFactories` in a new process and the presence of the
-polars reader in the installed build. Exit code `1` with the failing check names; no administrator rights required.
+13 checks by default: the three GAC entries, the provider resolved by `DbProviderFactories` in a new process, the
+`machine.config` record and its version, the GAC copy compared with the reference build (SHA256), the polars reader in
+the installed build and the absence of the legacy `%ProgramFiles%` folder. `-InstallPath` adds the diagnostics-copy
+checks (folder and file hashes). Exit code `1` with the failing check names; no administrator rights required.
 
 ## Uninstall
 
@@ -91,9 +103,12 @@ uninstall.cmd                # distribution ZIP (elevated)
 .\scripts\uninstall.ps1      # repository (elevated)
 ```
 
-The `machine.config` record is removed first, then the GAC entries, then the files. Run the uninstall **before**
-deleting the installation folder: `GacRemove` needs the file path, a deleted folder leaves an unreachable GAC entry
-(the script prints a warning with the manual `gacutil` command in that case).
+The assemblies are resolved by their GAC folders, so the uninstall does not need the archive or an installation folder:
+the `machine.config` record is removed first (backup), then `Pike.PythonClient64`, `Python.Runtime` and
+`Pike.PythonClient64.Install` are removed from the GAC, and the result is verified. An assembly that is still loaded by
+a running process stays in the GAC until that process exits — the script reports it and exits with `1`, so close Excel
+/ Visual Studio and run it again. An optional `-InstallPath` folder and the legacy `%ProgramFiles%\Pike\PythonClient64`
+folder are cleaned up when present.
 
 ## Troubleshooting
 

@@ -66,7 +66,8 @@ jobs:
         shell: pwsh
         run: ./scripts/build-distribution.ps1 -SkipBuild
 
-      # Reproduces the user scenario: the ZIP is extracted and the bundled scripts install it from "lib"
+      # Reproduces the user scenario: the ZIP is extracted and the bundled scripts install it from "lib".
+      # The installation publishes the assemblies into the GAC only, so no folder is expected in Program Files
       - name: Install from the distribution ZIP (user scenario)
         shell: powershell
         run: |
@@ -76,19 +77,23 @@ jobs:
           if (-not $zip) { throw 'The distribution ZIP is not found, run scripts/build-distribution.ps1 first' }
 
           $tempRoot = Join-Path $env:TEMP ('pike-dist-' + [Guid]::NewGuid().ToString('N'))
-          $installPath = Join-Path $env:TEMP ('pike-dist-install-' + [Guid]::NewGuid().ToString('N'))
           Expand-Archive -LiteralPath $zip.FullName -DestinationPath $tempRoot
           $stage = (Get-ChildItem -LiteralPath $tempRoot -Directory | Select-Object -First 1).FullName
+          $installFolder = Join-Path $env:ProgramFiles 'Pike\PythonClient64'
 
           try {
-            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$stage\scripts\install.ps1" -SourcePath "$stage\lib" -InstallPath $installPath
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$stage\scripts\install.ps1" -SourcePath "$stage\lib"
             if ($LASTEXITCODE -ne 0) { throw "install.ps1 failed with exit code $LASTEXITCODE" }
 
-            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$stage\scripts\Verify-Installation.ps1" -ReferencePath "$stage\lib" -InstallPath $installPath
+            if (Test-Path -LiteralPath $installFolder) {
+              throw "The installation must not copy files to '$installFolder' any more"
+            }
+
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$stage\scripts\Verify-Installation.ps1" -ReferencePath "$stage\lib"
             if ($LASTEXITCODE -ne 0) { throw "Verify-Installation.ps1 failed with exit code $LASTEXITCODE" }
           }
           finally {
-            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$stage\scripts\uninstall.ps1" -InstallPath $installPath
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$stage\scripts\uninstall.ps1"
             Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
           }
 

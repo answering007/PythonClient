@@ -1286,3 +1286,44 @@ Invoke-Tests.ps1 -Category All           # 176 / 176 (C# не менялся)
 **Не делали (по согласованию):** тесты в пользовательском ZIP (`samples\tests`), `.py`-скрипты в `samples\python`,
 отдельный `-tests.zip` в релизе.
 
+
+### 11.13 Установка только в GAC (без копирования в Program Files) — ✅ (2026-11-01)
+
+**Вопрос:** насколько нужно копировать библиотеки в `%ProgramFiles%`? Ответ по коду: в рантайме папку никто не
+читает — Excel/PQ резолвят провайдера по полному имени из `machine.config` через GAC; папка была нужна только
+скриптам (`GacInstall`/`GacRemove` по пути, загрузка installer-сборки, `Verify-Installation.ps1`).
+
+**Сделано (вариант C — GAC-only, uninstall автономен)**
+- `scripts\Installation.Common.ps1` (новый): `Get-GacAssemblyPath`/`Get-InstalledAssemblyPaths` (поиск по
+  `<GAC_64|GAC_MSIL>\<name>\v4.0_*`), `New-DbProviderInstallation` (загрузка installer-сборки из GAC),
+  `Remove-LegacyInstallFolder` (удаляет только известные файлы, пустой каталог убирает).
+- `install.ps1`: публикует **три** сборки (`Pike.PythonClient64`, `Python.Runtime`, `Pike.PythonClient64.Install`) —
+  installer-сборка в GAC нужна, чтобы `uninstall` работал без архива; копирование в `%ProgramFiles%` по умолчанию
+  отключено, диагностический режим — `-KeepFiles [-InstallPath <dir>]`; после установки чистится legacy-папка 2.1.0;
+  итоговый вывод различает `-SkipGac`/`-SkipMachineConfig`.
+- `uninstall.ps1` переписан: сборки ищутся по GAC-папкам, `machine.config` снимается через installer-сборку из GAC,
+  `GacRemove` вызывается по GAC-путям, результат проверяется (загруженная процессом сборка остаётся в GAC →
+  предупреждение + exit 1), затем чистятся `-InstallPath` и legacy-папка.
+- `Verify-Installation.ps1`: проверки папки выполняются только при явном `-InstallPath`; новые проверки —
+  «installer assembly is published in the GAC» и «legacy install folder is removed»; базовый набор — **13** проверок.
+- `build-distribution.ps1`: в ZIP `scripts\` добавлен `Installation.Common.ps1`; `ci.yml` zip-e2e ставит без
+  `-InstallPath` и проверяет, что `%ProgramFiles%\Pike\PythonClient64` **не создан**.
+- Документация: `docs\installation.md` (что установлено — только GAC + `machine.config`, `-KeepFiles`, проверки,
+  uninstall без архива), `README.md`, `docs\power-query.md`, `scripts\dist\README.txt`, `CHANGELOG.md`.
+
+**Проверка (локально, без прав администратора)**
+```
+парсинг всех scripts\*.ps1                 # 0 ошибок
+install.ps1 -SkipGac -SkipMachineConfig    # «Installation finished with skipped steps», ничего не копируется
+Verify-Installation.ps1 -ReferencePath <zip>\lib
+                                           # 13 проверок; провайдер снят → FAIL по GAC/machine.config,
+                                           # «Diagnostics copy: skip», exit 1 (корректно)
+build-distribution.ps1 -SkipBuild          # scripts\ = 4 файла, ZIP пересобран
+Invoke-Tests.ps1 -Category All             # 176 / 176 (C# не меняется)
+```
+
+**Проверить вручную (admin):** `install.cmd` → 3 записи GAC + `machine.config`, папки в `Program Files` нет,
+legacy-папка удалена; `verify.cmd` → «All N installation checks passed»; `uninstall.cmd` (без архива, из другого
+каталога) → всё снято, `verify.cmd` снова показывает FAIL по GAC. Ключевой риск — `GacRemove` по GAC-пути:
+если Fusion откажется, скрипт сообщит об этом (`gacutil /u <name>`), и потребуется fallback через `IAssemblyCache`.
+

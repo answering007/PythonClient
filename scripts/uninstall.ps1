@@ -1,32 +1,41 @@
-﻿<#
+<#
 .SYNOPSIS
-    Uninstalls the Pike.PythonClient64 ADO.NET provider (x64): removes the machine.config registration, the assemblies
-    from the GAC and the installed files.
+    Uninstalls the Pike.PythonClient64 ADO.NET provider (x64): removes the machine.config registration and the
+    assemblies from the global assembly cache.
 
 .DESCRIPTION
-    The provider record is removed from the 64-bit machine.config (machine.config is backed up before the change),
-    then Pike.PythonClient64.dll and Python.Runtime.dll are removed from the global assembly cache with
-    System.EnterpriseServices.Internal.Publish (no gacutil / Windows SDK is required), and finally the installed files
-    are deleted. The GAC must be cleaned even if the files are gone: a GAC assembly keeps being resolved by Excel
-    after the folder is deleted.
+    The installation publishes the assemblies into the GAC only, so the script resolves them by their GAC folders
+    (<GAC_64|GAC_MSIL>\<name>\v4.0_*) instead of a known installation path: the distribution archive (or the
+    repository build output) is not needed to uninstall.
+    The provider record is removed from the 64-bit machine.config first (machine.config is backed up before the
+    change), then Pike.PythonClient64.dll, Python.Runtime.dll and Pike.PythonClient64.Install.dll are removed from the
+    GAC. The result is verified: an assembly that is still resolvable is reported with the manual gacutil command.
+    An optional -InstallPath folder (created by install.ps1 -KeepFiles) and the legacy 2.1.0 folder
+    %ProgramFiles%\Pike\PythonClient64 are cleaned up when present.
     Administrator rights and 64-bit Windows PowerShell 5.1 are required.
 
 .PARAMETER InstallPath
-    Folder the provider was installed to. Default is %ProgramFiles%\Pike\PythonClient64
+    Optional folder created by install.ps1 -KeepFiles; its provider files are removed
 
 .PARAMETER SkipMachineConfig
-    Installed files are removed, machine.config is not changed
+    The GAC entries are removed, machine.config is not changed
 
 .PARAMETER SkipGac
-    Installed files are removed, the GAC is not changed
+    machine.config is updated, the GAC is not changed
 
 .EXAMPLE
     .\scripts\uninstall.ps1
+
+.EXAMPLE
+    .\scripts\uninstall.ps1 -SkipGac
+
+.EXAMPLE
+    .\scripts\uninstall.ps1 -InstallPath D:\temp\pike
 #>
 #Requires -Version 5.1
 [CmdletBinding()]
 param(
-    [string]$InstallPath = (Join-Path $env:ProgramFiles 'Pike\PythonClient64'),
+    [string]$InstallPath,
     [switch]$SkipMachineConfig,
     [switch]$SkipGac
 )
@@ -53,71 +62,79 @@ if (-not $SkipGac -and -not $isAdministrator) {
     throw 'Administrator rights are required to update the global assembly cache. Run the script as administrator or use -SkipGac'
 }
 
-$files = @(
-    'Pike.PythonClient64.dll',
-    'Pike.PythonClient64.xml',
-    'Python.Runtime.dll',
-    'Python.Runtime.xml',
-    'Pike.PythonClient64.Install.dll',
-    'Pike.PythonClient64.Install.xml'
-)
+# GAC lookup and the legacy install folder helpers (the same file is used by install.ps1 and Verify-Installation.ps1)
+. (Join-Path $PSScriptRoot 'Installation.Common.ps1')
+
+$machineConfig = Join-Path ([Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory().TrimEnd('\')) 'Config\machine.config'
+$paths = Get-InstalledAssemblyPaths
+
+Write-Host ''
+Write-Host 'Published assemblies' -ForegroundColor Cyan
+foreach ($entry in $paths.GetEnumerator()) {
+    if ($entry.Value) {
+        Write-Host ("  {0,-14} {1}" -f $entry.Key, $entry.Value)
+    }
+    else {
+        Write-Host ("  {0,-14} not found in the GAC" -f $entry.Key)
+    }
+}
 
 if (-not $SkipMachineConfig) {
-    $runtimeAssemblyPath = Join-Path $InstallPath 'Pike.PythonClient64.dll'
-    $installAssemblyPath = Join-Path $InstallPath 'Pike.PythonClient64.Install.dll'
-    if (-not (Test-Path $runtimeAssemblyPath) -or -not (Test-Path $installAssemblyPath)) {
-        throw "Provider assemblies are not found in '$InstallPath', use -SkipMachineConfig to remove the files only"
+    if (-not $paths.Installer) {
+        Write-Warning "The installer assembly is not published in the GAC, so '$machineConfig' is not changed. Remove the 'Pike.PythonClient64.Data.PythonProviderFactory' record manually or rerun install.ps1"
     }
-
-    Add-Type -Path $runtimeAssemblyPath
-    Add-Type -Path $installAssemblyPath
-
-    $installation = New-Object Pike.PythonClient64.Install.DbProviderInstallation
-    $machineConfig = [Pike.PythonClient64.Install.DbProviderInstallation]::Machine64Config
-
-    $installation.UnregisterProvider($machineConfig)
-    Write-Host "Provider is unregistered from '$machineConfig'"
+    else {
+        $installation = New-DbProviderInstallation -AssemblyPath $paths.Installer
+        $installation.UnregisterProvider($machineConfig)
+        Write-Host "Provider is unregistered from '$machineConfig'"
+    }
 }
+
+$failures = @()
 
 if (-not $SkipGac) {
     # System.EnterpriseServices (System.EnterpriseServices.Internal.Publish) is not loaded by default
     Add-Type -AssemblyName System.EnterpriseServices
     $publish = New-Object System.EnterpriseServices.Internal.Publish
 
-    foreach ($name in @('Pike.PythonClient64.dll', 'Python.Runtime.dll')) {
-        $filePath = Join-Path $InstallPath $name
-        if (-not (Test-Path $filePath)) {
-            # GacRemove takes a file path, so a deleted folder leaves an unreachable GAC entry
-            Write-Warning "'$filePath' is not found, the GAC entry is not removed: reinstall and run the uninstall again or remove it with 'gacutil /u $([IO.Path]::GetFileNameWithoutExtension($name))'"
-            continue
-        }
+    $targets = @(
+        @{ Name = $script:ProviderAssemblyName; Path = $paths.Provider },
+        @{ Name = $script:PythonRuntimeAssemblyName; Path = $paths.PythonRuntime },
+        @{ Name = $script:InstallerAssemblyName; Path = $paths.Installer }
+    )
+
+    foreach ($target in $targets) {
+        if (-not $target.Path) { continue }
 
         try {
-            $publish.GacRemove($filePath)
-            Write-Host "Removed from the GAC: $name"
+            # GacRemove takes a file path; the GAC copy path works as well as an installation folder path
+            $publish.GacRemove($target.Path)
+            Write-Host "Removed from the GAC: $($target.Name)"
         }
         catch {
-            Write-Warning "Unable to remove '$name' from the GAC: $($_.Exception.Message)"
+            Write-Warning "Unable to remove '$($target.Name)' from the GAC: $($_.Exception.Message)"
         }
     }
-}
 
-foreach ($file in $files) {
-    $filePath = Join-Path $InstallPath $file
-    if (-not (Test-Path $filePath)) {
-        continue
-    }
+    # A loaded assembly stays in the GAC until the using processes exit, so the result is verified
+    foreach ($target in $targets) {
+        $remaining = Get-GacAssemblyPath -Name $target.Name
+        if (-not $remaining) { continue }
 
-    Remove-Item -LiteralPath $filePath -Force
-    Write-Host "Removed $file"
-}
-
-if (Test-Path $InstallPath) {
-    $rest = Get-ChildItem -LiteralPath $InstallPath -Force
-    if (-not $rest) {
-        Remove-Item -LiteralPath $InstallPath -Force
-        Write-Host "Removed '$InstallPath'"
+        $failures += $target.Name
+        Write-Warning "'$($target.Name)' is still published in the GAC ('$remaining'). Close Excel / Visual Studio and rerun the script, or remove it with 'gacutil /u $($target.Name)'"
     }
 }
 
-Write-Host 'Uninstall completed'
+# The installation does not copy files any more: only the legacy 2.1.0 folder and an explicit -KeepFiles folder remain
+Remove-LegacyInstallFolder -Path $script:LegacyInstallPath -Quiet
+if (-not [string]::IsNullOrWhiteSpace($InstallPath)) {
+    Remove-LegacyInstallFolder -Path $InstallPath
+}
+
+Write-Host ''
+if ($failures.Count -gt 0) {
+    throw "Uninstall is not complete: $($failures -join ', ') is still published in the global assembly cache"
+}
+
+Write-Host 'Uninstall completed' -ForegroundColor Green

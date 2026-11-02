@@ -133,8 +133,9 @@ for a wizard UI.
 - `Pike.PythonClient64.<version>.nupkg` + `.snupkg` — **runtime only** (no installer dependency): `lib\net48` assembly,
   XML documentation, README and the `pythonnet 3.0.5` dependency;
 - `Pike.PythonClient64\` — flat folder with the **net48** build (`Pike.PythonClient64.dll/.xml/.pdb`,
-  `Python.Runtime.dll`) **and** `Pike.PythonClient64.Install.dll/.xml`; used by `scripts\install.ps1` and for manual
-  deployment to Power Query / Excel;
+  `Python.Runtime.dll`) **and** `Pike.PythonClient64.Install.dll/.xml`; used as the installation payload by
+  `scripts\install.ps1` (the installation publishes the assemblies into the GAC, no copy in `%ProgramFiles%`) and for
+  manual deployment to a .NET host;
 - `Pike.PythonClient64\Tests\Python\` — sources of the Python integration tests (`Pike.PythonClient.Test\Tests\Python`),
   published for review and debugging. The installation copies only the named assemblies and the NuGet package stays
   runtime-only, so the folder is never installed; it is uploaded as a part of the CI build artifact.

@@ -16,9 +16,10 @@ dotnet build PythonClient.sln -c Release
 
 4. Restart Excel so the process reads the updated `machine.config`.
 
-`install.ps1` puts `Pike.PythonClient64.dll` and `Python.Runtime.dll` into `GAC_64` and writes the fully qualified type
-name into `machine.config`. Both steps are required: Excel probes neither the GAC without a full name nor the
-`%ProgramFiles%\Pike\PythonClient64` folder.
+`install.ps1` publishes `Pike.PythonClient64`, `Python.Runtime` and `Pike.PythonClient64.Install` into the GAC
+(`GAC_64` / `GAC_MSIL`) and writes the fully qualified type name into `machine.config`; no files are copied to
+`%ProgramFiles%`. Both steps are required: Excel probes the provider folder neither as an application base nor without
+a full assembly name, so only the GAC entries plus the `machine.config` record make the provider resolvable.
 
 ## Basic query
 

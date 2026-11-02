@@ -73,8 +73,9 @@ New-Item -ItemType Directory -Force -Path $libPath, $scriptsPath, $samplesPath |
 # Payload: the assemblies installed by scripts\install.ps1
 Get-ChildItem -LiteralPath $payloadSource -File | Copy-Item -Destination $libPath -Force
 
-# Installation scripts (install.cmd -> scripts\install.ps1 with -SourcePath "..\lib")
-foreach ($script in @('install.ps1', 'uninstall.ps1', 'Verify-Installation.ps1')) {
+# Installation scripts (install.cmd -> scripts\install.ps1 with -SourcePath "..\lib"); Installation.Common.ps1 is
+# dot-sourced by all three scripts and carries the GAC lookup / legacy folder helpers
+foreach ($script in @('install.ps1', 'uninstall.ps1', 'Verify-Installation.ps1', 'Installation.Common.ps1')) {
     Copy-Item -LiteralPath (Join-Path $PSScriptRoot $script) -Destination $scriptsPath -Force
 }
 

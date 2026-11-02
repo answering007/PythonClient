@@ -18,9 +18,9 @@ Install
 -------
   1. Extract this archive to a local folder (do not run it from inside the ZIP).
   2. Run install.cmd and confirm the UAC prompt.
-     The script prints the prerequisites, copies the files to
-     %ProgramFiles%\Pike\PythonClient64, publishes Pike.PythonClient64.dll and
-     Python.Runtime.dll into the GAC and registers the provider in machine.config.
+     The script prints the prerequisites, publishes Pike.PythonClient64.dll, Python.Runtime.dll
+     and Pike.PythonClient64.Install.dll into the GAC and registers the provider in
+     machine.config. No files are copied to %ProgramFiles%.
   3. Restart Excel (Power Query keeps the provider inside the Excel process).
 
 Use in Power Query
@@ -40,15 +40,17 @@ Use in Power Query
 
 Verify / uninstall
 ------------------
-  verify.cmd      read-only check: installed files vs this archive, machine.config record,
-                  GAC entries, the type resolved in a new process (no administrator rights).
-  uninstall.cmd   removes the machine.config record, the GAC entries and the files.
+  verify.cmd      read-only check: GAC entries, machine.config record and the type resolved in a
+                  new process, compared with the payload of this archive (no administrator rights).
+  uninstall.cmd   removes the machine.config record and the GAC entries. The archive is not needed
+                  for uninstall: the assemblies are resolved by their GAC folders.
 
 Silent / unattended
 -------------------
   install.cmd -NoPause
   powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install.ps1 -SourcePath lib
-  (advanced: -InstallPath "D:\path", -SkipGac, -SkipMachineConfig, -SkipPrerequisiteCheck)
+  (advanced: -SkipGac, -SkipMachineConfig, -SkipPrerequisiteCheck;
+   diagnostics: -KeepFiles -InstallPath "D:\path" copies the assemblies next to a known path)
 
 Troubleshooting
 ---------------

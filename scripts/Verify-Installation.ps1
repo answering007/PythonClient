@@ -1,24 +1,26 @@
 <#
 .SYNOPSIS
-    Verifies the installed Pike.PythonClient64 provider: files, machine.config record and GAC entries.
+    Verifies the installed Pike.PythonClient64 provider: GAC entries, machine.config record and, optionally, a
+    diagnostics copy of the files.
 
 .DESCRIPTION
     Read-only check: neither the files, nor machine.config, nor the GAC are changed, administrator rights are not
-    required. The script verifies that the machine runs the build produced by this repository:
-      - the install folder contains the provider, the installer and pythonnet assemblies;
-      - the installed provider and pythonnet are the same files as the reference build (SHA256): the local build output
-        bin\<Configuration>\net48, or the "lib" folder of the distribution ZIP (-ReferencePath);
-      - the x64 machine.config contains the fully qualified provider record and the registered version matches the
-        installed assembly (a Debug build installed by mistake is reported here);
-      - the provider and pythonnet are visible in the global assembly cache, the provider is resolved from the GAC in a
-        NEW process and the GAC copy is the same file as the installed one (a stale GAC entry is the usual reason for
-        "the old code is used after the reinstall");
+    required. The installation publishes the assemblies into the global assembly cache only, so the GAC is inspected
+    first:
+      - Pike.PythonClient64.dll, Python.Runtime.dll and Pike.PythonClient64.Install.dll are published in the GAC and the
+        provider is resolved from the GAC in a NEW process;
+      - the registered type in the x64 machine.config is fully qualified and its version matches the installed assembly;
       - DbProviderFactories.GetFactory resolves the invariant name in a NEW process;
-      - the installed assembly contains the polars reader (Pike.PythonClient64.FrameReaders.PolarsFrameReader).
+      - the installed build contains the polars reader (Pike.PythonClient64.FrameReaders.PolarsFrameReader);
+      - the GAC copy is the same file as the reference build (SHA256: bin\<Configuration>\net48 of this repository, or
+        the "lib" folder of the distribution ZIP with -ReferencePath);
+      - the legacy 2.1.0 folder (%ProgramFiles%\Pike\PythonClient64) is gone;
+      - with -InstallPath: the diagnostics copy (-KeepFiles) contains the same files as the reference build.
     The exit code is 1 when a check fails.
 
 .PARAMETER InstallPath
-    Installed folder. Default is %ProgramFiles%\Pike\PythonClient64
+    Optional diagnostics folder created by install.ps1 -KeepFiles. Without it the folder checks are skipped: the
+    installation does not copy files any more.
 
 .PARAMETER ReferencePath
     Folder with the reference build the installed files are compared with. Default: bin\<Configuration>\net48 of this
@@ -34,15 +36,15 @@
     .\scripts\Verify-Installation.ps1
 
 .EXAMPLE
-    .\scripts\Verify-Installation.ps1 -InstallPath D:\temp\pike -SkipFileComparison
+    .\scripts\Verify-Installation.ps1 -ReferencePath 'C:\Downloads\Pike.PythonClient64-2.1.0\lib'
 
 .EXAMPLE
-    .\scripts\Verify-Installation.ps1 -ReferencePath 'C:\Downloads\Pike.PythonClient64-2.1.0\lib'
+    .\scripts\Verify-Installation.ps1 -InstallPath D:\temp\pike -ReferencePath D:\temp\pike\lib
 #>
 #Requires -Version 5.1
 [CmdletBinding()]
 param(
-    [string]$InstallPath = (Join-Path $env:ProgramFiles 'Pike\PythonClient64'),
+    [string]$InstallPath,
     [string]$ReferencePath,
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Release',
@@ -58,6 +60,9 @@ if ($PSVersionTable.PSEdition -ne 'Desktop') {
 if (-not [Environment]::Is64BitProcess) {
     throw '64-bit PowerShell is required: Pike.PythonClient64 is an x64 assembly'
 }
+
+# GAC lookup and the legacy install folder helpers (the same file is used by install.ps1 and uninstall.ps1)
+. (Join-Path $PSScriptRoot 'Installation.Common.ps1')
 
 $root = Split-Path -Parent $PSScriptRoot
 # Reference build: the local build output by default, the distribution payload when the script runs from a ZIP
@@ -80,9 +85,23 @@ $xPath = "/configuration/system.data/DbProviderFactories/add[@invariant='$invari
 $runtimeDirectory = [Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory().TrimEnd('\')
 $machineConfig = Join-Path $runtimeDirectory 'Config\machine.config'
 
-$providerFile = Join-Path $InstallPath 'Pike.PythonClient64.dll'
-$installerFile = Join-Path $InstallPath 'Pike.PythonClient64.Install.dll'
-$pythonRuntimeFile = Join-Path $InstallPath 'Python.Runtime.dll'
+# The installation publishes the assemblies into the GAC only; -InstallPath enables the -KeepFiles folder checks
+$paths = Get-InstalledAssemblyPaths
+$checkFolder = -not [string]::IsNullOrWhiteSpace($InstallPath)
+$providerFile = if ($checkFolder) { Join-Path $InstallPath 'Pike.PythonClient64.dll' } else { '' }
+$installerFile = if ($checkFolder) { Join-Path $InstallPath 'Pike.PythonClient64.Install.dll' } else { '' }
+$pythonRuntimeFile = if ($checkFolder) { Join-Path $InstallPath 'Python.Runtime.dll' } else { '' }
+
+# Identity for the fresh-process checks: the published assembly, otherwise the reference build
+$referenceProvider = Join-Path $runtimePath 'Pike.PythonClient64.dll'
+$referencePythonRuntime = Join-Path $runtimePath 'Python.Runtime.dll'
+$providerAssemblyPath = if ($paths.Provider) { $paths.Provider } elseif (Test-Path -LiteralPath $referenceProvider) { $referenceProvider } else { '' }
+$pythonRuntimeAssemblyPath = if ($paths.PythonRuntime) { $paths.PythonRuntime } elseif (Test-Path -LiteralPath $referencePythonRuntime) { $referencePythonRuntime } else { '' }
+
+$providerName = if ($providerAssemblyPath) { [Reflection.AssemblyName]::GetAssemblyName($providerAssemblyPath) } else { $null }
+$providerFullName = if ($providerName) { $providerName.FullName } else { '' }
+$providerVersion = if ($providerName) { $providerName.Version.ToString() } else { '' }
+$pythonRuntimeFullName = if ($pythonRuntimeAssemblyPath) { [Reflection.AssemblyName]::GetAssemblyName($pythonRuntimeAssemblyPath).FullName } else { '' }
 
 $script:failures = @()
 $script:checks = 0
@@ -145,11 +164,6 @@ function Get-FileHashText([string]$path) {
     return (Get-FileHash -LiteralPath $path -Algorithm SHA256).Hash
 }
 
-$providerName = if (Test-Path -LiteralPath $providerFile) { [Reflection.AssemblyName]::GetAssemblyName($providerFile) } else { $null }
-$providerFullName = if ($providerName) { $providerName.FullName } else { '' }
-$providerVersion = if ($providerName) { $providerName.Version.ToString() } else { '' }
-$pythonRuntimeFullName = if (Test-Path -LiteralPath $pythonRuntimeFile) { [Reflection.AssemblyName]::GetAssemblyName($pythonRuntimeFile).FullName } else { '' }
-
 $record = $null
 try {
     $record = Get-ProviderRecord
@@ -162,55 +176,33 @@ $registeredType = if ($record) { $record.GetAttribute('type') } else { '' }
 $registeredVersion = if ($registeredType -match 'Version=([^,\s]+)') { $Matches[1] } else { '' }
 
 if (Get-Process -Name EXCEL -ErrorAction SilentlyContinue) {
-    Write-Warning 'Excel is running: close it before running install.ps1, the provider files and the GAC entries are replaced'
+    Write-Warning 'Excel is running: close it before running install.ps1, the GAC entries and machine.config are replaced'
 }
 
 Write-Host ''
-Write-Host "Provider folder:   $InstallPath" -ForegroundColor Cyan
+$providerLocation = if ($paths.Provider) { $paths.Provider } else { 'not found in the GAC' }
+Write-Host "Provider in GAC:   $providerLocation" -ForegroundColor Cyan
 Write-Host "machine.config:    $machineConfig" -ForegroundColor Cyan
 Write-Host "Installed version: $providerVersion" -ForegroundColor DarkGray
 Write-Host "Registered type:   $registeredType" -ForegroundColor DarkGray
 
 Write-Host ''
-Write-Host 'Files' -ForegroundColor Cyan
-
-Assert-That 'install folder exists' { Test-Path -LiteralPath $InstallPath }
-Assert-That 'Pike.PythonClient64.dll is installed' { Test-Path -LiteralPath $providerFile }
-Assert-That 'Pike.PythonClient64.Install.dll is installed' { Test-Path -LiteralPath $installerFile }
-Assert-That 'Python.Runtime.dll is installed' { Test-Path -LiteralPath $pythonRuntimeFile }
+Write-Host 'Reference build' -ForegroundColor Cyan
 
 if ($SkipFileComparison) {
-    Write-Host '  skip   comparison with the build output (-SkipFileComparison)' -ForegroundColor DarkGray
+    Write-Host '  skip   comparison with the reference build (-SkipFileComparison)' -ForegroundColor DarkGray
 }
 else {
     Assert-That "reference build exists ($runtimePath)" {
-        Test-Path -LiteralPath (Join-Path $runtimePath 'Pike.PythonClient64.dll')
+        (Test-Path -LiteralPath $referenceProvider) -and (Test-Path -LiteralPath $referencePythonRuntime)
     }
-    Assert-That "installed provider matches $referenceName (SHA256)" {
-        $expected = Get-FileHashText (Join-Path $runtimePath 'Pike.PythonClient64.dll')
-        $expected -and $expected -eq (Get-FileHashText $providerFile)
-    }
-    Assert-That "installed pythonnet matches $referenceName (SHA256)" {
-        $expected = Get-FileHashText (Join-Path $runtimePath 'Python.Runtime.dll')
-        $expected -and $expected -eq (Get-FileHashText $pythonRuntimeFile)
-    }
-}
-
-Write-Host ''
-Write-Host 'machine.config' -ForegroundColor Cyan
-
-Assert-That 'provider record exists' { $null -ne $record }
-Assert-That 'record contains the fully qualified type name' {
-    $registeredType -like "*$invariant, Pike.PythonClient64, Version=*Culture=neutral, PublicKeyToken=*"
-}
-Assert-That 'registered version matches the installed assembly' {
-    $registeredVersion -and $providerVersion -and $registeredVersion -eq $providerVersion
 }
 
 Write-Host ''
 Write-Host 'Global assembly cache (checked in a new process)' -ForegroundColor Cyan
 
-# The GAC copy is loaded, not the install folder: a stale GAC entry is what makes Excel run the old code
+Assert-That 'installer assembly is published in the GAC' { $null -ne $paths.Installer }
+
 $gacState = ''
 if ($providerFullName) {
     $gacState = Invoke-InFreshProcess @"
@@ -225,13 +217,9 @@ $polarsType = if ($gacParts.Count -gt 2) { $gacParts[2] } else { '' }
 
 Assert-That 'provider is visible in the GAC' { $gacParts[0] -eq 'True' }
 Assert-That 'provider is resolved from the GAC folder' { $gacLocation -like '*\assembly\GAC_*' }
-Assert-That 'GAC copy is the installed file (SHA256)' {
-    $gacHash = Get-FileHashText $gacLocation
-    $gacHash -and $gacHash -eq (Get-FileHashText $providerFile)
-}
 if (-not $SkipFileComparison) {
     Assert-That "GAC copy matches $referenceName (SHA256)" {
-        $expected = Get-FileHashText (Join-Path $runtimePath 'Pike.PythonClient64.dll')
+        $expected = Get-FileHashText $referenceProvider
         $expected -and $expected -eq (Get-FileHashText $gacLocation)
     }
 }
@@ -254,6 +242,49 @@ if ($pythonRuntimeFullName) {
     $pythonRuntimeGac = Invoke-InFreshProcess "[Reflection.Assembly]::Load('$pythonRuntimeFullName').GlobalAssemblyCache"
 }
 Assert-That 'pythonnet is visible in the GAC' { $pythonRuntimeGac.Trim() -eq 'True' }
+
+Write-Host ''
+Write-Host 'machine.config' -ForegroundColor Cyan
+
+Assert-That 'provider record exists' { $null -ne $record }
+Assert-That 'record contains the fully qualified type name' {
+    $registeredType -like "*$invariant, Pike.PythonClient64, Version=*Culture=neutral, PublicKeyToken=*"
+}
+Assert-That 'registered version matches the installed assembly' {
+    $registeredVersion -and $providerVersion -and $registeredVersion -eq $providerVersion
+}
+
+Write-Host ''
+Write-Host 'Legacy layout' -ForegroundColor Cyan
+
+Assert-That "legacy install folder is removed ($script:LegacyInstallPath)" {
+    -not (Test-Path -LiteralPath $script:LegacyInstallPath)
+}
+
+Write-Host ''
+if ($checkFolder) {
+    Write-Host "Diagnostics copy ($InstallPath)" -ForegroundColor Cyan
+
+    Assert-That 'diagnostics folder exists' { Test-Path -LiteralPath $InstallPath }
+    Assert-That 'Pike.PythonClient64.dll is copied' { Test-Path -LiteralPath $providerFile }
+    Assert-That 'Pike.PythonClient64.Install.dll is copied' { Test-Path -LiteralPath $installerFile }
+    Assert-That 'Python.Runtime.dll is copied' { Test-Path -LiteralPath $pythonRuntimeFile }
+
+    if (-not $SkipFileComparison) {
+        Assert-That "copied provider matches $referenceName (SHA256)" {
+            $expected = Get-FileHashText $referenceProvider
+            $expected -and $expected -eq (Get-FileHashText $providerFile)
+        }
+        Assert-That "copied pythonnet matches $referenceName (SHA256)" {
+            $expected = Get-FileHashText $referencePythonRuntime
+            $expected -and $expected -eq (Get-FileHashText $pythonRuntimeFile)
+        }
+    }
+}
+else {
+    Write-Host 'Diagnostics copy' -ForegroundColor Cyan
+    Write-Host '  skip   no -InstallPath: the installation publishes the GAC entries only' -ForegroundColor DarkGray
+}
 
 Write-Host ''
 if ($script:failures.Count -gt 0) {
