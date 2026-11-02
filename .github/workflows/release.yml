@@ -1,0 +1,88 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: 'x64'
+
+      - name: Install Python packages
+        run: python -m pip install --upgrade pip numpy pandas polars
+
+      # The tag drives the release name and the asset names, so it must match Directory.Build.props
+      - name: Check the tag matches the project version
+        shell: pwsh
+        run: |
+          [xml]$buildProperties = Get-Content Directory.Build.props
+          $version = $buildProperties.Project.PropertyGroup.Version |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            Select-Object -First 1
+          $tag = $env:GITHUB_REF_NAME.TrimStart('v')
+          if ($tag -ne $version) {
+            throw "Tag '$env:GITHUB_REF_NAME' does not match the project version '$version' (Directory.Build.props)"
+          }
+          Write-Host "Releasing version $version"
+
+      - name: Restore and build
+        run: dotnet build PythonClient.sln -c Release
+
+      - name: Unit tests (no Python required)
+        shell: pwsh
+        run: ./scripts/test/Invoke-Tests.ps1 -Category Unit -Configuration Release -NoBuild
+
+      - name: Integration tests (Python + pandas + polars)
+        shell: pwsh
+        env:
+          PYTHONNET_TEST_DLL: ${{ env.pythonLocation }}\python311.dll
+        run: ./scripts/test/Invoke-Tests.ps1 -Category Python -Configuration Release -NoBuild -TimeoutSeconds 900
+
+      # Windows PowerShell 5.1 on purpose: the GAC is updated through System.EnterpriseServices.Internal.Publish
+      - name: Installation e2e (GAC + machine.config)
+        shell: powershell
+        run: ./scripts/test/Invoke-InstallE2E.ps1 -Configuration Release
+
+      - name: Pack (nuget + deploy folder)
+        shell: pwsh
+        run: ./scripts/pack.ps1
+
+      - name: Distribution ZIP (end-user package)
+        shell: pwsh
+        run: ./scripts/build-distribution.ps1 -SkipBuild
+
+      - name: Create GitHub release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $version = $env:GITHUB_REF_NAME.TrimStart('v')
+          $assets = @(
+            "artifacts/dist/Pike.PythonClient64-$version.zip",
+            "artifacts/dist/Pike.PythonClient64-$version.zip.sha256",
+            "artifacts/Pike.PythonClient64.$version.nupkg",
+            "artifacts/Pike.PythonClient64.$version.snupkg"
+          )
+
+          foreach ($asset in $assets) {
+            if (-not (Test-Path -LiteralPath $asset)) { throw "Release asset '$asset' is not found" }
+          }
+
+          gh release create $env:GITHUB_REF_NAME --verify-tag --title "Pike.PythonClient64 $version" --generate-notes @assets

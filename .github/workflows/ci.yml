@@ -62,11 +62,49 @@ jobs:
         shell: powershell
         run: ./scripts/test/Invoke-InstallE2E.ps1 -Configuration Release
 
+      - name: Distribution ZIP (end-user package)
+        shell: pwsh
+        run: ./scripts/build-distribution.ps1 -SkipBuild
+
+      # Reproduces the user scenario: the ZIP is extracted and the bundled scripts install it from "lib"
+      - name: Install from the distribution ZIP (user scenario)
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $zip = Get-ChildItem 'artifacts/dist/Pike.PythonClient64-*.zip' | Select-Object -First 1
+          if (-not $zip) { throw 'The distribution ZIP is not found, run scripts/build-distribution.ps1 first' }
+
+          $tempRoot = Join-Path $env:TEMP ('pike-dist-' + [Guid]::NewGuid().ToString('N'))
+          $installPath = Join-Path $env:TEMP ('pike-dist-install-' + [Guid]::NewGuid().ToString('N'))
+          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $tempRoot
+          $stage = (Get-ChildItem -LiteralPath $tempRoot -Directory | Select-Object -First 1).FullName
+
+          try {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$stage\scripts\install.ps1" -SourcePath "$stage\lib" -InstallPath $installPath
+            if ($LASTEXITCODE -ne 0) { throw "install.ps1 failed with exit code $LASTEXITCODE" }
+
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$stage\scripts\Verify-Installation.ps1" -ReferencePath "$stage\lib" -InstallPath $installPath
+            if ($LASTEXITCODE -ne 0) { throw "Verify-Installation.ps1 failed with exit code $LASTEXITCODE" }
+          }
+          finally {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$stage\scripts\uninstall.ps1" -InstallPath $installPath
+            Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
       - name: Upload NuGet package
         uses: actions/upload-artifact@v4
         with:
           name: Pike.PythonClient64-package
           path: artifacts/*.nupkg
+
+      - name: Upload distribution ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pike.PythonClient64-dist
+          path: |
+            artifacts/dist/Pike.PythonClient64-*.zip
+            artifacts/dist/Pike.PythonClient64-*.zip.sha256
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
