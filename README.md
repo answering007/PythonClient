@@ -134,7 +134,10 @@ for a wizard UI.
   XML documentation, README and the `pythonnet 3.0.5` dependency;
 - `Pike.PythonClient64\` — flat folder with the **net48** build (`Pike.PythonClient64.dll/.xml/.pdb`,
   `Python.Runtime.dll`) **and** `Pike.PythonClient64.Install.dll/.xml`; used by `scripts\install.ps1` and for manual
-  deployment to Power Query / Excel.
+  deployment to Power Query / Excel;
+- `Pike.PythonClient64\Tests\Python\` — sources of the Python integration tests (`Pike.PythonClient.Test\Tests\Python`),
+  published for review and debugging. The installation copies only the named assemblies and the NuGet package stays
+  runtime-only, so the folder is never installed; it is uploaded as a part of the CI build artifact.
 
 The version is defined once in `Directory.Build.props` (semver) and reflected in the assembly attributes,
 the NuGet package and `CHANGELOG.md`.

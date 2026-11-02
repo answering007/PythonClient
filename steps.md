@@ -1256,3 +1256,33 @@ Invoke-Tests.ps1 -Category All       # 176 / 176 (C# не менялся)
 **Осталось:** MSI на WiX как второй ассет релиза (тихое корпоративное развёртывание), Authenticode-подпись
 `.cmd`/`.ps1`, ручная проверка `install.cmd` (UAC + `Unblock-File`) на чистой машине.
 
+
+### 11.12 Исходники интеграционных тестов в artifacts — ✅ (2026-11-01)
+
+**Запрос:** папка `Pike.PythonClient.Test\Tests\Python` должна попадать в `artifacts`.
+
+**Сделано**
+- `scripts\pack.ps1`: после копирования payload в `artifacts\Pike.PythonClient64` добавляется `Tests\Python\*.cs`
+  (6 файлов, ~65 КБ) — только для ревью и отладки; в выводе строка `Test sources: 6 file(s) -> …`.
+- `scripts\install.ps1` **не менялся**: копируются только именованные сборки (`install.ps1:108-115`), поэтому каталог
+  `Tests` никогда не устанавливается. `build-distribution.ps1` берёт из payload только файлы
+  (`build-distribution.ps1:74`), поэтому `lib\` в ZIP остаётся прежним (6 файлов), а NuGet-пакет не затронут.
+- `.github\workflows\ci.yml`: в upload-пути артефакта `Pike.PythonClient64` добавлен
+  `artifacts/Pike.PythonClient64/Tests/**`.
+- Документация: README (состав `artifacts\`), CHANGELOG (`### Added`).
+
+**Проверка**
+```
+scripts\pack.ps1                         # Test sources: 6 file(s) -> artifacts\Pike.PythonClient64\Tests\Python
+Get-ChildItem artifacts\Pike.PythonClient64\Tests\Python\*.cs
+                                         # AsyncTests, ColumnTypesTests, CommandTests, EngineLifecycleTests,
+                                         # PolarsTypesTests, ScriptVariablesTests
+scripts\build-distribution.ps1 -SkipBuild # lib\ = 6 файлов, Tests\ в ZIP не попал
+install.ps1 -SourcePath artifacts\Pike.PythonClient64 -InstallPath <temp> -SkipGac -SkipMachineConfig
+                                         # установлены только 5 именованных файлов, Tests\ игнорируется
+Invoke-Tests.ps1 -Category All           # 176 / 176 (C# не менялся)
+```
+
+**Не делали (по согласованию):** тесты в пользовательском ZIP (`samples\tests`), `.py`-скрипты в `samples\python`,
+отдельный `-tests.zip` в релизе.
+

@@ -5,7 +5,9 @@
 .DESCRIPTION
     Produces in the output folder (<repository root>\artifacts by default):
       - Pike.PythonClient64.<version>.nupkg and .snupkg (symbols);
-      - Pike.PythonClient64\*.dll|*.xml|*.pdb — a flat folder for install.ps1 / manual deployment.
+      - Pike.PythonClient64\*.dll|*.xml|*.pdb — a flat folder for install.ps1 / manual deployment;
+      - Pike.PythonClient64\Tests\Python\*.cs — the Python integration test sources (review/debugging only,
+        the installation copies only the named assemblies and the NuGet package stays runtime-only).
 
 .PARAMETER Configuration
     Build configuration. Default is Release
@@ -73,6 +75,19 @@ foreach ($file in $files) {
     }
 
     Copy-Item -LiteralPath $source -Destination $deployPath -Force
+}
+
+# Test sources next to the payload: for review and debugging. scripts\install.ps1 copies only the named files,
+# so the folder is never installed; build-distribution.ps1 takes only files of this folder into the ZIP "lib"
+$testSourcesPath = Join-Path $root 'Pike.PythonClient.Test\Tests\Python'
+if (Test-Path -LiteralPath $testSourcesPath) {
+    $testsTarget = Join-Path $deployPath 'Tests\Python'
+    New-Item -ItemType Directory -Force -Path $testsTarget | Out-Null
+
+    $testSources = Get-ChildItem -LiteralPath $testSourcesPath -Filter '*.cs' -File
+    $testSources | Copy-Item -Destination $testsTarget -Force
+
+    Write-Host "Test sources: $($testSources.Count) file(s) -> '$testsTarget'"
 }
 
 Write-Host ''

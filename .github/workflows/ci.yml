@@ -115,6 +115,7 @@ jobs:
             Pike.PythonClient64/bin/Release/net48/Pike.PythonClient64.xml
             Pike.PythonClient64/bin/Release/net48/Pike.PythonClient64.pdb
             Pike.PythonClient64/bin/Release/net48/Python.Runtime.dll
+            artifacts/Pike.PythonClient64/Tests/**
 
   # Python / pandas compatibility matrix: one virtual environment per combination (uv)
   version-matrix:

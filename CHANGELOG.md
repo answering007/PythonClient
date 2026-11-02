@@ -20,6 +20,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
   verify and uninstall next steps.
 - `scripts\Verify-Installation.ps1 -ReferencePath` — compare the installed files with the ZIP payload — and
   `docs\installation.md` (release → silent → source → verify → uninstall → troubleshooting).
+- `scripts\pack.ps1` also publishes the Python integration test sources to
+  `artifacts\Pike.PythonClient64\Tests\Python` (uploaded with the CI build artifact). The installation copies only the
+  named assemblies, so the folder is never installed and the NuGet package stays runtime-only.
 - **polars support: a `polars.DataFrame` result is read directly, without converting it to pandas.** The provider
   detects the frame type by the python type of `result` (`pandas`/`polars` module name, no import of either package)
   and reads it column by column: `to_list()` for plain values and `to_physical()` with nanosecond scaling for
