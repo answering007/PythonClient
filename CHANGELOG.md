@@ -8,6 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
+- **End-user distribution.** `scripts\build-distribution.ps1` assembles `Pike.PythonClient64-<version>.zip` (the version
+  comes from `Directory.Build.props`): the six installed files, `install.cmd`/`verify.cmd`/`uninstall.cmd` wrappers
+  (UAC elevation, `Unblock-File` for the Mark-of-the-Web, `-ExecutionPolicy Bypass`, no PowerShell knowledge required),
+  the installation scripts, ready-made Power Query workbooks and `SHA256SUMS.txt`.
+  `.github\workflows\release.yml` publishes the ZIP, its checksum and the NuGet packages on a `v*` tag; CI installs from
+  the ZIP (the user scenario) after the regular installation e2e, so the archive cannot rot unnoticed.
+- `scripts\install.ps1 -SourcePath` — install from the ZIP payload instead of `bin\<Configuration>` — and
+  `-SkipPrerequisiteCheck`; the script now reports the machine prerequisites (.NET Framework 4.8, x64 Excel, a Python
+  installation with numpy/pandas; warnings only, the installation is never blocked) and prints the connection-string,
+  verify and uninstall next steps.
+- `scripts\Verify-Installation.ps1 -ReferencePath` — compare the installed files with the ZIP payload — and
+  `docs\installation.md` (release → silent → source → verify → uninstall → troubleshooting).
 - **polars support: a `polars.DataFrame` result is read directly, without converting it to pandas.** The provider
   detects the frame type by the python type of `result` (`pandas`/`polars` module name, no import of either package)
   and reads it column by column: `to_list()` for plain values and `to_physical()` with nanosecond scaling for

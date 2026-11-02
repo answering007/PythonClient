@@ -1209,3 +1209,50 @@ Excel 2024 x64 + PowerQuery - 01 - Basic example.xlsx   # запрос выпо�
   (`файл используется другим процессом`) — держало окно PowerShell, где ранее выполнялся `install.ps1` (`Add-Type`
   загружает сборку в процесс). Лечится закрытием этого окна; файл, который нельзя перезаписать, можно переименовать.
 
+
+### 11.11 Дистрибутив для конечного пользователя (release ZIP) — ✅ (2026-11-01)
+
+**Проблема.** Единственным документированным способом установки была сборка из исходников (`dotnet build` +
+`scripts\install.ps1`): пользователю нужны .NET SDK и репозиторий. GitHub Releases не существовали — CI публиковал
+только workflow-артефакты (скачивание под логином, срок 90 дней), а `install.ps1` был жёстко привязан к
+`..\Pike.PythonClient64\bin\<Configuration>\net48`.
+
+**Сделано**
+- `scripts\build-distribution.ps1` — собирает `artifacts\dist\Pike.PythonClient64-<version>.zip` (версия из
+  `Directory.Build.props`): `lib\` (6 файлов payload из `pack.ps1`), `scripts\` (`install.ps1`, `uninstall.ps1`,
+  `Verify-Installation.ps1`), обёртки `install.cmd`/`verify.cmd`/`uninstall.cmd`, `README.txt`, `LICENSE`,
+  `samples\power-query` (5 готовых книг), `SHA256SUMS.txt`, `<zip>.sha256`.
+- `scripts\dist\*.cmd` — снятие Mark-of-the-Web (`Unblock-File`), UAC-элевация (`Start-Process -Verb RunAs`), вызов
+  `powershell.exe -NoProfile -ExecutionPolicy Bypass` (только Windows PowerShell 5.1: GAC через
+  `System.EnterpriseServices.Internal.Publish`), `pause` с опцией `-NoPause`.
+- `scripts\install.ps1`: новый `-SourcePath` (payload из ZIP, по умолчанию — прежний `bin\<Configuration>`),
+  `-PythonDll`, `-SkipPrerequisiteCheck`; отчёт о предпосылках (Windows x64, PS 5.1 x64, .NET 4.8, Excel x64 через
+  `ClickToRun\Platform` или PE-заголовок `excel.exe`, найденный Python + `import numpy, pandas`) — только
+  предупреждения, установка не блокируется; в конце печатаются путь, invariant name, connection string,
+  verify/uninstall.
+- `scripts\Verify-Installation.ps1`: новый `-ReferencePath` (сравнение с payload ZIP), нейтральные названия проверок
+  («reference build» / «distribution payload»), подавлен шум stderr при проверках в отдельном процессе.
+- `.github\workflows\release.yml`: на тег `v*` — проверка «тег == версия из `Directory.Build.props`», сборка, Unit и
+  интеграционные тесты, `Invoke-InstallE2E`, `pack.ps1`, `build-distribution.ps1`, `gh release create --verify-tag`
+  с ассетами zip / zip.sha256 / nupkg / snupkg.
+- `.github\workflows\ci.yml`: шаги `Distribution ZIP` и `Install from the distribution ZIP (user scenario)`
+  (распаковка → установка из `lib` → `Verify-Installation.ps1 -ReferencePath` → uninstall) + upload артефакта.
+- Документация: новый `docs\installation.md` (GitHub Release → silent → source → что ставится → verify → uninstall →
+  troubleshooting), README (два пути установки, таблица скриптов, абзац про MSI), `docs\power-query.md`
+  (prereq: release ZIP, Python 3.9–3.13), CHANGELOG.
+
+**Проверка**
+```
+build-distribution.ps1 -SkipBuild    # Pike.PythonClient64-2.1.0.zip (340 839 Б), layout верный, SHA256 …3BB3FF
+распаковка ZIP → install.ps1 -SourcePath lib -SkipGac -SkipMachineConfig
+                                     # предпосылки: 5 ok, 1 WARN (numpy/pandas в базовом uv-Python), 5 файлов скопированы
+Verify-Installation.ps1 -ReferencePath lib
+                                     # «installed provider/pythonnet matches the distribution payload (SHA256)» — ok
+Invoke-Tests.ps1 -Category All       # 176 / 176 (C# не менялся)
+```
+Провайдер на машине в этот момент был удалён (`uninstall.ps1`), поэтому GAC/`machine.config`-проверки ожидаемо
+падали — это подтверждает, что проверка отражает фактическое состояние, а не «зеленит» вслепую.
+
+**Осталось:** MSI на WiX как второй ассет релиза (тихое корпоративное развёртывание), Authenticode-подпись
+`.cmd`/`.ps1`, ручная проверка `install.cmd` (UAC + `Unblock-File`) на чистой машине.
+

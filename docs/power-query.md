@@ -3,13 +3,16 @@
 ## Prerequisites
 
 1. 64-bit Excel (the provider and Python are x64-only, 32-bit Excel cannot load it).
-2. Python 3.7–3.13 x64 with `numpy` and `pandas`.
-3. The provider is installed into the GAC and registered in `machine.config` (elevated 64-bit Windows PowerShell 5.1):
+2. Python 3.9–3.13 x64 with `numpy` and `pandas` (`polars` is optional).
+3. The provider is installed into the GAC and registered in `machine.config`. End users run `install.cmd` from the
+   release ZIP; a developer build is installed from the repository (elevated 64-bit Windows PowerShell 5.1):
 
 ```powershell
 dotnet build PythonClient.sln -c Release
 .\scripts\install.ps1
 ```
+
+   See `installation.md` for the end-user scenario (`install.cmd`, `verify.cmd`, `uninstall.cmd`).
 
 4. Restart Excel so the process reads the updated `machine.config`.
 

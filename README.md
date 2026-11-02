@@ -37,17 +37,33 @@ into the GAC and the provider is registered in the x64 `machine.config`.
 
 ## Installation
 
-Recommended (PowerShell, elevated):
+### From a GitHub release (recommended)
+
+1. Download `Pike.PythonClient64-<version>.zip` from
+   [Releases](https://github.com/answering007/PythonClient/releases/latest) (`.zip.sha256` contains the checksum).
+2. Extract the archive to a local folder — do not run the files from inside the ZIP.
+3. Run `install.cmd` and confirm the UAC prompt. The wrapper unblocks the extracted files (Mark-of-the-Web), reports
+   the prerequisites, installs and verifies the GAC registration.
+4. Restart Excel. `verify.cmd` checks the installation later (read-only, no administrator rights),
+   `uninstall.cmd` removes it.
+
+The archive contains `lib\` (the six installed files), `scripts\` (`install.ps1`, `uninstall.ps1`,
+`Verify-Installation.ps1`), `samples\power-query` with ready-made workbooks and `SHA256SUMS.txt`.
+Details: [docs/installation.md](docs/installation.md).
+
+### From source (developers)
 
 ```powershell
 dotnet build PythonClient.sln -c Release
-.\scripts\install.ps1          # copies files, installs the assemblies into the GAC and registers machine.config
+.\scripts\install.ps1               # copies bin\Release\net48, updates the GAC and machine.config
 .\scripts\Verify-Installation.ps1   # read-only check: files, machine.config, GAC entries, resolved type
-.\scripts\uninstall.ps1        # removes the registration, the GAC entries and the files
+.\scripts\uninstall.ps1             # removes the registration, the GAC entries and the files
 ```
 
 Run the scripts from an elevated **64-bit Windows PowerShell 5.1** (`System.EnterpriseServices.Internal.Publish`,
 which updates the GAC, does not exist in PowerShell 7); `gacutil` and the Windows SDK are not required.
+`scripts\build-distribution.ps1` builds the end-user ZIP (version taken from `Directory.Build.props`);
+`.github/workflows/release.yml` publishes it together with the NuGet package on every `v*` tag.
 `Verify-Installation.ps1` needs no administrator rights and changes nothing: it compares the installed files with
 `bin\Release`, checks the `machine.config` record, and loads the provider from the GAC in a new process (a stale GAC
 entry or a Debug build installed by mistake is reported with the failing check name).
@@ -94,13 +110,15 @@ The record alone is not enough: `Pike.PythonClient64.dll` and `Python.Runtime.dl
 (`scripts\install.ps1` does both), otherwise the runtime cannot resolve the type outside the Excel folder.
 
 There is no installer project in the solution anymore: the legacy Visual Studio Installer project (`.vdproj`, which
-required a separate VS extension) was removed in 2.1.0, use the scripts above.
+required a separate VS extension) was removed in 2.1.0. Installation is done by the scripts above (repository) or by
+`install.cmd` from the release ZIP.
 
 An MSI/graphical installer is **not** part of 2.1.0 and is deliberately deferred. The installation itself is only six
-files, two GAC entries and one `machine.config` entry (the provider installs neither Python nor pandas), so the scripts
-above remain the supported path: they are transparent, exercised by CI and need no additional toolchain. A per-machine
-MSI (`msiexec /qn`, ARP entry, repair/uninstall) will be added on top of these scripts — reusing the same registration
-code — once silent enterprise deployment (GPO / SCCM / Intune) becomes a requirement. The planned shape is a
+files, two GAC entries and one `machine.config` entry (the provider installs neither Python nor pandas), so the
+release ZIP and the scripts above remain the supported path: they are transparent, exercised by CI (including the
+"install from the distribution ZIP" step) and need no additional toolchain. A per-machine MSI (`msiexec /qn`, ARP
+entry, repair/uninstall) will be added on top of these scripts — reusing the same registration code — once silent
+enterprise deployment (GPO / SCCM / Intune) becomes a requirement. The planned shape is a
 `Pike.PythonClient64.Install.Tool.exe` (install/uninstall/status), a WiX-built MSI and an optional Burn bootstrapper
 for a wizard UI.
 
@@ -420,6 +438,7 @@ The helper scripts live in `scripts\`:
 | `scripts\test\PythonEnvironment.ps1` | shared helpers (create environment, resolve `python3xx.dll` and `site-packages`) |
 | `scripts\smoke\Test-ProviderSmoke.ps1` | 41 smoke checks on the built assembly (no Python required) |
 | `scripts\Verify-Installation.ps1` | read-only check of an installed machine (no administrator rights): installed files vs `bin\<Configuration>`, `machine.config` record, GAC entries, the type resolved in a new process, polars support in the installed build |
+| `scripts\build-distribution.ps1` | builds the end-user distribution ZIP (`Pike.PythonClient64-<version>.zip`): payload, `install.cmd`/`verify.cmd`/`uninstall.cmd`, scripts, Power Query samples and `SHA256SUMS.txt` |
 | `scripts\pack.ps1` | Release build + `dotnet pack` into `artifacts\` (nupkg/snupkg and a flat deploy folder) |
 
 ```powershell
