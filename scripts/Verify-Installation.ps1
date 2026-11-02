@@ -6,7 +6,8 @@
     Read-only check: neither the files, nor machine.config, nor the GAC are changed, administrator rights are not
     required. The script verifies that the machine runs the build produced by this repository:
       - the install folder contains the provider, the installer and pythonnet assemblies;
-      - the installed provider and pythonnet are the same files as bin\<Configuration>\net48 (SHA256);
+      - the installed provider and pythonnet are the same files as the reference build (SHA256): the local build output
+        bin\<Configuration>\net48, or the "lib" folder of the distribution ZIP (-ReferencePath);
       - the x64 machine.config contains the fully qualified provider record and the registered version matches the
         installed assembly (a Debug build installed by mistake is reported here);
       - the provider and pythonnet are visible in the global assembly cache, the provider is resolved from the GAC in a
@@ -19,22 +20,30 @@
 .PARAMETER InstallPath
     Installed folder. Default is %ProgramFiles%\Pike\PythonClient64
 
+.PARAMETER ReferencePath
+    Folder with the reference build the installed files are compared with. Default: bin\<Configuration>\net48 of this
+    repository; the distribution ZIP passes its own "lib" folder here.
+
 .PARAMETER Configuration
     Build configuration the installed files are compared with. Default is Release
 
 .PARAMETER SkipFileComparison
-    Do not compare the installed files with bin\<Configuration>\net48 (installation built on another machine)
+    Do not compare the installed files with the reference build (installation built on another machine)
 
 .EXAMPLE
     .\scripts\Verify-Installation.ps1
 
 .EXAMPLE
     .\scripts\Verify-Installation.ps1 -InstallPath D:\temp\pike -SkipFileComparison
+
+.EXAMPLE
+    .\scripts\Verify-Installation.ps1 -ReferencePath 'C:\Downloads\Pike.PythonClient64-2.1.0\lib'
 #>
 #Requires -Version 5.1
 [CmdletBinding()]
 param(
     [string]$InstallPath = (Join-Path $env:ProgramFiles 'Pike\PythonClient64'),
+    [string]$ReferencePath,
     [ValidateSet('Debug', 'Release')]
     [string]$Configuration = 'Release',
     [switch]$SkipFileComparison
@@ -51,7 +60,18 @@ if (-not [Environment]::Is64BitProcess) {
 }
 
 $root = Split-Path -Parent $PSScriptRoot
-$runtimePath = Join-Path $root "Pike.PythonClient64\bin\$Configuration\net48"
+# Reference build: the local build output by default, the distribution payload when the script runs from a ZIP
+$runtimePath = if (-not [string]::IsNullOrWhiteSpace($ReferencePath)) {
+    if (-not (Test-Path -LiteralPath $ReferencePath)) { throw "Reference path '$ReferencePath' is not found" }
+
+    (Resolve-Path -LiteralPath $ReferencePath).ProviderPath
+}
+else {
+    Join-Path $root "Pike.PythonClient64\bin\$Configuration\net48"
+}
+
+# Label used by the check names: the ZIP layout passes its own payload, the repository uses the build output
+$referenceName = if (-not [string]::IsNullOrWhiteSpace($ReferencePath)) { 'the distribution payload' } else { "the $Configuration build" }
 $invariant = 'Pike.PythonClient64.Data.PythonProviderFactory'
 $xPath = "/configuration/system.data/DbProviderFactories/add[@invariant='$invariant']"
 
@@ -86,12 +106,28 @@ function Assert-That([string]$name, [scriptblock]$condition) {
     }
 }
 
-# The assemblies loaded by the current process would hide a stale GAC entry, so the GAC checks run in a new process
+# The assemblies loaded by the current process would hide a stale GAC entry, so the GAC checks run in a new process.
+# -EncodedCommand avoids argument quoting problems, the streams are redirected to files: a native stderr line must not
+# leak into the error stream of this script (it would be rendered as a PowerShell error before the check result)
 function Invoke-InFreshProcess([string]$command) {
     $shell = Join-Path $PSHOME 'powershell.exe'
-    $output = & $shell -NoProfile -NonInteractive -Command $command 2>&1
+    $outputFile = [IO.Path]::GetTempFileName()
+    $errorFile = [IO.Path]::GetTempFileName()
 
-    return ($output | Out-String).Trim()
+    try {
+        $encodedCommand = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($command))
+        Start-Process -FilePath $shell -NoNewWindow -Wait -PassThru `
+            -ArgumentList @('-NoProfile', '-NonInteractive', '-EncodedCommand', $encodedCommand) `
+            -RedirectStandardOutput $outputFile -RedirectStandardError $errorFile | Out-Null
+
+        $output = @(Get-Content -LiteralPath $outputFile -ErrorAction SilentlyContinue) +
+            @(Get-Content -LiteralPath $errorFile -ErrorAction SilentlyContinue)
+
+        return (($output | Out-String).Trim())
+    }
+    finally {
+        Remove-Item -LiteralPath $outputFile, $errorFile -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function Get-ProviderRecord {
@@ -147,14 +183,14 @@ if ($SkipFileComparison) {
     Write-Host '  skip   comparison with the build output (-SkipFileComparison)' -ForegroundColor DarkGray
 }
 else {
-    Assert-That "build output exists ($runtimePath)" {
+    Assert-That "reference build exists ($runtimePath)" {
         Test-Path -LiteralPath (Join-Path $runtimePath 'Pike.PythonClient64.dll')
     }
-    Assert-That "installed provider is the $Configuration build (SHA256)" {
+    Assert-That "installed provider matches $referenceName (SHA256)" {
         $expected = Get-FileHashText (Join-Path $runtimePath 'Pike.PythonClient64.dll')
         $expected -and $expected -eq (Get-FileHashText $providerFile)
     }
-    Assert-That "installed pythonnet is the $Configuration build (SHA256)" {
+    Assert-That "installed pythonnet matches $referenceName (SHA256)" {
         $expected = Get-FileHashText (Join-Path $runtimePath 'Python.Runtime.dll')
         $expected -and $expected -eq (Get-FileHashText $pythonRuntimeFile)
     }
@@ -194,7 +230,7 @@ Assert-That 'GAC copy is the installed file (SHA256)' {
     $gacHash -and $gacHash -eq (Get-FileHashText $providerFile)
 }
 if (-not $SkipFileComparison) {
-    Assert-That "GAC copy is the $Configuration build (SHA256)" {
+    Assert-That "GAC copy matches $referenceName (SHA256)" {
         $expected = Get-FileHashText (Join-Path $runtimePath 'Pike.PythonClient64.dll')
         $expected -and $expected -eq (Get-FileHashText $gacLocation)
     }
@@ -224,7 +260,7 @@ if ($script:failures.Count -gt 0) {
     Write-Host ("FAILED: {0} of {1} installation checks" -f $script:failures.Count, $script:checks) -ForegroundColor Red
     $script:failures | ForEach-Object { Write-Host "  - $_" }
     Write-Host ''
-    Write-Host 'Run install.ps1 (elevated, after "dotnet build PythonClient.sln -c Release") and verify again.' -ForegroundColor Yellow
+    Write-Host 'Run install.cmd (distribution ZIP) or install.ps1 (elevated) and verify again.' -ForegroundColor Yellow
     exit 1
 }
 
