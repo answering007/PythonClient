@@ -43,8 +43,11 @@ jobs:
           PYTHONNET_TEST_DLL: ${{ env.pythonLocation }}\python311.dll
         run: ./scripts/test/Invoke-Tests.ps1 -Category Python -Configuration Release -NoBuild -TimeoutSeconds 900
 
+      # Windows PowerShell 5.1 on purpose: the script loads the net48 assemblies (Pike.PythonClient64.Install
+      # references System.Configuration.Install, which does not exist in .NET 8 / PowerShell 7) and inspects
+      # the GAC and machine.config, the same way the installation does
       - name: Smoke checks (no Python required)
-        shell: pwsh
+        shell: powershell
         run: ./scripts/smoke/Test-ProviderSmoke.ps1 -Configuration Release
 
       - name: Sample (.NET Framework 4.8 host, async)
@@ -156,5 +159,14 @@ jobs:
 
       - name: Version matrix
         shell: pwsh
-        run: ./scripts/test/Invoke-VersionMatrix.ps1 -Configuration Release -SkipBuild -TimeoutSeconds 900
+        run: |
+          # The annotation carries the reason of a failed combination: the job log is available to the
+          # repository owners only, the annotation is visible to everyone
+          try {
+            ./scripts/test/Invoke-VersionMatrix.ps1 -Configuration Release -SkipBuild -TimeoutSeconds 900
+          }
+          catch {
+            Write-Host "::error::$($_.Exception.Message)"
+            exit 1
+          }
 

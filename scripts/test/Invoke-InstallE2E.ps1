@@ -10,6 +10,9 @@
     then runs scripts\uninstall.ps1 and verifies that the record, the GAC entry and the files are gone.
     This is the automated counterpart of the "run install.ps1, then open Excel" manual step.
 
+    The installation publishes the assemblies into the GAC only, so -KeepFiles creates the temporary
+    diagnostics copy: the pythonnet identity is read from it and the uninstall removes it.
+
     Administrator rights and 64-bit Windows PowerShell 5.1 are required: machine.config and the GAC are changed
     and restored. The script refuses to run when the provider is already registered on the machine (-Force overrides).
 
@@ -106,7 +109,7 @@ if ($null -ne (Get-ProviderRecord) -and -not $Force) {
 try {
     Write-Host ''
     Write-Host "Installing '$InstallPath' ($Configuration)..." -ForegroundColor Cyan
-    & (Join-Path $root 'scripts\install.ps1') -InstallPath $InstallPath -Configuration $Configuration
+    & (Join-Path $root 'scripts\install.ps1') -InstallPath $InstallPath -Configuration $Configuration -KeepFiles
 
     $record = Get-ProviderRecord
     $registeredType = if ($record) { $record.GetAttribute('type') } else { '' }

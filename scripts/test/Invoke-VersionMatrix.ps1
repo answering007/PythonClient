@@ -158,7 +158,8 @@ if ($expectedFailures.Count -gt 0) {
 
 if ($unexpected.Count -gt 0) {
     $unexpected | ForEach-Object { Write-Host ("FAILED: {0} ({1})" -f $_.Name, $_.Error) -ForegroundColor Red }
-    throw "Version matrix failed for: $($unexpected.Name -join ', ')"
+    $details = ($unexpected | ForEach-Object { "{0}: {1}" -f $_.Name, $_.Error }) -join '; '
+    throw "Version matrix failed for: $details"
 }
 
 Write-Host 'Version matrix passed for all supported combinations' -ForegroundColor Green
