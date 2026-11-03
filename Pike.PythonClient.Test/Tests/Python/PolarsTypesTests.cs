@@ -364,16 +364,16 @@ result = pl.DataFrame({'A': [1]}).lazy()";
         }
 
         /// <summary>
-        /// The script file mode works with polars: the Excel table payload is passed as 'query' and applied
-        /// with the 'params' value (Power Query 'table to script' scenario)
+        /// The script file mode accepts the Excel table payload and a parameter: the sample script builds a fixed
+        /// frame and ignores 'query', so the payload must not change the result. The decoding itself is covered by
+        /// ScriptVariablesTests.ExcelTablePayloadReachesScriptFile
         /// </summary>
         [TestMethod]
-        public void PolarsScriptFileAndVariables()
+        public void PolarsScriptFileIgnoresPayload()
         {
             const string json =
                 "{\"No\":[1,2,3],\"Name\":[\"Olivia\",\"Ava\",\"Isabella\"]," +
                 "\"Value\":[0.0,0.6931471805599453,1.0986122886681098]}";
-            const double expectedValue = 9.010913347279289; // 0.6931471805599453 * 13
 
             var builder = TestEnvironment.CreateBuilder(GetScriptFile("TestScript04.py"));
             using (var connection = new PythonConnection { ConnectionString = builder.ConnectionString })
@@ -385,10 +385,10 @@ result = pl.DataFrame({'A': [1]}).lazy()";
 
                 Assert.AreEqual(3, table.Rows.Count);
                 CollectionAssert.AreEqual(
-                    new[] { "No", "Name", "Value" },
+                    new[] { "No", "Name", "Value", "Created", "Flag" },
                     table.Columns.Cast<DataColumn>().Select(column => column.ColumnName).ToArray());
                 Assert.AreEqual("Ava", table.Rows[1]["Name"]);
-                Assert.AreEqual(expectedValue, Convert.ToDouble(table.Rows[1]["Value"]), 1e-9);
+                Assert.AreEqual(0.6931471805599453, Convert.ToDouble(table.Rows[1]["Value"]), 1e-12);
             }
         }
 
