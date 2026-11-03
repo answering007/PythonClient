@@ -107,8 +107,14 @@ function Invoke-RepositoryScript([string]$scriptName, [string[]]$arguments = @()
     # loaded by this process cannot be removed from the GAC by the uninstall that follows
     $scriptPath = Join-Path $root "scripts\$scriptName"
     $shell = Join-Path $PSHOME 'powershell.exe'
-    & $shell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $scriptPath @arguments
-    if ($LASTEXITCODE -ne 0) { throw "$scriptName failed with exit code $LASTEXITCODE" }
+    $output = & $shell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $scriptPath @arguments 2>&1
+    $output | ForEach-Object { Write-Host $_ }
+
+    if ($LASTEXITCODE -ne 0) {
+        # The output is part of the message: on CI the job log is private, the exception becomes an annotation
+        $tail = ($output | Select-Object -Last 15) -join ' | '
+        throw "$scriptName failed with exit code $LASTEXITCODE. Output: $tail"
+    }
 }
 
 if ($null -ne (Get-ProviderRecord) -and -not $Force) {

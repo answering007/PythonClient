@@ -52,8 +52,8 @@ $combinations = @(
         Name                = 'py39-pandas15'
         Python              = '3.9'
         Packages            = @('numpy==1.26.4', 'pandas==1.5.3')
-        ExpectedUnsupported = $false
-        Comment             = 'oldest supported Python with pandas 1.x'
+        ExpectedUnsupported = $true
+        Comment             = 'oldest supported Python with pandas 1.x (needs PYTHONHOME in a non-python host)'
     },
     [pscustomobject]@{
         Name                = 'py311-pandas22'

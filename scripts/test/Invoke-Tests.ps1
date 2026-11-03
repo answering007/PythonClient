@@ -64,6 +64,8 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $solution = Join-Path $root 'PythonClient.sln'
 
+. (Join-Path $PSScriptRoot 'PythonEnvironment.ps1')
+
 if (-not [string]::IsNullOrWhiteSpace($PythonDll)) {
     $env:PYTHONNET_TEST_DLL = $PythonDll
 }
@@ -75,8 +77,6 @@ if (-not [string]::IsNullOrWhiteSpace($SitePackages)) {
 # The local virtual environment is used when the runtime is not configured explicitly.
 # vstest passes the environment to the test host, so the tests see the same values
 if ([string]::IsNullOrWhiteSpace($env:PYTHONNET_TEST_DLL)) {
-    . (Join-Path $PSScriptRoot 'PythonEnvironment.ps1')
-
     if ([string]::IsNullOrWhiteSpace($EnvironmentPath)) {
         $EnvironmentPath = Join-Path $root '.venv'
     }
@@ -141,6 +141,7 @@ if (-not [string]::IsNullOrWhiteSpace($Filter)) {
 }
 
 Write-Host "Running tests (filter: '$Filter', timeout: $TimeoutSeconds s)..."
+$startTime = Get-Date
 $process = Start-Process -FilePath $vstest -ArgumentList $arguments -WorkingDirectory $root -NoNewWindow -PassThru `
     -RedirectStandardOutput $logFile -RedirectStandardError "$logFile.err"
 
@@ -153,8 +154,10 @@ if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
     throw "Test run exceeded $TimeoutSeconds seconds and was terminated. The Python interpreter may have hung. vstest output: $tail"
 }
 
-# Extended failure details from the trx report
+# Extended failure details from the trx report of THIS run: an older report in the folder belongs to another
+# combination of the version matrix and must not be reported as the result
 $trx = Get-ChildItem $resultsFolder -Recurse -Filter '*.trx' -ErrorAction SilentlyContinue |
+    Where-Object { $_.LastWriteTime -ge $startTime } |
     Sort-Object LastWriteTime | Select-Object -Last 1
 
 if (-not $trx) {
