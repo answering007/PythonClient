@@ -102,6 +102,15 @@ function Invoke-InFreshProcess([string]$command) {
     return ($output | Out-String).Trim()
 }
 
+function Invoke-RepositoryScript([string]$scriptName, [string[]]$arguments = @()) {
+    # A child process on purpose: install.ps1 and uninstall.ps1 load the assemblies with Add-Type, and an assembly
+    # loaded by this process cannot be removed from the GAC by the uninstall that follows
+    $scriptPath = Join-Path $root "scripts\$scriptName"
+    $shell = Join-Path $PSHOME 'powershell.exe'
+    & $shell -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $scriptPath @arguments
+    if ($LASTEXITCODE -ne 0) { throw "$scriptName failed with exit code $LASTEXITCODE" }
+}
+
 if ($null -ne (Get-ProviderRecord) -and -not $Force) {
     throw "The provider is already registered in '$machineConfig'. Run scripts\uninstall.ps1 first or pass -Force"
 }
@@ -109,7 +118,7 @@ if ($null -ne (Get-ProviderRecord) -and -not $Force) {
 try {
     Write-Host ''
     Write-Host "Installing '$InstallPath' ($Configuration)..." -ForegroundColor Cyan
-    & (Join-Path $root 'scripts\install.ps1') -InstallPath $InstallPath -Configuration $Configuration -KeepFiles
+    Invoke-RepositoryScript 'install.ps1' @('-InstallPath', $InstallPath, '-Configuration', $Configuration, '-KeepFiles')
 
     $record = Get-ProviderRecord
     $registeredType = if ($record) { $record.GetAttribute('type') } else { '' }
@@ -135,7 +144,7 @@ try {
 
     Write-Host ''
     Write-Host "Uninstalling '$InstallPath'..." -ForegroundColor Cyan
-    & (Join-Path $root 'scripts\uninstall.ps1') -InstallPath $InstallPath
+    Invoke-RepositoryScript 'uninstall.ps1' @('-InstallPath', $InstallPath)
 
     Write-Host ''
     Write-Host 'Uninstalled state' -ForegroundColor Cyan
@@ -150,7 +159,8 @@ finally {
     # A failed run must not leave the machine registered: restore the original state
     if ($null -ne (Get-ProviderRecord)) {
         Write-Warning "The provider is still registered in '$machineConfig', cleaning up"
-        & (Join-Path $root 'scripts\uninstall.ps1') -InstallPath $InstallPath
+        try { Invoke-RepositoryScript 'uninstall.ps1' @('-InstallPath', $InstallPath) }
+        catch { Write-Warning $_.Exception.Message }
     }
 }
 
@@ -158,6 +168,8 @@ Write-Host ''
 if ($script:failures.Count -gt 0) {
     Write-Host ("FAILED: {0} of {1} checks" -f $script:failures.Count, $script:checks) -ForegroundColor Red
     $script:failures | ForEach-Object { Write-Host "  - $_" }
+    # Annotations make the failure readable in the public run summary: the job log is visible to the owners only
+    $script:failures | ForEach-Object { Write-Host "::error::Installation e2e check failed: $_" }
     exit 1
 }
 
