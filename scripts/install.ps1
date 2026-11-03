@@ -10,8 +10,9 @@
     be in the GAC as well, because the dependencies of a GAC assembly are probed in the GAC, not in the app folder.
     The GAC is updated through System.EnterpriseServices.Internal.Publish, so no gacutil / Windows SDK is required.
     The registration is done by Pike.PythonClient64.Install.dll (DataProviderInstallationBase), which is a separate
-    assembly without a dependency in the runtime provider; it is published into the GAC too, so uninstall.ps1 works
-    without the distribution archive.
+    assembly without a dependency in the runtime provider: it is loaded from the payload and is NOT published into the
+    GAC, so the GAC keeps the runtime assemblies only. uninstall.ps1 therefore runs from the extracted archive (its
+    "lib" folder is passed as -SourcePath), where the same installer assembly is available.
     No files are copied to %ProgramFiles% any more (2.1.0 kept a copy there): the GAC is the single source of truth,
     and an existing legacy folder is cleaned up by this script.
     machine.config is backed up as machine.config.bak-<utc> before the change.
@@ -258,9 +259,9 @@ $files = @(
     @{ Name = 'Pike.PythonClient64.Install.xml'; Source = $installBinPath }
 )
 
-# Assemblies published into the GAC: the provider, pythonnet and the installer. The installer assembly is published
-# as well, so uninstall.ps1 resolves the registration code from the GAC and needs no distribution archive
-$gacFiles = @('Pike.PythonClient64.dll', 'Python.Runtime.dll', 'Pike.PythonClient64.Install.dll')
+# Assemblies published into the GAC: the provider and its runtime dependency. The installer assembly is NOT published:
+# it is loaded from the payload by install.ps1 / uninstall.ps1 only, so the GAC keeps runtime assemblies only
+$gacFiles = @('Pike.PythonClient64.dll', 'Python.Runtime.dll')
 
 # Source file of every published assembly: the payload folder (ZIP "lib" or the build output), not an install folder
 $gacSources = @{
@@ -387,6 +388,21 @@ catch {
     }
 
     throw
+}
+
+# The installer assembly of the intermediate GAC layout is not a runtime dependency: remove it if it is still published
+if (-not $SkipGac) {
+    $leftoverInstaller = Get-GacAssemblyPath -Name $script:InstallerAssemblyName
+    if ($leftoverInstaller) {
+        try {
+            $publish = New-GacPublisher
+            $publish.GacRemove($leftoverInstaller)
+            Write-Host "Removed the installer assembly from the GAC: $($script:InstallerAssemblyName) (runtime assemblies only)"
+        }
+        catch {
+            Write-Warning "Unable to remove '$($script:InstallerAssemblyName)' from the GAC: $($_.Exception.Message)"
+        }
+    }
 }
 
 # The 2.1.0 layout copied the assemblies to %ProgramFiles%: the new installation publishes them into the GAC only,

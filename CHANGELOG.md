@@ -71,14 +71,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Changed
 
-- **The installation publishes the assemblies into the GAC only.** `install.ps1` no longer copies files to
-  `%ProgramFiles%\Pike\PythonClient64`: `Pike.PythonClient64`, `Python.Runtime` and `Pike.PythonClient64.Install` are
-  published into the GAC, so there is a single source of truth and no folder that can diverge from the registered
-  assemblies; the legacy 2.1.0 folder is removed by the installer. `uninstall.ps1` resolves the assemblies by their GAC
-  folders (the distribution archive is not needed any more) and verifies the removal, `Pike.PythonClient64.Install` is
-  now published into the GAC for that reason. A diagnostics copy is still available with
-  `install.ps1 -KeepFiles -InstallPath <dir>`; `Verify-Installation.ps1` checks the GAC and the `machine.config` record
-  and skips the folder checks unless `-InstallPath` is passed.
+- **The installation publishes the runtime assemblies into the GAC only.** `install.ps1` no longer copies files to
+  `%ProgramFiles%\Pike\PythonClient64`: `Pike.PythonClient64` and `Python.Runtime` are published into the GAC, so there
+  is a single source of truth and no folder that can diverge from the registered assemblies; the legacy 2.1.0 folder is
+  removed by the installer. `Pike.PythonClient64.Install` (the `machine.config` registration code) is **not** published
+  into the GAC: it is loaded from the distribution payload, so `uninstall.ps1` runs from the extracted archive (its
+  `lib\` is passed as `-SourcePath`; the repository layout is detected automatically) and verifies the removal. A
+  diagnostics copy is still available with `install.ps1 -KeepFiles -InstallPath <dir>`; `Verify-Installation.ps1`
+  checks the GAC and the `machine.config` record and skips the folder checks unless `-InstallPath` is passed.
 - `SupportedTypes.NormalizeDtype` also strips the parameters in round brackets, so polars dtype names are normalized
   the same way as pandas ones (`Datetime(time_unit='us', time_zone=None)` → `Datetime`,
   `Decimal(precision=38, scale=2)` → `Decimal`, `List(String)` → `List`); pandas names are not affected.

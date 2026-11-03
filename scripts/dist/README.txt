@@ -42,8 +42,9 @@ Verify / uninstall
 ------------------
   verify.cmd      read-only check: GAC entries, machine.config record and the type resolved in a
                   new process, compared with the payload of this archive (no administrator rights).
-  uninstall.cmd   removes the machine.config record and the GAC entries. The archive is not needed
-                  for uninstall: the assemblies are resolved by their GAC folders.
+  uninstall.cmd   removes the machine.config record and the GAC entries. The registration code
+                  is kept in this archive (lib\), not in the GAC: run uninstall.cmd from the
+                  extracted archive (keep it until the provider is uninstalled).
 
 Silent / unattended
 -------------------

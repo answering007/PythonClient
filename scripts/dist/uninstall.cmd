@@ -1,6 +1,7 @@
 @echo off
-rem Removes Pike.PythonClient64: machine.config registration, GAC entries and the installed files.
-rem   uninstall.cmd [-NoPause] [-InstallPath "D:\path"]
+rem Removes Pike.PythonClient64: machine.config registration and the GAC entries.
+rem The registration code is not published in the GAC, so run the uninstall from this archive:
+rem   uninstall.cmd [-NoPause] [-InstallPath "D:\path"] [-SkipGac] [-SkipMachineConfig]
 setlocal EnableExtensions
 
 set "SCRIPT_DIR=%~dp0"
@@ -35,7 +36,7 @@ if /I not "%IS_ADMIN%"=="True" (
     exit /b
 )
 
-powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%scripts\uninstall.ps1" %PASS_ARGS%
+powershell -NoProfile -ExecutionPolicy Bypass -File "%SCRIPT_DIR%scripts\uninstall.ps1" -SourcePath "%SCRIPT_DIR%lib" %PASS_ARGS%
 set "EXIT_CODE=%ERRORLEVEL%"
 
 if "%PAUSE_AT_END%"=="1" pause

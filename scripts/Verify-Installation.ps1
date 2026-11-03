@@ -7,8 +7,9 @@
     Read-only check: neither the files, nor machine.config, nor the GAC are changed, administrator rights are not
     required. The installation publishes the assemblies into the global assembly cache only, so the GAC is inspected
     first:
-      - Pike.PythonClient64.dll, Python.Runtime.dll and Pike.PythonClient64.Install.dll are published in the GAC and the
-        provider is resolved from the GAC in a NEW process;
+      - Pike.PythonClient64.dll and Python.Runtime.dll are published in the GAC, the provider is resolved from the GAC in
+        a NEW process and the installer assembly (Pike.PythonClient64.Install) is NOT published: the GAC keeps runtime
+        assemblies only, the registration code is taken from the distribution payload;
       - the registered type in the x64 machine.config is fully qualified and its version matches the installed assembly;
       - DbProviderFactories.GetFactory resolves the invariant name in a NEW process;
       - the installed build contains the polars reader (Pike.PythonClient64.FrameReaders.PolarsFrameReader);
@@ -201,7 +202,7 @@ else {
 Write-Host ''
 Write-Host 'Global assembly cache (checked in a new process)' -ForegroundColor Cyan
 
-Assert-That 'installer assembly is published in the GAC' { $null -ne $paths.Installer }
+Assert-That 'installer assembly is not published in the GAC (runtime assemblies only)' { $null -eq $paths.Installer }
 
 $gacState = ''
 if ($providerFullName) {

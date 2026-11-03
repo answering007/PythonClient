@@ -91,6 +91,39 @@ function Get-InstalledAssemblyPaths {
 
 <#
 .SYNOPSIS
+    Checks whether the provider record exists in machine.config.
+
+.DESCRIPTION
+    Read-only check used by uninstall.ps1: when the record and the GAC entries are absent, there is nothing to remove
+    and the distribution payload is not needed.
+
+.PARAMETER MachineConfig
+    Full path to machine.config
+
+.PARAMETER Invariant
+    Provider invariant name
+
+.OUTPUTS
+    System.Boolean
+#>
+function Test-ProviderRecord {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)][string]$MachineConfig,
+        [Parameter(Mandatory = $true)][string]$Invariant
+    )
+
+    if (-not (Test-Path -LiteralPath $MachineConfig)) { return $false }
+
+    $xml = New-Object Xml.XmlDocument
+    $xml.Load($MachineConfig)
+    $node = $xml.SelectSingleNode("/configuration/system.data/DbProviderFactories/add[@invariant='$Invariant']")
+
+    return $null -ne $node
+}
+
+<#
+.SYNOPSIS
     Creates the DbProviderInstallation instance from the published installer assembly.
 
 .DESCRIPTION

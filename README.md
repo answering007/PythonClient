@@ -423,6 +423,7 @@ see `docs/power-query.md` and the examples in `Pike.PythonClient.Test\Excel`.
 | `ConfigurationErrorsException: ... InvariantName ... already exists` | the provider is registered twice: in `machine.config` (by `install.ps1`) and in the application `app.config`; keep one of them, or add `<remove invariant="..." />` before `<add>` (see `Pike.PythonClient.Test\app.config`) |
 | Local changes have no effect after installation | a strong-named assembly is resolved from the GAC before the application folder: rerun `install.ps1` (or `uninstall.ps1`) to replace the GAC copy. Debug builds are not affected — they use `AssemblyVersion` 2.0.0.1 and the test `app.config` is patched to it automatically |
 | Is the installed provider the current build? | run `.\scripts\Verify-Installation.ps1` (read-only, no administrator rights): it compares the installed files with `bin\Release` (SHA256), checks the `machine.config` record and both GAC entries, loads the provider in a new process and reports the installed build without polars support |
+| Uninstall without the distribution archive | the registration code (`Pike.PythonClient64.Install`) is intentionally not published in the GAC, so keep the release ZIP: run `uninstall.cmd` from the extracted archive, or pass `-SourcePath <folder with lib>` to `uninstall.ps1` (the repository layout is detected automatically) |
 
 ## Build and test
 

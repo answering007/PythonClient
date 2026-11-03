@@ -70,12 +70,12 @@ The distribution ZIP for a release is built by `scripts\build-distribution.ps1` 
 |---|---|
 | `Pike.PythonClient64` (provider) | `GAC_64` |
 | `Python.Runtime` (pythonnet dependency) | GAC (`GAC_MSIL`) |
-| `Pike.PythonClient64.Install` (registration code used by the scripts) | `GAC_64` |
+| `Pike.PythonClient64.Install` (registration code used by the scripts) | **not installed** — it is loaded from the distribution `lib\` only |
 | provider record, invariant `Pike.PythonClient64.Data.PythonProviderFactory` | x64 `machine.config` → `configuration/system.data/DbProviderFactories` |
 
 Nothing is copied to `%ProgramFiles%`: the GAC is the single source of truth, so there are no duplicated files that can
-diverge from the published assemblies. `-KeepFiles` (with `-InstallPath`) creates a diagnostics copy of the files
-(`.dll/.xml/.pdb`) when support needs them next to a known path; it is not used by the runtime.
+diverge from the published assemblies, and it contains runtime assemblies only. `-KeepFiles` (with `-InstallPath`)
+creates a diagnostics copy of the files when support needs them next to a known path; it is not used by the runtime.
 
 The record alone is not enough: both runtime assemblies must be in the GAC, otherwise the runtime cannot resolve the
 type outside the Excel folder. `AssemblyVersion` is fixed for the whole 2.x line, so an upgrade replaces the same GAC
@@ -91,24 +91,27 @@ powershell -File scripts\Verify-Installation.ps1 -ReferencePath lib   # distribu
 .\scripts\Verify-Installation.ps1 -InstallPath D:\temp\pike -ReferencePath D:\temp\pike\lib
 ```
 
-13 checks by default: the three GAC entries, the provider resolved by `DbProviderFactories` in a new process, the
-`machine.config` record and its version, the GAC copy compared with the reference build (SHA256), the polars reader in
-the installed build and the absence of the legacy `%ProgramFiles%` folder. `-InstallPath` adds the diagnostics-copy
-checks (folder and file hashes). Exit code `1` with the failing check names; no administrator rights required.
+13 checks by default: the two GAC entries (and that the installer assembly is **not** published), the provider resolved
+by `DbProviderFactories` in a new process, the `machine.config` record and its version, the GAC copy compared with the
+reference build (SHA256), the polars reader in the installed build and the absence of the legacy `%ProgramFiles%`
+folder. `-InstallPath` adds the diagnostics-copy checks (folder and file hashes). Exit code `1` with the failing check
+names; no administrator rights required.
 
 ## Uninstall
 
 ```powershell
-uninstall.cmd                # distribution ZIP (elevated)
+uninstall.cmd                # from the extracted distribution archive (elevated)
 .\scripts\uninstall.ps1      # repository (elevated)
 ```
 
-The assemblies are resolved by their GAC folders, so the uninstall does not need the archive or an installation folder:
-the `machine.config` record is removed first (backup), then `Pike.PythonClient64`, `Python.Runtime` and
-`Pike.PythonClient64.Install` are removed from the GAC, and the result is verified. An assembly that is still loaded by
-a running process stays in the GAC until that process exits — the script reports it and exits with `1`, so close Excel
-/ Visual Studio and run it again. An optional `-InstallPath` folder and the legacy `%ProgramFiles%\Pike\PythonClient64`
-folder are cleaned up when present.
+The registration code (`Pike.PythonClient64.Install`) is **not** published in the GAC, so the uninstall takes it from
+the payload: `uninstall.cmd` passes its own `lib\` folder (`-SourcePath`), and the repository layout is detected
+automatically. Keep the archive until the provider is uninstalled. The `machine.config` record is removed first
+(backup), then `Pike.PythonClient64` and `Python.Runtime` are removed from the GAC, and the result is verified. An
+assembly that is still loaded by a running process stays in the GAC until that process exits — the script reports it and
+exits with `1`, so close Excel / Visual Studio and run it again. An optional `-InstallPath` folder and the legacy
+`%ProgramFiles%\Pike\PythonClient64` folder are cleaned up when present; when nothing is installed the script reports
+"Nothing to uninstall".
 
 ## Troubleshooting
 

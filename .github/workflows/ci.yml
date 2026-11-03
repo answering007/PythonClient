@@ -67,7 +67,8 @@ jobs:
         run: ./scripts/build-distribution.ps1 -SkipBuild
 
       # Reproduces the user scenario: the ZIP is extracted and the bundled scripts install it from "lib".
-      # The installation publishes the assemblies into the GAC only, so no folder is expected in Program Files
+      # The installation publishes the runtime assemblies into the GAC only (no Program Files folder) and keeps the
+      # registration code in the payload, so the uninstall runs from the same extracted archive
       - name: Install from the distribution ZIP (user scenario)
         shell: powershell
         run: |
@@ -80,6 +81,8 @@ jobs:
           Expand-Archive -LiteralPath $zip.FullName -DestinationPath $tempRoot
           $stage = (Get-ChildItem -LiteralPath $tempRoot -Directory | Select-Object -First 1).FullName
           $installFolder = Join-Path $env:ProgramFiles 'Pike\PythonClient64'
+          $machineConfig = Join-Path ([Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory().TrimEnd('\')) 'Config\machine.config'
+          $invariant = 'Pike.PythonClient64.Data.PythonProviderFactory'
 
           try {
             & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$stage\scripts\install.ps1" -SourcePath "$stage\lib"
@@ -93,8 +96,17 @@ jobs:
             if ($LASTEXITCODE -ne 0) { throw "Verify-Installation.ps1 failed with exit code $LASTEXITCODE" }
           }
           finally {
-            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$stage\scripts\uninstall.ps1"
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$stage\scripts\uninstall.ps1" -SourcePath "$stage\lib"
             Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+          if ($LASTEXITCODE -ne 0) { throw "uninstall.ps1 failed with exit code $LASTEXITCODE" }
+
+          # The registration code is not published in the GAC, so the record must be removed by the payload-based uninstall
+          $config = New-Object Xml.XmlDocument
+          $config.Load($machineConfig)
+          if ($null -ne $config.SelectSingleNode("/configuration/system.data/DbProviderFactories/add[@invariant='$invariant']")) {
+            throw "The provider record is still present in '$machineConfig'"
           }
 
       - name: Upload NuGet package
