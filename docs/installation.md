@@ -106,10 +106,11 @@ uninstall.cmd                # from the extracted distribution archive (elevated
 .\scripts\uninstall.ps1      # repository (elevated)
 ```
 
-The registration code (`Pike.PythonClient64.Install`) is **not** published in the GAC, so the uninstall takes it from
-the payload: `uninstall.cmd` passes its own `lib\` folder (`-SourcePath`), and the repository layout is detected
-automatically. Keep the archive until the provider is uninstalled. The `machine.config` record is removed first
-(backup), then `Pike.PythonClient64` and `Python.Runtime` are removed from the GAC, and the result is verified. An
+The registration code (`Pike.PythonClient64.Install.dll`) is **not** published in the GAC, so the uninstall takes it
+from the payload: `uninstall.cmd` passes its own `lib\` folder (`-SourcePath`), and the repository layout is detected
+automatically. Keep the archive until the provider is uninstalled. `Pike.PythonClient64` and `Python.Runtime` are
+removed from the GAC first, then the `machine.config` record (backup) — the registration code depends on the provider
+assembly, so it is loaded only after the GAC copies are gone. The result is verified. An
 assembly that is still loaded by a running process stays in the GAC until that process exits — the script reports it and
 exits with `1`, so close Excel / Visual Studio and run it again. An optional `-InstallPath` folder and the legacy
 `%ProgramFiles%\Pike\PythonClient64` folder are cleaned up when present; when nothing is installed the script reports
