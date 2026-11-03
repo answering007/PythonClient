@@ -149,7 +149,8 @@ if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
     Get-Process testhost, testhost.x86 -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
     Write-Host ''
     Get-Content $logFile -Tail 40 -ErrorAction SilentlyContinue
-    throw "Test run exceeded $TimeoutSeconds seconds and was terminated. The Python interpreter may have hung"
+    $tail = (Get-Content $logFile -Tail 15 -ErrorAction SilentlyContinue) -join ' | '
+    throw "Test run exceeded $TimeoutSeconds seconds and was terminated. The Python interpreter may have hung. vstest output: $tail"
 }
 
 # Extended failure details from the trx report
@@ -158,7 +159,10 @@ $trx = Get-ChildItem $resultsFolder -Recurse -Filter '*.trx' -ErrorAction Silent
 
 if (-not $trx) {
     Get-Content $logFile -Tail 30 -ErrorAction SilentlyContinue
-    throw 'Test report is not found, the test run did not produce any result'
+    # The output is included in the message: on CI the job log is private, but a thrown exception becomes
+    # a public annotation of the step
+    $tail = (Get-Content $logFile -Tail 20 -ErrorAction SilentlyContinue) -join ' | '
+    throw "Test report is not found, the test run did not produce any result (vstest exit code $($process.ExitCode)). vstest output: $tail"
 }
 
 $xml = [xml](Get-Content $trx.FullName)

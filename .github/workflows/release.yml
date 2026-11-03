@@ -58,7 +58,15 @@ jobs:
       # Windows PowerShell 5.1 on purpose: the GAC is updated through System.EnterpriseServices.Internal.Publish
       - name: Installation e2e (GAC + machine.config)
         shell: powershell
-        run: ./scripts/test/Invoke-InstallE2E.ps1 -Configuration Release
+        run: |
+          # The exception is reported as an annotation: it stays readable when the job log is not
+          try {
+            ./scripts/test/Invoke-InstallE2E.ps1 -Configuration Release
+          }
+          catch {
+            Write-Host "::error::Installation e2e failed: $($_.Exception.Message)"
+            exit 1
+          }
 
       - name: Pack (nuget + deploy folder)
         shell: pwsh
