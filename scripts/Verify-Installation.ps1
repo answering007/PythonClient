@@ -15,7 +15,7 @@
       - the installed build contains the polars reader (Pike.PythonClient64.FrameReaders.PolarsFrameReader);
       - the GAC copy is the same file as the reference build (SHA256: bin\<Configuration>\net48 of this repository, or
         the "lib" folder of the distribution ZIP with -ReferencePath);
-      - the legacy 2.1.0 folder (%ProgramFiles%\Pike\PythonClient64) is gone;
+      - the legacy 2.1.0 folder (%ProgramFiles%\Pike\PythonClient64) of the development builds is gone;
       - with -InstallPath: the diagnostics copy (-KeepFiles) contains the same files as the reference build.
     The exit code is 1 when a check fails.
 
@@ -37,7 +37,7 @@
     .\scripts\Verify-Installation.ps1
 
 .EXAMPLE
-    .\scripts\Verify-Installation.ps1 -ReferencePath 'C:\Downloads\Pike.PythonClient64-2.1.0\lib'
+    .\scripts\Verify-Installation.ps1 -ReferencePath 'C:\Downloads\Pike.PythonClient64-2.2.0\lib'
 
 .EXAMPLE
     .\scripts\Verify-Installation.ps1 -InstallPath D:\temp\pike -ReferencePath D:\temp\pike\lib

@@ -11,8 +11,8 @@
     payload, so the uninstall runs from the extracted archive (uninstall.cmd) or with an explicit -SourcePath (the
     repository build output is found automatically).
     The result is verified: an assembly that is still resolvable is reported with the manual gacutil command, and the
-    script exits with code 1. An optional -InstallPath folder (created by install.ps1 -KeepFiles) and the legacy 2.1.0
-    folder %ProgramFiles%\Pike\PythonClient64 are cleaned up when present.
+    script exits with code 1. An optional -InstallPath folder (created by install.ps1 -KeepFiles) and the legacy folder
+    %ProgramFiles%\Pike\PythonClient64 of the 2.1.0 development builds are cleaned up when present.
     Administrator rights and 64-bit Windows PowerShell 5.1 are required.
 
 .PARAMETER SourcePath
@@ -199,7 +199,7 @@ else {
     Write-Host 'Uninstall completed' -ForegroundColor Green
 }
 
-# The installation does not copy files any more: only the legacy 2.1.0 folder and an explicit -KeepFiles folder remain.
+# The installation does not copy files: only the legacy 2.1.0 folder and an explicit -KeepFiles folder can exist.
 # %ProgramFiles% needs administrator rights, so the cleanup is skipped for an unelevated run (e.g. -SkipGac -SkipMachineConfig)
 if ($isAdministrator) {
     try {

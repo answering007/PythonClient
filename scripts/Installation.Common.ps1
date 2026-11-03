@@ -13,7 +13,7 @@ $script:ProviderAssemblyName = 'Pike.PythonClient64'
 $script:InstallerAssemblyName = 'Pike.PythonClient64.Install'
 $script:PythonRuntimeAssemblyName = 'Python.Runtime'
 
-# Legacy 2.1.0 layout: the assemblies were copied here; new installations publish them into the GAC only
+# Legacy 2.1.0 layout: the assemblies were copied here; the current installation publishes them into the GAC only
 $script:LegacyInstallPath = Join-Path $env:ProgramFiles 'Pike\PythonClient64'
 
 # Files the provider may have left in the legacy folder (and only they are removed there)
@@ -155,7 +155,7 @@ function New-DbProviderInstallation {
 
 <#
 .SYNOPSIS
-    Removes the legacy install folder of version 2.1.0 (and an optional -KeepFiles folder).
+    Removes the legacy install folder of the 2.1.0 development builds (and an optional -KeepFiles folder).
 
 .DESCRIPTION
     Only the known provider files are deleted; a folder that still contains foreign files is left in place with a

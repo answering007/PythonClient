@@ -57,9 +57,9 @@ workbooks run, and `SHA256SUMS.txt`. Details: [docs/installation.md](docs/instal
 
 ```powershell
 dotnet build PythonClient.sln -c Release
-.\scripts\install.ps1               # copies bin\Release\net48, updates the GAC and machine.config
-.\scripts\Verify-Installation.ps1   # read-only check: files, machine.config, GAC entries, resolved type
-.\scripts\uninstall.ps1             # removes the registration, the GAC entries and the files
+.\scripts\install.ps1               # publishes bin\Release\net48 into the GAC, updates machine.config
+.\scripts\Verify-Installation.ps1   # read-only check: GAC entries, machine.config, resolved type
+.\scripts\uninstall.ps1             # removes the registration and the GAC entries
 ```
 
 Run the scripts from an elevated **64-bit Windows PowerShell 5.1** (`System.EnterpriseServices.Internal.Publish`,
@@ -115,8 +115,8 @@ There is no installer project in the solution anymore: the legacy Visual Studio 
 required a separate VS extension) was removed in 2.1.0. Installation is done by the scripts above (repository) or by
 `install.cmd` from the release ZIP.
 
-An MSI/graphical installer is **not** part of 2.1.0 and is deliberately deferred. The installation itself is only six
-files, two GAC entries and one `machine.config` entry (the provider installs neither Python nor pandas), so the
+An MSI/graphical installer is **not** part of the 2.x line and is deliberately deferred. The installation itself is
+only six files, two GAC entries and one `machine.config` entry (the provider installs neither Python nor pandas), so the
 release ZIP and the scripts above remain the supported path: they are transparent, exercised by CI (including the
 "install from the distribution ZIP" step) and need no additional toolchain. A per-machine MSI (`msiexec /qn`, ARP
 entry, repair/uninstall) will be added on top of these scripts — reusing the same registration code — once silent

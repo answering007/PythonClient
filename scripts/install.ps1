@@ -13,8 +13,8 @@
     assembly without a dependency in the runtime provider: it is loaded from the payload and is NOT published into the
     GAC, so the GAC keeps the runtime assemblies only. uninstall.ps1 therefore runs from the extracted archive (its
     "lib" folder is passed as -SourcePath), where the same installer assembly is available.
-    No files are copied to %ProgramFiles% any more (2.1.0 kept a copy there): the GAC is the single source of truth,
-    and an existing legacy folder is cleaned up by this script.
+    No files are copied to %ProgramFiles% any more (the legacy 2.1.0 builds kept a copy there): the GAC is the single
+    source of truth, and an existing legacy folder is cleaned up by this script.
     machine.config is backed up as machine.config.bak-<utc> before the change.
     Administrator rights and 64-bit Windows PowerShell 5.1 are required.
 
@@ -52,10 +52,10 @@
     .\scripts\install.ps1 -Configuration Debug -SkipMachineConfig -SkipGac
 
 .EXAMPLE
-    .\scripts\install.ps1 -SourcePath 'C:\Downloads\Pike.PythonClient64-2.1.0\lib'
+    .\scripts\install.ps1 -SourcePath 'C:\Downloads\Pike.PythonClient64-2.2.0\lib'
 
 .EXAMPLE
-    .\scripts\install.ps1 -SourcePath 'C:\Downloads\Pike.PythonClient64-2.1.0\lib' -KeepFiles -InstallPath D:\temp\pike
+    .\scripts\install.ps1 -SourcePath 'C:\Downloads\Pike.PythonClient64-2.2.0\lib' -KeepFiles -InstallPath D:\temp\pike
 #>
 #Requires -Version 5.1
 [CmdletBinding()]
@@ -405,8 +405,8 @@ if (-not $SkipGac) {
     }
 }
 
-# The 2.1.0 layout copied the assemblies to %ProgramFiles%: the new installation publishes them into the GAC only,
-# so the legacy folder is cleaned up (unless the diagnostic copy is requested exactly there)
+# The legacy 2.1.0 layout copied the assemblies to %ProgramFiles%: the current installation publishes them into the GAC
+# only, so the legacy folder is cleaned up (unless the diagnostic copy is requested exactly there)
 $legacyPath = $script:LegacyInstallPath
 $keepsLegacyPath = $KeepFiles -and [string]::Equals(
     [IO.Path]::GetFullPath($InstallPath), [IO.Path]::GetFullPath($legacyPath), [StringComparison]::OrdinalIgnoreCase)

@@ -18,9 +18,9 @@ Install
 -------
   1. Extract this archive to a local folder (do not run it from inside the ZIP).
   2. Run install.cmd and confirm the UAC prompt.
-     The script prints the prerequisites, publishes Pike.PythonClient64.dll, Python.Runtime.dll
-     and Pike.PythonClient64.Install.dll into the GAC and registers the provider in
-     machine.config. No files are copied to %ProgramFiles%.
+     The script prints the prerequisites, publishes Pike.PythonClient64.dll and Python.Runtime.dll
+     into the GAC and registers the provider in machine.config. No files are copied to
+     %ProgramFiles%; the registration code stays in lib\ of this archive.
   3. Restart Excel (Power Query keeps the provider inside the Excel process).
 
 Use in Power Query

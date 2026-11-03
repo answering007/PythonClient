@@ -18,7 +18,7 @@
 3. Run `install.cmd` and confirm the UAC prompt:
 
 ```text
-Pike.PythonClient64-2.1.0\
+Pike.PythonClient64-2.2.0\
   install.cmd  verify.cmd  uninstall.cmd
   lib\        Pike.PythonClient64.dll/.xml/.pdb, Python.Runtime.dll,
               Pike.PythonClient64.Install.dll/.xml
@@ -28,12 +28,12 @@ Pike.PythonClient64-2.1.0\
 ```
 
 `install.cmd` unblocks the extracted files (Mark-of-the-Web), requests elevation, reports the prerequisites and calls
-`scripts\install.ps1 -SourcePath lib`. The script publishes three assemblies into the GAC —
-`Pike.PythonClient64` (`GAC_64`), `Python.Runtime` (pythonnet) and `Pike.PythonClient64.Install` (the registration
-code, so uninstall works without the archive) — and writes the fully qualified provider record into the x64
-`machine.config` (a backup `machine.config.bak-<utc>` is created). **No files are copied to `%ProgramFiles%`**: the GAC
-is the only installation location. The result is verified in a new process: the registered type must be loaded from
-`...\assembly\GAC_*`.
+`scripts\install.ps1 -SourcePath lib`. The script publishes the two runtime assemblies into the GAC —
+`Pike.PythonClient64` (`GAC_64`) and `Python.Runtime` (pythonnet, `GAC_MSIL`) — and writes the fully qualified provider
+record into the x64 `machine.config` (a backup `machine.config.bak-<utc>` is created). The registration code
+(`Pike.PythonClient64.Install.dll`) is **not** published: it is loaded from `lib\` of this archive, so keep the archive
+until the provider is uninstalled. **No files are copied to `%ProgramFiles%`**: the GAC is the only installation
+location. The result is verified in a new process: the registered type must be loaded from `...\assembly\GAC_*`.
 
 4. Restart Excel: Power Query keeps the provider inside the Excel process.
 5. Check the installation at any time with `verify.cmd` (read-only, no administrator rights).
@@ -49,7 +49,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File scripts\install.ps1 -SourceP
 Advanced switches of `install.ps1`: `-KeepFiles` (+ `-InstallPath <dir>`, a diagnostics copy of the assemblies),
 `-SkipGac`, `-SkipMachineConfig`, `-SkipPrerequisiteCheck`, `-PythonDll <path to python3xx.dll>` (used only by the
 prerequisite report). `install.ps1` is idempotent: the same assembly identity is replaced, the `machine.config` record
-is updated in place, and an old `%ProgramFiles%\Pike\PythonClient64` folder of version 2.1.0 is cleaned up.
+is updated in place, and an old `%ProgramFiles%\Pike\PythonClient64` folder of the legacy 2.1.0 development builds is
+cleaned up.
 
 ## Install from source (developers)
 
