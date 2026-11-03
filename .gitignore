@@ -260,9 +260,9 @@ paket-files/
 __pycache__/
 *.pyc
 
-# Custom files
-plan.md
-planClaude.md
+# Working notes (planning journals stay local)
+plan*.md
+steps.md
 
 # Python virtual environment (uv)
 .venv/
