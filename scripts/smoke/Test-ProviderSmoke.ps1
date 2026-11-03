@@ -32,6 +32,12 @@ param(
 
 $ErrorActionPreference = 'Stop'
 
+# The script loads net48 assemblies (Pike.PythonClient64.Install references System.Configuration.Install) and
+# inspects the GAC and machine.config: both exist only in Windows PowerShell 5.1
+if ($PSVersionTable.PSEdition -ne 'Desktop') {
+    throw 'Windows PowerShell 5.1 is required: the net48 installer assembly cannot be loaded into PowerShell 7'
+}
+
 $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $assemblyPath = Join-Path $root "Pike.PythonClient64\bin\$Configuration\net48\Pike.PythonClient64.dll"
 
