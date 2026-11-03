@@ -36,7 +36,7 @@ Use in Power Query
   The script file must assign a pandas.DataFrame or polars.DataFrame to the variable 'result'.
   A non-empty third argument of AdoDotNet.Query is available inside the script as 'query'
   (for example, a compressed Excel table).
-  Ready-made workbooks: samples\power-query.
+  Ready-made workbooks: samples\power-query (the scripts they run are in samples\Python).
 
 Verify / uninstall
 ------------------

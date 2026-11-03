@@ -4,7 +4,8 @@
 
 .DESCRIPTION
     Produces in the output folder (<repository root>\artifacts\dist by default):
-      - Pike.PythonClient64-<version>\        staged layout (lib, scripts, samples, wrappers, README.txt, LICENSE);
+      - Pike.PythonClient64-<version>\        staged layout: lib, scripts, samples\power-query (workbooks),
+                                              samples\Python (the scripts they run), wrappers, README.txt, LICENSE;
       - Pike.PythonClient64-<version>.zip     the archive a user downloads from the GitHub release;
       - Pike.PythonClient64-<version>.zip.sha256
     The version is taken from Directory.Build.props (single source of truth), the payload comes from pack.ps1.
@@ -63,12 +64,15 @@ $stagePath = Join-Path $OutputPath $name
 $libPath = Join-Path $stagePath 'lib'
 $scriptsPath = Join-Path $stagePath 'scripts'
 $samplesPath = Join-Path $stagePath 'samples\power-query'
+# Sample scripts run by the workbooks: the "Settings" table points to a script file, and the
+# "03 - Use custom module" example also needs the folder itself (TestModule.py is imported from it)
+$pythonSamplesPath = Join-Path $stagePath 'samples\Python'
 
 if (Test-Path -LiteralPath $stagePath) {
     Remove-Item -LiteralPath $stagePath -Recurse -Force
 }
 
-New-Item -ItemType Directory -Force -Path $libPath, $scriptsPath, $samplesPath | Out-Null
+New-Item -ItemType Directory -Force -Path $libPath, $scriptsPath, $samplesPath, $pythonSamplesPath | Out-Null
 
 # Payload: the assemblies installed by scripts\install.ps1
 Get-ChildItem -LiteralPath $payloadSource -File | Copy-Item -Destination $libPath -Force
@@ -104,13 +108,34 @@ Power Query / Excel examples
 Open a workbook, then edit the "Settings" table:
   - "Path to python dll" - full path to your python3xx.dll (x64);
   - "Python env path"    - your virtual environment (site-packages are added to sys.path);
-  - "Python script file" - full path to the script (see Pike.PythonClient.Test\Python for the sources).
+  - "Python script file" - full path to a script from the "Python" folder next to this one,
+                           for example <archive>\samples\Python\TestScript01.py;
+  - "Custom module path" - only in "03 - Use custom module": the "Python" folder itself,
+                           because TestScript02.py imports TestModule.py from it.
+
+Which script a workbook uses ("02" runs inline code and needs no file):
+  01 - Basic example             Python\TestScript01.py
+  02 - Python code as query      inline code
+  03 - Use custom module         Python\TestScript02.py + module path Python
+  04 - Transfer table to script  Python\TestScript03.py
+  05 - Polars example            Python\TestScript04.py (polars must be installed)
 
 The provider must be installed first (install.cmd in the archive root) and Excel must be 64-bit.
 '@
     [IO.File]::WriteAllText((Join-Path $samplesPath 'README.txt'), ($samplesReadme -replace "`r?`n", "`r`n") + "`r`n",
         (New-Object Text.UTF8Encoding($false)))
 }
+
+# Sample scripts (*.py only: __pycache__ of the build machine must not be shipped). The folder is copied next to the
+# workbooks, so a "Settings" table is edited with a local path and the examples run from the extracted archive
+$pythonSourcesPath = Join-Path $root 'Pike.PythonClient.Test\Python'
+if (-not (Test-Path -LiteralPath $pythonSourcesPath)) {
+    throw "Sample scripts folder '$pythonSourcesPath' is not found"
+}
+
+$pythonScripts = Get-ChildItem -LiteralPath $pythonSourcesPath -Filter '*.py' -File
+$pythonScripts | Copy-Item -Destination $pythonSamplesPath -Force
+Write-Host "Sample scripts: $($pythonScripts.Count) file(s) -> '$pythonSamplesPath'"
 
 # SHA256 of every installed file: lets a user (and support) verify the payload before the installation
 $checksums = foreach ($file in Get-ChildItem -LiteralPath $libPath -File | Sort-Object Name) {

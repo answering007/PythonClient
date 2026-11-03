@@ -118,4 +118,6 @@ An empty command text means "no query": `query` is not defined, so a script that
   refreshes (recommended for interactive scenarios).
 - Errors are reported as provider exceptions and appear in the Power Query error pane; see the troubleshooting table
   in `README.md`.
-- Ready-made workbooks: `Pike.PythonClient.Test\Excel\PowerQuery - 01..04`.
+- Ready-made workbooks: `Pike.PythonClient.Test\Excel\PowerQuery - 01..05`; the scripts they run are
+  `Pike.PythonClient.Test\Python\*.py` (`TestScript01..04.py`, `TestModule.py`). The distribution archive ships the same
+  workbooks in `samples\power-query` and the scripts next to them in `samples\Python`.

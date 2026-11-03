@@ -24,6 +24,7 @@ Pike.PythonClient64-2.1.0\
               Pike.PythonClient64.Install.dll/.xml
   scripts\    install.ps1, uninstall.ps1, Verify-Installation.ps1, Installation.Common.ps1
   samples\power-query\   ready-made workbooks
+  samples\Python\        scripts run by the workbooks (TestScript01..04.py, TestModule.py)
 ```
 
 `install.cmd` unblocks the extracted files (Mark-of-the-Web), requests elevation, reports the prerequisites and calls

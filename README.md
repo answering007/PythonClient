@@ -48,8 +48,8 @@ into the GAC and the provider is registered in the x64 `machine.config`.
    `uninstall.cmd` removes it.
 
 The archive contains `lib\` (the six installed files), `scripts\` (`install.ps1`, `uninstall.ps1`,
-`Verify-Installation.ps1`), `samples\power-query` with ready-made workbooks and `SHA256SUMS.txt`.
-Details: [docs/installation.md](docs/installation.md).
+`Verify-Installation.ps1`), `samples\power-query` with ready-made workbooks, `samples\Python` with the scripts those
+workbooks run, and `SHA256SUMS.txt`. Details: [docs/installation.md](docs/installation.md).
 
 ### From source (developers)
 

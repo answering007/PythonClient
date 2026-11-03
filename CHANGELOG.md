@@ -8,6 +8,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
+- The distribution ZIP ships the sample Python scripts: `samples\Python` (`TestModule.py`, `TestScript01..04.py`) is
+  copied next to `samples\power-query`, so the ready-made workbooks run from the extracted archive — the "Settings"
+  table only needs the local paths (`Python script file` and, for the custom-module example, `Custom module path`).
+  `__pycache__` of the build machine is not copied.
 - **End-user distribution.** `scripts\build-distribution.ps1` assembles `Pike.PythonClient64-<version>.zip` (the version
   comes from `Directory.Build.props`): the six installed files, `install.cmd`/`verify.cmd`/`uninstall.cmd` wrappers
   (UAC elevation, `Unblock-File` for the Mark-of-the-Web, `-ExecutionPolicy Bypass`, no PowerShell knowledge required),
