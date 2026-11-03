@@ -2,11 +2,13 @@
 <SettingsFile xmlns="http://schemas.microsoft.com/VisualStudio/2004/01/settings" CurrentProfile="(Default)" GeneratedClassNamespace="Pike.PythonClient.Test" GeneratedClassName="SettingsMain">
   <Profiles />
   <Settings>
+    <!-- Python runtime path is configured by the PYTHONNET_TEST_DLL environment variable.
+         The values below are fallbacks and are empty by default -->
     <Setting Name="PythonDllPath" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">C:\Users\Pike\anaconda3\python311.dll</Value>
+      <Value Profile="(Default)"></Value>
     </Setting>
     <Setting Name="EnvPythonDllPath" Type="System.String" Scope="Application">
-      <Value Profile="(Default)">C:\Users\Pike\anaconda3\envs\Test\python311.dll</Value>
+      <Value Profile="(Default)"></Value>
     </Setting>
     <Setting Name="PythonScriptsFolder" Type="System.String" Scope="User">
       <Value Profile="(Default)">Python</Value>

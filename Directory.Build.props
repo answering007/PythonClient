@@ -1,0 +1,36 @@
+<Project>
+
+  <!-- Shared build metadata for all projects in the repository -->
+  <PropertyGroup>
+    <Version>2.2.0</Version>
+    <!-- AssemblyVersion is fixed for the whole 2.x line: the x64 machine.config record contains the fully
+         qualified name (Version/Culture/PublicKeyToken), so a version bump would silently invalidate every
+         existing installation. FileVersion and the package Version still follow the release. -->
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+    <FileVersion>2.2.0.0</FileVersion>
+
+    <Company>Pike</Company>
+    <Product>Pike.PythonClient64</Product>
+    <Authors>PythonClient contributors</Authors>
+    <Copyright>Copyright (c) 2025 PythonClient contributors</Copyright>
+    <Description>ADO.NET x64 data provider that uses a Python script (pythonnet 3.0.5 + pandas) as a data source and converts a pandas.DataFrame into a DataTable/DbDataReader. Intended for Power Query / Excel, DataAdapter-based code and desktop tools.</Description>
+
+    <LangVersion>latest</LangVersion>
+    <NeutralLanguage>en-US</NeutralLanguage>
+
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryType>git</RepositoryType>
+    <PackageTags>ado.net;dataprovider;python;pythonnet;pandas;powerquery;excel;net48</PackageTags>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+
+  <!-- A strong-named assembly is resolved from the GAC before the application folder, so a provider installed on the
+       machine (Release, AssemblyVersion 2.0.0.0) would hide the local build from the tests and from local tools.
+       Debug builds therefore use 2.0.0.1; Pike.PythonClient.Test patches the provider record of its copied app.config
+       to the same version. Release keeps 2.0.0.0 — the version the machine.config registration expects. -->
+  <PropertyGroup Condition="'$(Configuration)' != 'Release'">
+    <AssemblyVersion>2.0.0.1</AssemblyVersion>
+    <FileVersion>2.2.0.1</FileVersion>
+  </PropertyGroup>
+
+</Project>

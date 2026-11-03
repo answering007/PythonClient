@@ -2,7 +2,9 @@
 import base64
 import gzip
 import json
+
 import pandas as pd
+
 
 def decode_table(text: str)->pd.DataFrame:
     """
@@ -19,13 +21,15 @@ def decode_table(text: str)->pd.DataFrame:
     pd.DataFrame
         The DataFrame containing the data from the string.
     """
-    decoded = base64.b64decode(text)
-    raw_data = gzip.decompress(decoded)
-    json_data = json.loads(raw_data)
+    decoded: bytes = base64.b64decode(text)
+    raw_data: bytes = gzip.decompress(decoded)
+    json_data: dict = json.loads(raw_data)
     return pd.DataFrame(json_data)
 
-query_text = globals()['query'] if 'query' in globals() else None
-query_params = globals()['params'] if 'params' in globals() else None
+query_text: str | None = globals().get('query', None)
+if query_text is None:
+    raise ValueError("The 'query' variable is not defined in the global scope.")
+query_params: dict | None = globals().get('params', None)
 
-result = decode_table(query_text)
+result: pd.DataFrame = decode_table(query_text)
 result['Value'] = result['Value'] * 13

@@ -1,0 +1,300 @@
+# Changelog
+
+All notable changes to this project are documented in this file.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to
+[Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [2.2.0] - 2026-11-04
+
+This is the first published release of the 2.x line: 2.0.0 and 2.1.0 were development iterations that were never tagged
+and never published on nuget.org or in GitHub Releases, so the migration notes below are addressed to the users of 1.2
+and to the internal 2.x builds.
+
+### Added
+
+- **`docs/python-environment.md`** — a step-by-step local Python environment for the provider: install uv, install
+  Python, create a virtual environment, install `pandas` and optional `polars`, then derive the `PYTHONDLL` /
+  `PYTHONPATH` values for the connection string (the environment has no `python3xx.dll`, so the DLL comes from the base
+  interpreter and the environment contributes its `Lib\site-packages`). Linked from `README.md`,
+  `docs\installation.md`, `docs\power-query.md` and `docs\connection-strings.md`.
+- The distribution ZIP ships the sample Python scripts: `samples\Python` (`TestModule.py`, `TestScript01..04.py`) is
+  copied next to `samples\power-query`, so the ready-made workbooks run from the extracted archive — the "Settings"
+  table only needs the local paths (`Python script file` and, for the custom-module example, `Custom module path`).
+  `__pycache__` of the build machine is not copied.
+- **End-user distribution.** `scripts\build-distribution.ps1` assembles `Pike.PythonClient64-<version>.zip` (the version
+  comes from `Directory.Build.props`): the six installed files, `install.cmd`/`verify.cmd`/`uninstall.cmd` wrappers
+  (UAC elevation, `Unblock-File` for the Mark-of-the-Web, `-ExecutionPolicy Bypass`, no PowerShell knowledge required),
+  the installation scripts, ready-made Power Query workbooks and `SHA256SUMS.txt`.
+  `.github\workflows\release.yml` publishes the ZIP, its checksum and the NuGet packages on a `v*` tag; CI installs from
+  the ZIP (the user scenario) after the regular installation e2e, so the archive cannot rot unnoticed.
+- `scripts\install.ps1 -SourcePath` — install from the ZIP payload instead of `bin\<Configuration>` — and
+  `-SkipPrerequisiteCheck`; the script now reports the machine prerequisites (.NET Framework 4.8, x64 Excel, a Python
+  installation with numpy/pandas; warnings only, the installation is never blocked) and prints the connection-string,
+  verify and uninstall next steps.
+- `scripts\Verify-Installation.ps1 -ReferencePath` — compare the installed files with the ZIP payload — and
+  `docs\installation.md` (release → silent → source → verify → uninstall → troubleshooting).
+- `scripts\pack.ps1` also publishes the Python integration test sources to
+  `artifacts\Pike.PythonClient64\Tests\Python` (uploaded with the CI build artifact). The installation copies only the
+  named assemblies, so the folder is never installed and the NuGet package stays runtime-only.
+- **polars support: a `polars.DataFrame` result is read directly, without converting it to pandas.** The provider
+  detects the frame type by the python type of `result` (`pandas`/`polars` module name, no import of either package)
+  and reads it column by column: `to_list()` for plain values and `to_physical()` with nanosecond scaling for
+  `Date`/`Datetime`/`Duration`/`Time` (exact values, all `time_unit`s, dates before 1970, time zone aware datetimes).
+  Supported dtypes: `Boolean`, integers (including `UInt64`), `Float16/32/64`, `String`/`Utf8`, `Categorical`, `Enum`,
+  `Date`, `Datetime`, `Duration`, `Time`, `Decimal` (as `double`), `Binary` (as `byte[]`), `Null` (as `string`);
+  `List`/`Array`/`Struct`/`Map`/`Object`/`Int128`/`UInt128` raise `NotSupportedException` in strict mode and are
+  converted to strings with `PythonDataQuery.StrictColumnTypes = false`. pandas behaviour is unchanged; a
+  `LazyFrame` is rejected with a hint to call `collect()`. New `BinaryConverter` and `DecimalConverter`.
+- polars is optional and is not required at run time: without the package the pandas path works as before, and the
+  new polars integration tests are reported as inconclusive.
+- `scripts\Verify-Installation.ps1` — read-only check of an installed machine (no administrator rights, no changes):
+  it compares the installed files with `bin\<Configuration>` (SHA256), verifies the `machine.config` record and its
+  version, both GAC entries (provider and pythonnet), the GAC copy of the provider, the type resolved by
+  `DbProviderFactories` in a new process and the presence of the polars reader in the installed build. Exit code `1`
+  with the failing check names makes it usable in scripts.
+
+### Fixed
+
+- **Power Query / Excel: with `FILE` in the connection string the command text was not passed to the script.** The
+  `query` variable was defined only when the connection had no script file (regression since 2.1.0), so the
+  "Transfer table to script" workbook (`PowerQuery - 04`) failed with
+  `ValueError: The 'query' variable is not defined in the global scope`. `CommandText` is now always passed as
+  `query` when it is not empty: either the script itself (no `FILE`) or the payload decoded by the script file.
+- **Power Query / Excel: `CommandTimeout` was rejected.** The `AdoDotNet` connector sets `CommandTimeout` on the command,
+  and the provider failed with `NotSupportedException: CommandTimeout is not supported, python scripts can't be
+  interrupted reliably` before running the script. The value is now accepted (and validated as an ADO.NET property:
+  negative values throw `ArgumentOutOfRangeException`) and ignored — a python script cannot be interrupted, so the
+  execution is never aborted and `Cancel()` stays a no-op.
+- The test `app.config` removes the inherited `machine.config` record before adding its own: with the provider installed
+  on the machine, `DbProviderFactories` rejected the duplicated invariant name and the configuration could not be loaded.
+- `scripts\test\Invoke-InstallE2E.ps1` looked for the x64 `machine.config` in `Framework64\Config\machine.config`
+  instead of `Framework64\v4.0.30319\Config\machine.config`: the file was never found, so the registration checks could
+  not pass. The path is now built from the runtime directory the same way as `DataProviderInstallationBase.Machine64Config`.
+
+### Removed
+
+- **Chunked (streaming) DataFrame reading** — breaking change. `PythonCommand.Streaming`, `PythonCommand.StreamingChunkSize`
+  and the public `PythonDataReader` are removed together with the internal `DataFrameCursor`/`DataFrameColumn`: the
+  provider always materializes the whole `DataFrame` into a `DataTable` and `ExecuteReader` returns a standard
+  `DataTableReader`. `CommandBehavior.SchemaOnly`/`SingleRow`/`CloseConnection`, typed getters, `GetSchemaTable()` and
+  `DataTable.Load` keep working through the standard reader.
+  *Migration:* drop the `Streaming`/`StreamingChunkSize` assignments (a plain `ExecuteReader()` is enough); replace
+  `GetDataTypeName` (python dtype) with `GetFieldType` (managed type); reduce large results in the script
+  (`LIMIT`, `.head(n)`, aggregation) instead of relying on bounded memory.
+
+### Changed
+
+- **The installation publishes the runtime assemblies into the GAC only.** `install.ps1` no longer copies files to
+  `%ProgramFiles%\Pike\PythonClient64`: `Pike.PythonClient64` and `Python.Runtime` are published into the GAC, so there
+  is a single source of truth and no folder that can diverge from the registered assemblies; the legacy 2.1.0 folder is
+  removed by the installer. `Pike.PythonClient64.Install` (the `machine.config` registration code) is **not** published
+  into the GAC: it is loaded from the distribution payload, so `uninstall.ps1` runs from the extracted archive (its
+  `lib\` is passed as `-SourcePath`; the repository layout is detected automatically) and verifies the removal. A
+  diagnostics copy is still available with `install.ps1 -KeepFiles -InstallPath <dir>`; `Verify-Installation.ps1`
+  checks the GAC and the `machine.config` record and skips the folder checks unless `-InstallPath` is passed.
+- `SupportedTypes.NormalizeDtype` also strips the parameters in round brackets, so polars dtype names are normalized
+  the same way as pandas ones (`Datetime(time_unit='us', time_zone=None)` → `Datetime`,
+  `Decimal(precision=38, scale=2)` → `Decimal`, `List(String)` → `List`); pandas names are not affected.
+- The frame conversion is moved out of `PythonDataQuery` into internal readers (`FrameReaders`: pandas, polars,
+  shared base, dtype units), so both formats share the column naming, strict-mode policy, row filling and error
+  messages. The public API is unchanged.
+- **Debug builds use `AssemblyVersion` 2.0.0.1.** A strong-named assembly is resolved from the GAC before the
+  application folder, so with the provider installed on the machine the tests silently ran against the installed copy
+  (stale code, `TypeLoadException` for a new type). `Directory.Build.props` sets 2.0.0.1 for every non-Release build and
+  `Pike.PythonClient.Test` patches its copied `app.config` with the same version; Release keeps 2.0.0.0 for the
+  existing `machine.config` registration.
+- The whole frame is read in a single pass: every column is converted once, without the `iloc[start:stop]` slices the
+  chunk reader needed, so a full materialization copies less data.
+- Test suite: **176 tests** (95 unit + 81 integration), including the new `ScriptVariablesTests` (`query`/`params`
+  transfer: command text vs script file, an always-defined `params` dictionary, prefix trimming, execution isolation,
+  the compressed Excel table payload of the `PowerQuery - 04` workbook), `ScriptContextUnit` (context defaults,
+  variable names), `PolarsDtypeUnit` (dtype normalization and the polars registry) and `PolarsTypesTests`
+  (core/temporal/categorical/decimal/binary/null types, nested types, empty frames, ADO.NET parity, `LazyFrame`
+  rejection, `FILE=` + `query`/`params`, 100 000-row frame).
+
+## [2.1.0] - 2026-10-29
+
+### Added
+
+- **GAC installation.** `scripts\install.ps1` now publishes `Pike.PythonClient64.dll` and its `pythonnet` dependency
+  `Python.Runtime.dll` into the global assembly cache (`GAC_64`) and verifies in a new process that the registered type
+  is resolved from there; `scripts\uninstall.ps1` removes the GAC entries as well, so an uninstall no longer leaves a
+  phantom provider behind. No `gacutil`/Windows SDK is needed (`System.EnterpriseServices.Internal.Publish`).
+  Both scripts require an elevated 64-bit Windows PowerShell 5.1 and check it.
+- `scripts\test\Invoke-InstallE2E.ps1` — installation end-to-end check (install → `DbProviderFactories.GetFactory`
+  from the GAC in a new process → uninstall), executed by CI.
+- `Pike.PythonClient64.Install.dll` is strong-named now (same `key.snk`), so every shipped assembly has a
+  `PublicKeyToken`.
+
+### Added (optional roadmap stage 4)
+
+- **Async API.** `PythonConnection.OpenAsync`, `PythonCommand.ExecuteReaderAsync`/`ExecuteScalarAsync`/
+  `ExecuteNonQueryAsync` and `PythonDataQuery.RunScriptAsync` execute the Python work on a thread pool thread, so the
+  caller is never blocked. A cancellation token prevents the execution from starting (Python scripts are not
+  interruptible).
+- **Streaming large results.** `PythonCommand.Streaming` (+ `StreamingChunkSize`, default 4096) returns a new
+  `PythonDataReader` that reads the DataFrame in chunks (`DataFrameCursor`): bounded memory, standard ADO.NET schema
+  (`GetSchemaTable`, `DataTable.Load`), typed getters, `SchemaOnly`/`SingleRow`/`CloseConnection` support.
+  The materialization path also uses the cursor now, so a table is filled chunk by chunk with a reused row buffer.
+- **Custom converters** are documented with a complete `IColumnConverter` example
+  (`SupportedTypes.Register`/`Reset`, `TryGetConverter`, `NormalizeDtype`).
+- `samples\Pike.PythonClient64.Sample` — minimal .NET Framework 4.8 x64 host (async + streaming), executed by CI.
+- Test suite grown to **145 tests** (85 unit + 60 integration); version matrix re-validated:
+  Python 3.9/3.11/3.13 × pandas 1.5/2.2/3.1 — 60/60 in every combination.
+
+### Changed
+
+- **Target framework: `net48` only.** The `net8.0-windows` target (an experiment in this release cycle) was dropped:
+  the provider is distributed as a single `lib\net48` assembly for the x64 Power Query / Excel and desktop hosts.
+  `dotnet build` outputs stay in `bin\<Configuration>\net48`, so the deployment scripts are unchanged.
+- **`machine.config` registration uses the fully qualified type name**
+  (`Pike.PythonClient64.Data.PythonProviderFactory, Pike.PythonClient64, Version=2.0.0.0, Culture=neutral,
+  PublicKeyToken=8c0beba75960bb80`) instead of the assembly simple name: only a full name is resolved from the GAC,
+  a partial name is probed in the host application base (the Excel folder) only.
+  `AssemblyVersion` is fixed to `2.0.0.0` for the whole 2.x line, so the record stays valid across upgrades.
+  *Migration:* run `uninstall.ps1` (or `install.ps1` directly) once on the machines that were registered by an
+  earlier build; the record is rewritten in place and the assemblies are published into the GAC.
+
+### Removed
+
+- `PythonDataQuery.Query`, `PythonDataQuery.Parameters` and `PythonDataQuery.Reset()` (deprecated in 2.0.0) together
+  with the internal ambient context: the execution state is passed explicitly via `PythonScriptContext` /
+  `PythonCommand`, so there is no hidden static state and no `AsyncLocal` fallback anymore;
+  `RunScript(scriptText)` uses a new default context.
+- The legacy Visual Studio Installer project `PythonClient64Setup\PythonClient64Setup.vdproj` (deprecated in 2.0.0,
+  required a separate VS extension) is removed from the solution: deployment and registration are done by
+  `scripts\install.ps1` / `uninstall.ps1` only.
+
+### Fixed
+
+- **Shutdown from a non-owner thread.** `EndAllowThreads` can be called only in the thread that saved the state;
+  with an async host the close happened on another thread and deadlocked. The finalization is now skipped in that
+  case instead of hanging, and `PlatformNotSupportedException` from `PythonEngine.Shutdown()` (pythonnet 3.0.5 uses
+  `BinaryFormatter`, which is unavailable in .NET 8+ hosts) is handled as a safe fallback.
+- **`NaN` in the inferred string dtype (pandas 3).** Missing values of the default string dtype (`nan`) were
+  transferred as the literal `"nan"`/`"не число"` string; `NaN` is now treated as a missing value and becomes
+  `DBNull` (also covers `np.nan` in object columns).
+
+## [2.0.0] - 2026-10-29
+
+### Fixed
+
+- **Connection string (P0-1).** Values are no longer upper-cased: the custom parser was replaced by
+  `DbConnectionStringBuilder.ConnectionString`, keyword lookup is case-insensitive.
+  *Migration:* quote values that contain `;` — `PYTHONPATH="C:\Py\Lib;C:\Py\Lib\site-packages"`.
+- **Parameter collection (P0-2, P0-4).** `CopyTo` copies all items from the requested index;
+  `Parameters[name] = value` replaces the existed parameter instead of throwing; `Insert` honours the index;
+  `Contains(object)`/`IndexOf(object)`/`Remove(object)` are safe for `null` and non-parameter values;
+  `IsSynchronized` is `false`; the enumerator returns parameters instead of key/value pairs.
+- **Parameters (P0-3).** `PythonParameter.Value = null` and `DbType = DbType.X` are allowed;
+  `DBNull` no longer breaks `Size` calculation.
+- **Provider registration (P0-5).** `DbProviderFactories` is created inside `system.data`, the existed record is
+  updated, `type` is version-independent, `machine.config` is backed up and replaced atomically (UTF-8 without BOM).
+  The dependency on `Microsoft.Build.Utilities.v4.0` was removed.
+- **GIL and engine lifecycle (P0-6, P0-7).** The GIL is acquired per operation instead of being held for the whole
+  application; the engine is reference counted, so closing one connection no longer shuts it down for others;
+  `PythonDataProvider.ShutdownOnLastClose` allows keeping the interpreter alive until the process exits.
+- **Date/time converters (P0-8).** Dates before 1970, `NaT` and out-of-range `timedelta64` values no longer throw:
+  `NaT` and out-of-range values are returned as `DBNull`.
+- **DataFrame conversion (P0-9).** dtype is normalized (`datetime64[ns, UTC]`, `string[python]`, nullable `Int64`…),
+  unknown dtype raises `NotSupportedException` instead of the silent string conversion, column names are normalized
+  and uniquified, duplicated labels are reported, the result object is disposed, `np.nan` becomes `DBNull`.
+- **ADO.NET contracts (P1-1…P1-5).** `CommandBehavior` (`SchemaOnly`, `SingleRow`, `CloseConnection`) is supported,
+  `CommandTimeout` and transactions raise `NotSupportedException`, `ExecuteNonQuery` allows scripts without `result`,
+  script files are read as UTF-8 and cached, parameters support `null`/`decimal`/`Guid`/`TimeSpan`/`DateTimeOffset`,
+  `@`/`:` prefixes are trimmed, execution context is per call (`PythonScriptContext`).
+
+### Fixed (found by integration testing with Python 3.11.16 / numpy 2.4.6 / pandas 3.1.0)
+
+- **GIL and worker threads (P0-6).** `PythonEngine.Initialize()` keeps the GIL in the initializing thread, so any
+  Python call from another thread blocked forever. The provider releases it with `BeginAllowThreads()` and restores
+  the saved thread state before the finalization: scripts, parallel connections and `RunScript` from a worker thread
+  now work.
+- **datetime64/timedelta64 resolution (P0-8).** pandas 3 stores datetimes with microsecond resolution
+  (`datetime64[us]`), the converter assumed nanoseconds, so values were shifted (e.g. `1960-01-01` came back as
+  `1969-12-28`). The unit is now read from the dtype (`[ns]`, `[us]`, `[ms]`, `[s]`, `[m]`, `[h]`, `[D]`) and scaled.
+- **Non-string column labels (P0-9).** Columns were selected by a string name, so DataFrames with default integer
+  labels (`0`, `1`, …) failed with `KeyError`. The series are selected by the original label, the string name is used
+  for the `DataColumn` only.
+- **pandas NA/NaT in object and string columns (P0-9).** `pd.NA` was transferred as the literal `"<NA>"` string;
+  `pd.NA`/`pd.NaT` are now treated as missing values and become `DBNull`.
+- **Engine shutdown from another thread (P0-7).** `PythonEngine.Shutdown()` is no longer called while the provider
+  lock is held, and a `Close()` of an already closed connection does not release someone else's reference.
+
+### Added (validation tooling)
+
+- `scripts/test/Initialize-PythonEnvironment.ps1` — local Python environment via `uv` (numpy, pandas) and the
+  `PYTHONNET_TEST_DLL`/`PYTHONPATH` variables used by the tests.
+- `scripts/test/Invoke-Tests.ps1` — build/test runner with a timeout (a hung interpreter no longer blocks the build),
+  failures are reported from the trx file.
+- `scripts/test/Invoke-VersionMatrix.ps1` and `scripts/test/PythonEnvironment.ps1` — version matrix runner
+  (Python 3.9/3.11/3.13 × pandas 1.5/2.2/3.1) and shared environment helpers.
+- `scripts/smoke/Test-ProviderSmoke.ps1` — 40 checks on the built assembly without Python.
+- `scripts/install.ps1` / `scripts/uninstall.ps1` were moved from the repository root to `scripts\`.
+- `PythonDataProvider.ReferenceCount` for diagnostics.
+- `Pike.PythonClient.Test\app.config` registers the provider, so `DbProviderFactories` tests need no
+  `machine.config` change.
+
+### Validated (version matrix)
+
+Every combination below passes the whole integration suite (46 tests) on Windows x64, .NET Framework 4.8:
+
+| Python | pandas | numpy | Result |
+|---|---|---|---|
+| 3.9.25 | 1.5.3 | 1.26.4 | 46 / 46 |
+| 3.11.16 | 2.2.3 | 1.26.4 | 46 / 46 |
+| 3.11.16 | 3.1.0 | 2.4.6 | 46 / 46 |
+| 3.13.15 | 3.1.0 | 2.5.4 | 46 / 46 |
+
+Performance baseline: `TestLargeDataFrame` (90 000 rows × 6 columns) takes ~0.3 s per run (Debug build, warm engine).
+
+### Changed (release engineering)
+
+- **Installer code extracted (P2-2).** `DataProviderInstallationBase`, `DbProviderInstallation` and `InstallerMain`
+  moved from the runtime assembly into the new project/assembly `Pike.PythonClient64.Install`. The runtime assembly
+  loaded by Excel/Power Query now references only `mscorlib`, `System`, `System.Core`, `System.Data`,
+  `Microsoft.CSharp` and `pythonnet` — `System.Configuration.Install` (and `System.Xml`) are no longer pulled into the
+  consumer process. The NuGet package contains the runtime only; the deploy folder and `scripts/install.ps1` /
+  `uninstall.ps1` use both assemblies.
+- Version bumped to **2.0.0**: the release contains breaking changes (see above).
+- Shared build metadata moved to `Directory.Build.props` (`Version`, `AssemblyVersion`, `FileVersion`, company,
+  product, description, MIT license, tags); assembly attributes are generated by the SDK, `Properties\AssemblyInfo.cs`
+  now contains only `ComVisible`/`Guid` (the test project has no `AssemblyInfo.cs`).
+- `dotnet pack` produces `Pike.PythonClient64.<version>.nupkg` (+ `.snupkg` symbols) with `lib\net48`,
+  XML documentation, README and the `pythonnet 3.0.5` dependency; `scripts/pack.ps1` builds Release into `artifacts\`
+  together with a flat deploy folder for `scripts/install.ps1`.
+
+### Added
+
+- `PythonScriptContext` and `PythonDataQuery.RunScript(scriptText, context)` for isolated script execution.
+- `SupportedTypes.Register/Reset/TryGetConverter/NormalizeDtype` — extensible dtype registry.
+- `PythonDataProvider.ShutdownOnLastClose`, `PythonDataProvider.Shutdown()`, `PythonDataProvider.Version` caching.
+- `PythonDataQuery.StrictColumnTypes` (default `true`).
+- Unit test suite (`TestCategory=Unit`, 85 tests) that does not require Python.
+- `install.ps1` / `uninstall.ps1`, `LICENSE`, `SECURITY.md`, `CHANGELOG.md`, `.editorconfig`, CI workflow.
+
+### Changed
+
+- Projects migrated to SDK-style (`Microsoft.NET.Sdk`) with `PackageReference`; `packages.config` removed.
+- Release builds keep portable PDB files (the post-build PDB deletion was removed).
+- The legacy Visual Studio Installer project (`.vdproj`) is deprecated in favour of `install.ps1` (removed in 2.1.0).
+
+### Deprecated
+
+- `PythonDataQuery.Query`, `PythonDataQuery.Parameters`, `PythonDataQuery.Reset()`: use `PythonScriptContext` or
+  `PythonCommand` properties (removed in 2.1.0).
+
+### Breaking changes
+
+- `PythonConnectionStringBuilder` rejects values with unquoted `;` (spec-compliant).
+- `SupportedTypes.Values` is `IReadOnlyDictionary<string, IColumnConverter>` (was mutable `IDictionary`).
+- `SupportedTypes` is a static class.
+- `float` columns use `DBNull` instead of `double.NaN` for `np.nan`.
+- Unknown dtype raises `NotSupportedException` (previously converted to string silently).
+- Duplicated DataFrame column labels raise `NotSupportedException`.
+- `PythonParameterCollection` enumeration yields `PythonParameter` items (not `KeyValuePair`).
+- `CommandTimeout > 0` raises `NotSupportedException`.
+
+## [1.2] - 2025
+
+- .NET Framework 4.8 target, XML documentation for `DbProviderFactory`, README example.

@@ -1,0 +1,160 @@
+name: ci
+
+on:
+  push:
+    branches: [dev, master]
+  pull_request:
+    branches: [dev, master]
+
+jobs:
+  build-and-test:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          architecture: 'x64'
+
+      - name: Install Python packages
+        run: python -m pip install --upgrade pip numpy pandas polars
+
+      - name: Restore
+        run: dotnet restore PythonClient.sln
+
+      - name: Build
+        run: dotnet build PythonClient.sln -c Release --no-restore
+
+      - name: Unit tests (no Python required)
+        shell: pwsh
+        run: ./scripts/test/Invoke-Tests.ps1 -Category Unit -Configuration Release -NoBuild
+
+      - name: Integration tests (Python + pandas + polars)
+        shell: pwsh
+        env:
+          PYTHONNET_TEST_DLL: ${{ env.pythonLocation }}\python311.dll
+        run: ./scripts/test/Invoke-Tests.ps1 -Category Python -Configuration Release -NoBuild -TimeoutSeconds 900
+
+      - name: Smoke checks (no Python required)
+        shell: pwsh
+        run: ./scripts/smoke/Test-ProviderSmoke.ps1 -Configuration Release
+
+      - name: Sample (.NET Framework 4.8 host, async)
+        shell: pwsh
+        env:
+          PYTHONNET_SAMPLE_DLL: ${{ env.pythonLocation }}\python311.dll
+        run: ./samples/Pike.PythonClient64.Sample/bin/Release/net48/Pike.PythonClient64.Sample.exe
+
+      - name: Pack (nuget + deploy folder)
+        shell: pwsh
+        run: ./scripts/pack.ps1
+
+      # Windows PowerShell 5.1 on purpose: the GAC is updated through System.EnterpriseServices.Internal.Publish
+      - name: Installation e2e (GAC + machine.config)
+        shell: powershell
+        run: ./scripts/test/Invoke-InstallE2E.ps1 -Configuration Release
+
+      - name: Distribution ZIP (end-user package)
+        shell: pwsh
+        run: ./scripts/build-distribution.ps1 -SkipBuild
+
+      # Reproduces the user scenario: the ZIP is extracted and the bundled scripts install it from "lib".
+      # The installation publishes the runtime assemblies into the GAC only (no Program Files folder) and keeps the
+      # registration code in the payload, so the uninstall runs from the same extracted archive
+      - name: Install from the distribution ZIP (user scenario)
+        shell: powershell
+        run: |
+          $ErrorActionPreference = 'Stop'
+
+          $zip = Get-ChildItem 'artifacts/dist/Pike.PythonClient64-*.zip' | Select-Object -First 1
+          if (-not $zip) { throw 'The distribution ZIP is not found, run scripts/build-distribution.ps1 first' }
+
+          $tempRoot = Join-Path $env:TEMP ('pike-dist-' + [Guid]::NewGuid().ToString('N'))
+          Expand-Archive -LiteralPath $zip.FullName -DestinationPath $tempRoot
+          $stage = (Get-ChildItem -LiteralPath $tempRoot -Directory | Select-Object -First 1).FullName
+          $installFolder = Join-Path $env:ProgramFiles 'Pike\PythonClient64'
+          $machineConfig = Join-Path ([Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory().TrimEnd('\')) 'Config\machine.config'
+          $invariant = 'Pike.PythonClient64.Data.PythonProviderFactory'
+
+          try {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$stage\scripts\install.ps1" -SourcePath "$stage\lib"
+            if ($LASTEXITCODE -ne 0) { throw "install.ps1 failed with exit code $LASTEXITCODE" }
+
+            if (Test-Path -LiteralPath $installFolder) {
+              throw "The installation must not copy files to '$installFolder' any more"
+            }
+
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$stage\scripts\Verify-Installation.ps1" -ReferencePath "$stage\lib"
+            if ($LASTEXITCODE -ne 0) { throw "Verify-Installation.ps1 failed with exit code $LASTEXITCODE" }
+          }
+          finally {
+            & powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$stage\scripts\uninstall.ps1" -SourcePath "$stage\lib"
+            Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue
+          }
+
+          if ($LASTEXITCODE -ne 0) { throw "uninstall.ps1 failed with exit code $LASTEXITCODE" }
+
+          # The registration code is not published in the GAC, so the record must be removed by the payload-based uninstall
+          $config = New-Object Xml.XmlDocument
+          $config.Load($machineConfig)
+          if ($null -ne $config.SelectSingleNode("/configuration/system.data/DbProviderFactories/add[@invariant='$invariant']")) {
+            throw "The provider record is still present in '$machineConfig'"
+          }
+
+      - name: Upload NuGet package
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pike.PythonClient64-package
+          path: artifacts/*.nupkg
+
+      - name: Upload distribution ZIP
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pike.PythonClient64-dist
+          path: |
+            artifacts/dist/Pike.PythonClient64-*.zip
+            artifacts/dist/Pike.PythonClient64-*.zip.sha256
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Pike.PythonClient64
+          path: |
+            Pike.PythonClient64/bin/Release/net48/Pike.PythonClient64.dll
+            Pike.PythonClient64/bin/Release/net48/Pike.PythonClient64.xml
+            Pike.PythonClient64/bin/Release/net48/Pike.PythonClient64.pdb
+            Pike.PythonClient64/bin/Release/net48/Python.Runtime.dll
+            artifacts/Pike.PythonClient64/Tests/**
+
+  # Python / pandas compatibility matrix: one virtual environment per combination (uv)
+  version-matrix:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Setup uv
+        uses: astral-sh/setup-uv@v5
+
+      - name: Restore and build
+        run: |
+          dotnet restore PythonClient.sln
+          dotnet build PythonClient.sln -c Release --no-restore
+
+      - name: Version matrix
+        shell: pwsh
+        run: ./scripts/test/Invoke-VersionMatrix.ps1 -Configuration Release -SkipBuild -TimeoutSeconds 900
+

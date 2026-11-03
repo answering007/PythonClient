@@ -259,3 +259,14 @@ paket-files/
 # Python Tools for Visual Studio (PTVS)
 __pycache__/
 *.pyc
+
+# Working notes (planning journals stay local)
+plan*.md
+steps.md
+
+# Python virtual environment (uv)
+.venv/
+.venv-matrix/
+
+# Build artifacts (scripts\pack.ps1)
+artifacts/

@@ -1,59 +1,71 @@
-﻿using System;
-using Microsoft.VisualStudio.TestTools.UnitTesting;
-using Pike.PythonClient64.Data;
+using System;
 using System.Data;
 using System.Data.Common;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using Pike.PythonClient64.Data;
 
 namespace Pike.PythonClient.Test.Tests
 {
     /// <summary>
-    /// Test <see cref="PythonProviderFactory"/>. Works only after installation
+    /// <see cref="PythonProviderFactory"/> tests. Require the provider to be registered in machine.config
+    /// and the python runtime (PYTHONNET_TEST_DLL)
     /// </summary>
     [TestClass]
+    [TestCategory("Python")]
     public class DbProviderFactory
     {
         string _factoryName;
 
         /// <summary>
-        /// Initialize the test class by setting up the factory name
+        /// Python and provider registration checks
         /// </summary>
         [TestInitialize]
         public void Setup()
         {
+            TestEnvironment.SkipIfNoPython();
             _factoryName = typeof(PythonProviderFactory).FullName;
+
+            // The provider must be registered in machine.config by the setup
+            try
+            {
+                DbProviderFactories.GetFactory(_factoryName);
+            }
+            catch (ArgumentException exception)
+            {
+                Assert.Inconclusive($"Provider '{_factoryName}' is not registered in machine.config: {exception.Message}");
+            }
         }
-        
+
         /// <summary>
-        /// Test whether the connection can be opened and closed.
+        /// Restores the clean engine state
         /// </summary>
-        /// <remarks>
-        /// Tests that the connection can be opened and closed. This is a basic test
-        /// that the connection can be established and is a pre-requisite for all
-        /// other tests.
-        /// </remarks>
+        [TestCleanup]
+        public void Cleanup()
+        {
+            TestEnvironment.ShutdownIfOwned();
+        }
+
+        /// <summary>
+        /// Connection can be created by the factory and opened
+        /// </summary>
         [TestMethod]
         public void ConnectionCanBeOpenedAndClosed()
         {
-            var builder = new PythonConnectionStringBuilder { PythonDll = SettingsMain.Default.PythonDllPath };
             var factory = DbProviderFactories.GetFactory(_factoryName);
-            bool isOpened;
             using (var dbConnection = factory.CreateConnection())
             {
-                if (dbConnection == null) throw new Exception("'dbConnection' can't be null");
+                if (dbConnection == null) throw new InvalidOperationException("'dbConnection' can't be null");
 
-                dbConnection.ConnectionString = builder.ConnectionString;
+                dbConnection.ConnectionString = TestEnvironment.CreateBuilder().ConnectionString;
                 dbConnection.Open();
-                isOpened = dbConnection.State == ConnectionState.Open;
+
+                Assert.AreEqual(ConnectionState.Open, dbConnection.State);
             }
-            Assert.AreEqual(true, isOpened);
         }
 
         /// <summary>
-        /// Test that the ExecuteScalar method runs the query as expected and returns the correct value.
+        /// ExecuteScalar runs the script and returns the first value
         /// </summary>
-        /// <remarks>
-        /// This test makes sure that the ExecuteScalar method runs the query as expected and returns the correct value.
-        /// </remarks>
         [TestMethod]
         public void TestScriptAsCommandText()
         {
@@ -61,24 +73,34 @@ namespace Pike.PythonClient.Test.Tests
 
 result = pd.DataFrame({'StringColumn': ['Pike']})";
 
-            var builder = new PythonConnectionStringBuilder { PythonDll = SettingsMain.Default.PythonDllPath };
             var factory = DbProviderFactories.GetFactory(_factoryName);
             using (var dbConnection = factory.CreateConnection())
             {
-                if (dbConnection == null) throw new Exception("'dbConnection' can't be null");
+                if (dbConnection == null) throw new InvalidOperationException("'dbConnection' can't be null");
 
-                dbConnection.ConnectionString = builder.ConnectionString;
+                dbConnection.ConnectionString = TestEnvironment.CreateBuilder().ConnectionString;
                 dbConnection.Open();
 
                 using (var dbCommand = dbConnection.CreateCommand())
                 {
-                    dbCommand.Connection = dbConnection;
                     dbCommand.CommandText = query;
 
-                    var value = dbCommand.ExecuteScalar();
-                    Assert.AreEqual("Pike", (string)value);
+                    Assert.AreEqual("Pike", dbCommand.ExecuteScalar());
                 }
             }
+        }
+
+        /// <summary>
+        /// Factory creates parameters with the expected default state (P1-2)
+        /// </summary>
+        [TestMethod]
+        public void FactoryCreatesParameter()
+        {
+            var factory = DbProviderFactories.GetFactory(_factoryName);
+            var parameter = factory.CreateParameter();
+
+            Assert.IsInstanceOfType(parameter, typeof(PythonParameter));
+            Assert.IsTrue(parameter.IsNullable);
         }
     }
 }

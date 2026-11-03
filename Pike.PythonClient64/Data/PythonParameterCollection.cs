@@ -36,15 +36,32 @@ namespace Pike.PythonClient64.Data
 
         /// <inheritdoc />
         /// <summary>
-        /// Specifies whether the collection is synchronized. Current value is true
+        /// Specifies whether the collection is synchronized. Current value is false, the collection is not thread-safe
         /// </summary>
-        public override bool IsSynchronized => true;
+        public override bool IsSynchronized => false;
 
         /// <inheritdoc />
         /// <summary>
         /// Specifies the <see cref="T:System.Object" /> to be used to synchronize access to the collection
         /// </summary>
         public override object SyncRoot { get; } = new object();
+
+        /// <summary>
+        /// Rebuilds the internal index when <see cref="PythonParameter.ParameterName"/> was changed
+        /// after the parameter has been added to the collection
+        /// </summary>
+        void EnsureIndex()
+        {
+            for (var i = 0; i < _collection.Count; i++)
+            {
+                var key = _collection.GetKeyByIndex(i);
+                var name = _collection.GetByIndex(i).ParameterName;
+                if (string.IsNullOrWhiteSpace(name) || string.Equals(key, name, StringComparison.Ordinal)) continue;
+                if (_collection.ContainsKey(name)) continue;   // name is already used by another parameter
+
+                _collection.RenameKey(key, name);
+            }
+        }
 
         /// <inheritdoc />
         /// <summary>
@@ -54,7 +71,9 @@ namespace Pike.PythonClient64.Data
         /// <returns>The index of the <see cref="T:Pike.PythonClient64.Data.PythonParameter" /> object in the collection</returns>
         public override int Add(object value)
         {
-            return Add((PythonParameter)value);
+            var parameter = value as PythonParameter ??
+                throw new ArgumentException($"Parameter of type {value?.GetType()} is not supported", nameof(value));
+            return Add(parameter);
         }
 
         /// <summary>
@@ -116,6 +135,7 @@ namespace Pike.PythonClient64.Data
         {
             if (string.IsNullOrWhiteSpace(value)) throw new ArgumentException("value can't be null or empty");
 
+            EnsureIndex();
             return _collection.ContainsKey(value);
         }
 
@@ -127,7 +147,7 @@ namespace Pike.PythonClient64.Data
         /// <returns>true if the <see cref="T:Pike.PythonClient64.Data.PythonParameter" /> is in the collection; otherwise false</returns>
         public override bool Contains(object value)
         {
-            return Contains((PythonParameter)value);
+            return Contains(value as PythonParameter);
         }
 
         /// <summary>
@@ -137,10 +157,9 @@ namespace Pike.PythonClient64.Data
         /// <returns>true if the <see cref="PythonParameter"/> is in the collection; otherwise false</returns>
         public bool Contains(PythonParameter parameter)
         {
-            if (parameter == null) throw new ArgumentNullException(nameof(parameter));
-            if (string.IsNullOrWhiteSpace(parameter.ParameterName)) throw new ArgumentException("ParameterName property can't be null or empty");
+            if (parameter == null || string.IsNullOrWhiteSpace(parameter.ParameterName)) return false;
 
-            return _collection.ContainsKey(parameter.ParameterName);
+            return Contains(parameter.ParameterName);
         }
 
         /// <inheritdoc />
@@ -152,12 +171,13 @@ namespace Pike.PythonClient64.Data
         public override void CopyTo(Array array, int index)
         {
             if (array == null) throw new ArgumentNullException(nameof(array));
-            if ((index < 0) || (index > array.Length)) throw new ArgumentOutOfRangeException(nameof(index));
-            if ((array.Length - index) < _collection.Count) throw new ArgumentException("(array.Length - index) < _collection.Count");
+            if (index < 0) throw new ArgumentOutOfRangeException(nameof(index));
+            if (array.Length - index < _collection.Count)
+                throw new ArgumentException("Not enough space in the target array", nameof(array));
 
-            var q = _collection.Values.ToArray();
-            for (var i = index; i < Count; i++)
-                array.SetValue(q[i], index++);
+            var values = _collection.Values.ToArray();
+            for (var i = 0; i < values.Length; i++)
+                array.SetValue(values[i], index + i);
         }
 
         /// <inheritdoc />
@@ -167,7 +187,7 @@ namespace Pike.PythonClient64.Data
         /// <returns>An <see cref="T:System.Collections.IEnumerator" /> that can be used to iterate through the collection</returns>
         public override IEnumerator GetEnumerator()
         {
-            return _collection.GetEnumerator();
+            return _collection.Values.ToArray().GetEnumerator();
         }
 
         /// <inheritdoc />
@@ -180,6 +200,7 @@ namespace Pike.PythonClient64.Data
         {
             if (string.IsNullOrWhiteSpace(parameterName)) throw new ArgumentException("parameterName can't be null or empty");
 
+            EnsureIndex();
             return _collection.IndexOfKey(parameterName);
         }
 
@@ -190,7 +211,7 @@ namespace Pike.PythonClient64.Data
         /// <returns>The index of the <see cref="PythonParameter"/> object with the specified name</returns>
         public int IndexOf(PythonParameter parameter)
         {
-            if (parameter == null) throw new ArgumentNullException(nameof(parameter));
+            if (parameter == null || string.IsNullOrWhiteSpace(parameter.ParameterName)) return -1;
 
             return IndexOf(parameter.ParameterName);
         }
@@ -203,31 +224,41 @@ namespace Pike.PythonClient64.Data
         /// <returns>The index of the <see cref="T:Pike.PythonClient64.Data.PythonParameter" /> object with the specified name</returns>
         public override int IndexOf(object value)
         {
-            return IndexOf((PythonParameter)value);
+            return IndexOf(value as PythonParameter);
         }
 
         /// <inheritdoc />
         /// <summary>
-        /// Inserts the specified index of the <see cref="T:Pike.PythonClient64.Data.PythonParameter" /> object with the specified name into the collection at the specified index
+        /// Inserts the <see cref="T:Pike.PythonClient64.Data.PythonParameter" /> object into the collection at the specified index
         /// </summary>
         /// <param name="index">The index at which to insert the <see cref="T:Pike.PythonClient64.Data.PythonParameter" /> object</param>
         /// <param name="value">The <see cref="T:Pike.PythonClient64.Data.PythonParameter" /> object to insert into the collection</param>
         public override void Insert(int index, object value)
         {
-            Add((PythonParameter)value);
+            var parameter = value as PythonParameter ??
+                throw new ArgumentException($"Parameter of type {value?.GetType()} is not supported", nameof(value));
+            if (string.IsNullOrWhiteSpace(parameter.ParameterName))
+                throw new ArgumentException("ParameterName property can't be null or empty", nameof(value));
+            if (index < 0 || index > Count) throw new ArgumentOutOfRangeException(nameof(index));
+
+            _collection.Insert(index, parameter.ParameterName, parameter);
         }
 
         /// <inheritdoc />
         /// <summary>
-        /// Removes the <see cref="T:Pike.PythonClient64.Data.PythonParameter" /> object from the collection
+        /// Removes the <see cref="T:Pike.PythonClient64.Data.PythonParameter" /> object from the collection.
+        /// Missing parameter is ignored
         /// </summary>
         /// <param name="value">The <see cref="T:Pike.PythonClient64.Data.PythonParameter" /> object to remove</param>
         public override void Remove(object value)
         {
-            if (value == null) throw new ArgumentNullException(nameof(value));
+            var parameter = value as PythonParameter;
+            if (parameter == null || string.IsNullOrWhiteSpace(parameter.ParameterName)) return;
 
-            var parameter = (PythonParameter)value;
-            RemoveAt(parameter.ParameterName);
+            EnsureIndex();
+            if (!_collection.ContainsKey(parameter.ParameterName)) return;
+
+            _collection.Remove(parameter.ParameterName);
         }
 
         /// <inheritdoc />
@@ -239,6 +270,7 @@ namespace Pike.PythonClient64.Data
         {
             if (string.IsNullOrWhiteSpace(parameterName)) throw new ArgumentException("parameterName can't be null or empty");
 
+            EnsureIndex();
             _collection.Remove(parameterName);
         }
 
@@ -262,6 +294,7 @@ namespace Pike.PythonClient64.Data
         {
             if (string.IsNullOrWhiteSpace(parameterName)) throw new ArgumentException("parameterName can't be null or empty");
 
+            EnsureIndex();
             return _collection[parameterName];
         }
 
@@ -287,11 +320,14 @@ namespace Pike.PythonClient64.Data
         {
             if (string.IsNullOrWhiteSpace(parameterName)) throw new ArgumentException("parameterName can't be null or empty");
             if (value == null) throw new ArgumentNullException(nameof(value));
-            var parameter = (PythonParameter)value;
+            var parameter = value as PythonParameter ??
+                throw new ArgumentException($"Parameter of type {value.GetType()} is not supported", nameof(value));
             if (string.IsNullOrWhiteSpace(parameter.ParameterName))
                 parameter.ParameterName = parameterName;
-            //_collection[parameterName] = parameter;
-            _collection.Add(parameterName, parameter);
+
+            EnsureIndex();
+            // Replace or add: DbParameterCollection contract requires Parameters[name] = parameter to be idempotent
+            _collection.Set(parameterName, parameter);
         }
 
         /// <inheritdoc />
