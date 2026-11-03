@@ -2,12 +2,12 @@
 
   <!-- Shared build metadata for all projects in the repository -->
   <PropertyGroup>
-    <Version>2.1.0</Version>
+    <Version>2.2.0</Version>
     <!-- AssemblyVersion is fixed for the whole 2.x line: the x64 machine.config record contains the fully
          qualified name (Version/Culture/PublicKeyToken), so a version bump would silently invalidate every
          existing installation. FileVersion and the package Version still follow the release. -->
     <AssemblyVersion>2.0.0.0</AssemblyVersion>
-    <FileVersion>2.1.0.0</FileVersion>
+    <FileVersion>2.2.0.0</FileVersion>
 
     <Company>Pike</Company>
     <Product>Pike.PythonClient64</Product>
@@ -30,7 +30,7 @@
        to the same version. Release keeps 2.0.0.0 — the version the machine.config registration expects. -->
   <PropertyGroup Condition="'$(Configuration)' != 'Release'">
     <AssemblyVersion>2.0.0.1</AssemblyVersion>
-    <FileVersion>2.1.0.1</FileVersion>
+    <FileVersion>2.2.0.1</FileVersion>
   </PropertyGroup>
 
 </Project>

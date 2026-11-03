@@ -4,7 +4,11 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.2.0] - 2026-11-04
+
+This is the first published release of the 2.x line: 2.0.0 and 2.1.0 were development iterations that were never tagged
+and never published on nuget.org or in GitHub Releases, so the migration notes below are addressed to the users of 1.2
+and to the internal 2.x builds.
 
 ### Added
 
