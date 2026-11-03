@@ -159,10 +159,13 @@ $trx = Get-ChildItem $resultsFolder -Recurse -Filter '*.trx' -ErrorAction Silent
 
 if (-not $trx) {
     Get-Content $logFile -Tail 30 -ErrorAction SilentlyContinue
+    Get-Content "$logFile.err" -Tail 20 -ErrorAction SilentlyContinue
     # The output is included in the message: on CI the job log is private, but a thrown exception becomes
     # a public annotation of the step
     $tail = (Get-Content $logFile -Tail 20 -ErrorAction SilentlyContinue) -join ' | '
-    throw "Test report is not found, the test run did not produce any result (vstest exit code $($process.ExitCode)). vstest output: $tail"
+    $errorTail = (Get-Content "$logFile.err" -Tail 15 -ErrorAction SilentlyContinue) -join ' | '
+    throw ('Test report is not found, the test run did not produce any result ' +
+        "(vstest exit code $($process.ExitCode)). vstest output: $tail. stderr: $errorTail")
 }
 
 $xml = [xml](Get-Content $trx.FullName)

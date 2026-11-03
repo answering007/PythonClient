@@ -6,10 +6,11 @@
 .DESCRIPTION
     The installation publishes only the runtime assemblies into the GAC (Pike.PythonClient64 and Python.Runtime) and
     keeps no files in %ProgramFiles%, so the script resolves them by their GAC folders instead of a known installation
-    path. The provider record is removed from the 64-bit machine.config (a backup is created) by
-    Pike.PythonClient64.Install.dll, which is NOT published in the GAC: the assembly is taken from the distribution
-    payload, so the uninstall runs from the extracted archive (uninstall.cmd) or with an explicit -SourcePath (the
-    repository build output is found automatically).
+    path. The GAC entries are removed first and the provider record is removed from the 64-bit machine.config (a backup
+    is created) afterwards: the registration code is Pike.PythonClient64.Install.dll, which is NOT published in the GAC
+    and depends on the provider assembly, so loading it before the removal would lock the GAC copy. The assembly is
+    taken from the distribution payload, so the uninstall runs from the extracted archive (uninstall.cmd) or with an
+    explicit -SourcePath (the repository build output is found automatically).
     The result is verified: an assembly that is still resolvable is reported with the manual gacutil command, and the
     script exits with code 1. An optional -InstallPath folder (created by install.ps1 -KeepFiles) and the legacy folder
     %ProgramFiles%\Pike\PythonClient64 of the 2.1.0 development builds are cleaned up when present.
@@ -137,23 +138,6 @@ if (-not $anythingInstalled) {
     Write-Host 'Nothing to uninstall: the provider is not registered and no assembly is published in the GAC' -ForegroundColor Green
 }
 else {
-    if (-not $SkipMachineConfig) {
-        if (-not $recordExists) {
-            Write-Host ''
-            Write-Host "machine.config: the provider record is absent in '$machineConfig'"
-        }
-        else {
-            $installerPath = Resolve-InstallerAssemblyPath -SourcePath $SourcePath -Configuration $Configuration
-            if (-not $installerPath) {
-                throw "Pike.PythonClient64.Install.dll is not found. Run uninstall.cmd from the extracted distribution archive or pass -SourcePath <folder with lib>"
-            }
-
-            $installation = New-DbProviderInstallation -AssemblyPath $installerPath
-            $installation.UnregisterProvider($machineConfig)
-            Write-Host "Provider is unregistered from '$machineConfig' (registration code: '$installerPath')"
-        }
-    }
-
     $failures = @()
 
     if (-not $SkipGac) {
@@ -172,7 +156,9 @@ else {
             if (-not $target.Path) { continue }
 
             try {
-                # GacRemove takes a file path; the GAC copy path works as well as an installation folder path
+                # GacRemove takes a file path; the GAC copy path works as well as an installation folder path.
+                # The entries are removed before the registration code is loaded (see below): Pike.PythonClient64.Install
+                # depends on the provider and the runtime resolves it from the GAC, so a loaded provider cannot be removed
                 $publish.GacRemove($target.Path)
                 Write-Host "Removed from the GAC: $($target.Name)"
             }
@@ -188,6 +174,25 @@ else {
 
             $failures += $target.Name
             Write-Warning "'$($target.Name)' is still published in the GAC ('$remaining'). Close Excel / Visual Studio and rerun the script, or remove it with 'gacutil /u $($target.Name)'"
+        }
+    }
+
+    # The registration code is loaded after the GAC entries are gone: it depends on the provider assembly, and the
+    # runtime resolves that assembly from the GAC, which would lock the entry the removal above needs
+    if (-not $SkipMachineConfig) {
+        if (-not $recordExists) {
+            Write-Host ''
+            Write-Host "machine.config: the provider record is absent in '$machineConfig'"
+        }
+        else {
+            $installerPath = Resolve-InstallerAssemblyPath -SourcePath $SourcePath -Configuration $Configuration
+            if (-not $installerPath) {
+                throw "Pike.PythonClient64.Install.dll is not found. Run uninstall.cmd from the extracted distribution archive or pass -SourcePath <folder with lib>"
+            }
+
+            $installation = New-DbProviderInstallation -AssemblyPath $installerPath
+            $installation.UnregisterProvider($machineConfig)
+            Write-Host "Provider is unregistered from '$machineConfig' (registration code: '$installerPath')"
         }
     }
 
