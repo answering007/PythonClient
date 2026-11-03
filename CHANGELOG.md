@@ -8,6 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
+- **`docs/python-environment.md`** — a step-by-step local Python environment for the provider: install uv, install
+  Python, create a virtual environment, install `pandas` and optional `polars`, then derive the `PYTHONDLL` /
+  `PYTHONPATH` values for the connection string (the environment has no `python3xx.dll`, so the DLL comes from the base
+  interpreter and the environment contributes its `Lib\site-packages`). Linked from `README.md`,
+  `docs\installation.md`, `docs\power-query.md` and `docs\connection-strings.md`.
 - The distribution ZIP ships the sample Python scripts: `samples\Python` (`TestModule.py`, `TestScript01..04.py`) is
   copied next to `samples\power-query`, so the ready-made workbooks run from the extracted archive — the "Settings"
   table only needs the local paths (`Python script file` and, for the custom-module example, `Custom module path`).

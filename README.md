@@ -32,6 +32,8 @@ and designed for in-process consumers such as Power Query / Excel, DataAdapter-b
 | Excel | 64-bit Excel is required for Power Query scenarios (the provider is x64-only) |
 
 The provider does not install Python: `PYTHONDLL` must point to an existing `python3xx.dll`.
+A step-by-step environment setup (uv → Python → virtual environment → `pandas`/`polars`, no administrator rights) is in
+[docs/python-environment.md](docs/python-environment.md).
 The installation itself needs administrator rights: `Pike.PythonClient64.dll` and `Python.Runtime.dll` are published
 into the GAC and the provider is registered in the x64 `machine.config`.
 
@@ -467,6 +469,9 @@ The helper scripts live in `scripts\`:
 # quick sanity check without Python
 .\scripts\smoke\Test-ProviderSmoke.ps1 -Configuration Release
 ```
+
+The full step-by-step setup with uv (install uv, install Python, create a virtual environment, install `pandas` and
+`polars`, get `PYTHONDLL` / `PYTHONPATH`) is in [docs/python-environment.md](docs/python-environment.md).
 
 The python runtime is resolved in this order, so no manual configuration is required when the local `.venv`
 exists:

@@ -7,7 +7,7 @@
 | Windows | 64-bit (the provider is x64-only) |
 | .NET | **.NET Framework 4.8** — included in Windows 10 1903+ and Windows 11 |
 | Excel | 64-bit, only for the Power Query / Excel scenario (32-bit Excel cannot load the provider) |
-| Python | **3.9 – 3.13 x64** with `numpy` and `pandas` (`polars` is optional); the provider does **not** install Python |
+| Python | **3.9 – 3.13 x64** with `numpy` and `pandas` (`polars` is optional); the provider does **not** install Python — [python-environment.md](python-environment.md) builds such an environment with uv |
 | Rights | administrator: the assemblies are published into the GAC and the provider is registered in `machine.config` |
 
 ## Install from a GitHub release (recommended)
@@ -121,7 +121,7 @@ exits with `1`, so close Excel / Visual Studio and run it again. An optional `-I
 | `Administrator rights are required` | confirm the UAC prompt; the GAC and `machine.config` cannot be changed otherwise |
 | `... cannot be loaded because running scripts is disabled` | use `install.cmd` / `verify.cmd`: they call Windows PowerShell with `-ExecutionPolicy Bypass` and unblock the files |
 | `Can't find python*.dll file` | `PYTHONDLL` in the connection string must point to an existing 64-bit `python3xx.dll` |
-| `ImportError: No module named pandas` (or numpy) | install the packages into the Python used by the connection string: `python -m pip install numpy pandas` |
+| `ImportError: No module named pandas` (or numpy) | install the packages into the Python used by the connection string: `python -m pip install numpy pandas`; a uv-based environment is described in [python-environment.md](python-environment.md) |
 | Excel still runs the old build | restart Excel, then `verify.cmd`: a stale GAC entry or a Debug build installed by mistake is reported there |
 | `DbProviderFactories.GetFactory` fails | the provider is not registered (run `install.cmd`) or 32-bit Excel is used |
 | `ConfigurationErrorsException: ... InvariantName ...` | the record exists twice (machine.config and the application `app.config`): keep one, or add `<remove invariant="..." />` before `<add>` |

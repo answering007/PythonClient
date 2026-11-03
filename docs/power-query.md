@@ -3,7 +3,8 @@
 ## Prerequisites
 
 1. 64-bit Excel (the provider and Python are x64-only, 32-bit Excel cannot load it).
-2. Python 3.9–3.13 x64 with `numpy` and `pandas` (`polars` is optional).
+2. Python 3.9–3.13 x64 with `numpy` and `pandas` (`polars` is optional);
+   [python-environment.md](python-environment.md) creates such an interpreter and its packages with uv.
 3. The provider is installed into the GAC and registered in `machine.config`. End users run `install.cmd` from the
    release ZIP; a developer build is installed from the repository (elevated 64-bit Windows PowerShell 5.1):
 

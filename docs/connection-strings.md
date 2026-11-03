@@ -60,6 +60,10 @@ PYTHONDLL=C:\Users\User\anaconda3\python311.dll;PYTHONPATH="C:\Users\User\anacon
 `python3xx.dll` plus the entries of the `PYTHONHOME` and `PYTHONPATH` environment variables. Non-existed directories
 are filtered out, duplicates are removed. The components are inserted at the beginning of `sys.path`.
 
+For a virtual environment created with uv, `PYTHONDLL` is the `python3xx.dll` of the **base** interpreter (the
+environment folder itself contains no DLL) and `PYTHONPATH` points to the `Lib\site-packages` of the environment;
+[python-environment.md](python-environment.md) prints both values for a given environment.
+
 ## Validation
 
 - `PYTHONDLL` is required: `PythonConnection.Open()` raises `InvalidOperationException` without it.
