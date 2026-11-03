@@ -6,7 +6,9 @@ import json
 
 import polars as pl
 
-query_text: str | None = globals().get('query', None)
+from typing import Optional
+
+query_text: Optional[str] = globals().get('query', None)
 query_params: dict = globals().get('params', {}) or {}
 
 result: pl.DataFrame = pl.DataFrame({

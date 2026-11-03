@@ -55,6 +55,10 @@ and to the internal 2.x builds.
 
 ### Fixed
 
+- The Python sample scripts (`Pike.PythonClient.Test\Python`, shipped in the distribution ZIP and run by the Power
+  Query workbooks) used the `str | None` annotation, which requires Python 3.10: on Python 3.9 they failed with
+  `unsupported operand type(s) for |`. They use `typing.Optional` now, so the samples follow the supported
+  3.9 – 3.13 range.
 - **Power Query / Excel: with `FILE` in the connection string the command text was not passed to the script.** The
   `query` variable was defined only when the connection had no script file (regression since 2.1.0), so the
   "Transfer table to script" workbook (`PowerQuery - 04`) failed with

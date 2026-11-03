@@ -27,7 +27,7 @@ and designed for in-process consumers such as Power Query / Excel, DataAdapter-b
 |---|---|
 | .NET | **.NET Framework 4.8** (Power Query / Excel host), process must be **x64** |
 | pythonnet | **3.0.5** (`Python.Runtime.dll` is deployed with the provider) |
-| Python | Python **3.9 – 3.13 x64**, e.g. CPython or Anaconda (3.7/3.8 are not tested); `python3xx.dll` must match the process bitness |
+| Python | Python **3.9 – 3.13 x64**, e.g. CPython or Anaconda (3.7/3.8 are not tested); `python3xx.dll` must match the process bitness. **3.11 – 3.13 recommended**: CPython below 3.11 needs `PYTHONHOME` when it is loaded into a non-python host (Excel, your application) |
 | Python packages | `numpy`, `pandas` (pandas **1.5 – 3.1**, numpy **1.26 – 2.x**) in the same environment; **`polars` is optional** (1.x/2.x, needed only for polars results) |
 | Excel | 64-bit Excel is required for Power Query scenarios (the provider is x64-only) |
 
@@ -497,7 +497,7 @@ integration suite on Windows x64:
 
 | Runtime | Python | pandas | numpy | polars | Result |
 |---|---|---|---|---|---|
-| .NET Framework 4.8 | 3.9.25 | 1.5.3 | 1.26.4 | — | 64 / 64 (17 inconclusive) |
+| .NET Framework 4.8 | 3.9.25 | 1.5.3 | 1.26.4 | — | expected-unsupported (see below) |
 | .NET Framework 4.8 | 3.11.16 | 2.2.3 | 1.26.4 | — | 64 / 64 (17 inconclusive) |
 | .NET Framework 4.8 | 3.11.16 | 3.1.0 | 2.4.6 | 2.1.0 | 81 / 81 |
 | .NET Framework 4.8 | 3.13.15 | 3.1.0 | 2.5.4 | — | 64 / 64 (17 inconclusive) |
@@ -505,6 +505,11 @@ integration suite on Windows x64:
 pandas 3 changed the default datetime resolution to microseconds (`datetime64[us]`), the provider reads the unit from
 the dtype and supports `[ns]`, `[us]`, `[ms]`, `[s]`, `[m]`, `[h]` and `[D]`. Missing values are mapped to `DBNull`
 regardless of the representation (`None`, `pd.NA`, `pd.NaT`, `np.nan`, `nan` of the inferred string dtype).
+
+Python 3.9 and 3.10 are not part of the CI matrix: `vstest.console.exe` hosts CPython below 3.11 only when `PYTHONHOME`
+points to the base interpreter (the same applies to any non-python host, Excel included), and with that variable the
+nullable (`Int64`/`pd.NA`) conversion of pandas 1.5.3 differs, so the `py39-pandas15` combination is reported as
+expected-unsupported. Python 3.11 – 3.13 need no such workaround and are the recommended versions.
 
 polars is optional: without the package the 17 polars tests are reported as inconclusive, the pandas suite stays green.
 

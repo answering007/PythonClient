@@ -5,6 +5,8 @@ import json
 
 import pandas as pd
 
+from typing import Optional
+
 
 def decode_table(text: str)->pd.DataFrame:
     """
@@ -26,10 +28,10 @@ def decode_table(text: str)->pd.DataFrame:
     json_data: dict = json.loads(raw_data)
     return pd.DataFrame(json_data)
 
-query_text: str | None = globals().get('query', None)
+query_text: Optional[str] = globals().get('query', None)
 if query_text is None:
     raise ValueError("The 'query' variable is not defined in the global scope.")
-query_params: dict | None = globals().get('params', None)
+query_params: Optional[dict] = globals().get('params', None)
 
 result: pd.DataFrame = decode_table(query_text)
 result['Value'] = result['Value'] * 13

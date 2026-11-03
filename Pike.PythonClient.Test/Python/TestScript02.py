@@ -3,8 +3,10 @@ import numpy as np
 import pandas as pd
 from TestModule import test_function
 
-query_text: str | None = globals().get('query', None)
-query_params: dict | None = globals().get('params', None)
+from typing import Optional
+
+query_text: Optional[str] = globals().get('query', None)
+query_params: Optional[dict] = globals().get('params', None)
 
 result: pd.DataFrame = pd.DataFrame({
     'StringColumn':		['Pike',	None,	'Amol'],
