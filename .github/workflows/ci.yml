@@ -70,6 +70,9 @@ jobs:
           }
           catch {
             Write-Host "::error::Installation e2e failed: $($_.Exception.Message)"
+            if ($env:GITHUB_STEP_SUMMARY) {
+              Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value "### Installation e2e failed`n`n$($_.Exception.Message)"
+            }
             exit 1
           }
 

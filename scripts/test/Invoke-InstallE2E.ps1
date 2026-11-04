@@ -62,6 +62,14 @@ $root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 $invariant = 'Pike.PythonClient64.Data.PythonProviderFactory'
 $xPath = "/configuration/system.data/DbProviderFactories/add[@invariant='$invariant']"
 
+# The registration code is loaded from the build output of the installer project: the resolution inside the scripts
+# also covers the distribution layout, and an explicit path keeps this check independent of it
+$installerFolder = Join-Path $root "Pike.PythonClient64.Install\bin\$Configuration"
+if (-not (Test-Path -LiteralPath (Join-Path $installerFolder 'Pike.PythonClient64.Install.dll'))) {
+    throw ("Pike.PythonClient64.Install.dll is not found in '$installerFolder'. Build the solution first: " +
+        "dotnet build PythonClient.sln -c $Configuration")
+}
+
 # x64 machine.config: <Framework64>\v4.0.30319\Config\machine.config (the same rule as Machine64Config)
 $runtimeDirectory = [Runtime.InteropServices.RuntimeEnvironment]::GetRuntimeDirectory().TrimEnd('\')
 $machineConfig = Join-Path $runtimeDirectory 'Config\machine.config'
@@ -150,7 +158,7 @@ try {
 
     Write-Host ''
     Write-Host "Uninstalling '$InstallPath'..." -ForegroundColor Cyan
-    Invoke-RepositoryScript 'uninstall.ps1' @('-InstallPath', $InstallPath)
+    Invoke-RepositoryScript 'uninstall.ps1' @('-InstallPath', $InstallPath, '-SourcePath', $installerFolder)
 
     Write-Host ''
     Write-Host 'Uninstalled state' -ForegroundColor Cyan
@@ -165,7 +173,7 @@ finally {
     # A failed run must not leave the machine registered: restore the original state
     if ($null -ne (Get-ProviderRecord)) {
         Write-Warning "The provider is still registered in '$machineConfig', cleaning up"
-        try { Invoke-RepositoryScript 'uninstall.ps1' @('-InstallPath', $InstallPath) }
+        try { Invoke-RepositoryScript 'uninstall.ps1' @('-InstallPath', $InstallPath, '-SourcePath', $installerFolder) }
         catch { Write-Warning $_.Exception.Message }
     }
 }
@@ -176,6 +184,11 @@ if ($script:failures.Count -gt 0) {
     $script:failures | ForEach-Object { Write-Host "  - $_" }
     # Annotations make the failure readable in the public run summary: the job log is visible to the owners only
     $script:failures | ForEach-Object { Write-Host "::error::Installation e2e check failed: $_" }
+    if ($env:GITHUB_STEP_SUMMARY) {
+        $summary = @('### Installation e2e failed', '', 'Checks: ' + $script:checks, '') +
+            ($script:failures | ForEach-Object { "- $_" })
+        Add-Content -LiteralPath $env:GITHUB_STEP_SUMMARY -Value ($summary -join "`n")
+    }
     exit 1
 }
 
