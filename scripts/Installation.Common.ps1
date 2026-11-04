@@ -127,11 +127,12 @@ function Test-ProviderRecord {
     Creates the DbProviderInstallation instance from the published installer assembly.
 
 .DESCRIPTION
-    The assembly is loaded by its identity, so it is taken from the GAC (the installation publishes it there).
-    The provider dependency resolves from the GAC as well.
+    The assembly is loaded with LoadFrom, so its own folder is probed for the dependencies: the registration code
+    depends on Pike.PythonClient64, and the uninstall loads it after the GAC entries are removed (see uninstall.ps1),
+    when an identity-based load could not resolve the provider any more.
 
 .PARAMETER AssemblyPath
-    Full path to Pike.PythonClient64.Install.dll (GAC path or the distribution payload).
+    Full path to Pike.PythonClient64.Install.dll (the distribution payload or the installer build output).
 
 .OUTPUTS
     Pike.PythonClient64.Install.DbProviderInstallation instance.
@@ -146,8 +147,7 @@ function New-DbProviderInstallation {
         throw "Installer assembly '$AssemblyPath' is not found"
     }
 
-    $assemblyName = [Reflection.AssemblyName]::GetAssemblyName($AssemblyPath).FullName
-    $assembly = [Reflection.Assembly]::Load($assemblyName)
+    $assembly = [Reflection.Assembly]::LoadFrom((Resolve-Path -LiteralPath $AssemblyPath).ProviderPath)
     $type = $assembly.GetType('Pike.PythonClient64.Install.DbProviderInstallation', $true)
 
     return [Activator]::CreateInstance($type)
